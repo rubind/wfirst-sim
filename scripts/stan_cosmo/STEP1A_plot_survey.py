@@ -213,6 +213,87 @@ def plot_time_remaining(SN_data, working_dir, outputname, plt):
     plt.close()
     """
 
+def light_curve_cuts(SN_data, nsne, j):
+    this_useful_redshift_mask = []
+    all_reasonable_SNe = []
+    
+    for ind in range(nsne):
+        lc_data = SN_data["SN_observations"][ind]
+
+        good_SN = len(lc_data["filts"]) > 5
+        reasonable_SN = len(lc_data["filts"]) > 5
+
+        for filt in list(unique(lc_data["filts"])):
+            filtinds = where(array(lc_data["filts"]) == filt)
+            SNRs = lc_data["fluxes"][filtinds]/lc_data["dfluxes"][filtinds]
+            SNRs_cut = SNRs[where(SNRs > 2.)]
+
+            if j == 0: # All filters must have S/N > 10
+                the_name = ">= 1 point per filter with S/N > 10"
+                if SNRs.max() < 10:
+                    good_SN = 0
+            
+            if j == 1: # All filters must have stacked S/N > 15
+                the_name = "stacked S/N per filter > 15"
+                if sum(SNRs_cut**2.) < 15**2.:
+                    good_SN = 0
+
+            if j == 2: # All filters must have stacked S/N > 20
+                the_name = "stacked S/N per filter > 20"
+                if sum(SNRs_cut**2.) < 20**2.:
+                    good_SN = 0
+
+            if j > 2 and j <= 7:
+                filt_to_find = ["Z087", "Y106", "J129", "H158", "F184"][j-3]
+                the_name = "stacked %s S/N > 20" % filt_to_find
+ 
+                if filt == filt_to_find:
+                    if sum(SNRs_cut**2.) < 20**2.:
+                        good_SN = 0
+                if 1 - any(array(lc_data["filts"]) == filt_to_find):
+                    good_SN = 0
+                        
+
+        this_useful_redshift_mask.append(good_SN)
+        all_reasonable_SNe.append(reasonable_SN)
+
+    return array(this_useful_redshift_mask), array(all_reasonable_SNe), the_name
+                
+
+def make_selection_figure(SN_data, working_dir, nsne, plt):
+    survey_fields = array(SN_data["SN_table"]["survey_fields"])
+    n_tiers = len(SN_data["survey_parameters"]["tier_parameters"]["tier_name"])
+    extra_tier = n_tiers > 1
+    n_crit = 8
+
+    plt.figure(figsize = (1+5*n_tiers + 5*extra_tier, 3*n_crit))
+
+    for j in range(n_crit):
+        this_useful_redshift_mask, all_reasonable_SNe, the_name = light_curve_cuts(SN_data, nsne, j)
+
+        for i, tier_name in enumerate(SN_data["survey_parameters"]["tier_parameters"]["tier_name"] + ["All"]*extra_tier):
+            plt.subplot(n_crit, n_tiers+extra_tier, i+1 + (n_tiers + extra_tier)*j)
+            if tier_name != "All":
+                inds = where((survey_fields == tier_name)*this_useful_redshift_mask)
+                all_inds = where(survey_fields == tier_name)
+            else:
+                inds = where(this_useful_redshift_mask)
+                all_inds = where(survey_fields != "AAAAAAAA")
+
+            if len(inds[0]) > 0:
+                plt.hist(SN_data["SN_table"]["redshifts"][all_inds], bins = arange(0., 2.6, 0.1), color = 'r')
+                plt.hist(SN_data["SN_table"]["redshifts"][inds], bins = arange(0., 2.6, 0.1), color = 'b', label = the_name)
+                plt.legend(loc = 'best', fontsize = 8)
+
+            plt.axvline(0.8, color = 'gray')
+            plt.axvline(1.7, color = 'gray')
+
+            plt.title(tier_name + ", NSNe: " + str(len(inds[0])))
+
+    plt.savefig(working_dir + "/redshifts_selection_crit.pdf", bbox_inches = 'tight')
+    plt.close()
+
+
 
 def collection_of_plots(pickle_to_read):
     import matplotlib.pyplot as plt
@@ -332,6 +413,8 @@ def collection_of_plots(pickle_to_read):
                     plt.savefig(working_dir + "/redshifts_" + outputname + "_cumulative"*cumulative + "_nomalm"*(1 - use_malm) + "_hasIFS"*has_IFS + "_SNR_key=" + SNR_key + ".pdf", bbox_inches = 'tight')
                     plt.close()
 
+
+    make_selection_figure(SN_data, working_dir, nsne, plt = plt)
 
     plt.figure(figsize=(6,8))
     for i, tier_name in enumerate(SN_data["survey_parameters"]["tier_parameters"]["tier_name"]):
