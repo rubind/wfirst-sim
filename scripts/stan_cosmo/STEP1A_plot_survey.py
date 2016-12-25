@@ -482,7 +482,7 @@ def collection_of_plots(pickle_to_read):
         pdf.close()
     plot_field(SN_data, working_dir, nsne, outputname, plt = plt)
 
-processors_to_use = 5
+processors_to_use = 18
 
 
 pool = mp.Pool(processes = processors_to_use)
