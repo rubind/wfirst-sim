@@ -224,34 +224,36 @@ def light_curve_cuts(SN_data, nsne, j):
         reasonable_SN = len(lc_data["filts"]) > 5
 
         for filt in list(unique(lc_data["filts"])):
-            filtinds = where(array(lc_data["filts"]) == filt)
-            SNRs = lc_data["fluxes"][filtinds]/lc_data["dfluxes"][filtinds]
-            SNRs_cut = SNRs[where(SNRs > 2.)]
+            if len(filt) == 4: # WFIRST Filter 
 
-            if j == 0: # All filters must have S/N > 10
-                the_name = ">= 1 point per filter with S/N > 10"
-                if SNRs.max() < 10:
-                    good_SN = 0
-            
-            if j == 1: # All filters must have stacked S/N > 15
-                the_name = "stacked S/N per filter > 15"
-                if sum(SNRs_cut**2.) < 15**2.:
-                    good_SN = 0
+                filtinds = where(array(lc_data["filts"]) == filt)
+                SNRs = lc_data["fluxes"][filtinds]/lc_data["dfluxes"][filtinds]
+                SNRs_cut = SNRs[where(SNRs > 2.)]
 
-            if j == 2: # All filters must have stacked S/N > 20
-                the_name = "stacked S/N per filter > 20"
-                if sum(SNRs_cut**2.) < 20**2.:
-                    good_SN = 0
+                if j == 0: # All filters must have S/N > 10
+                    the_name = ">= 1 point per filter with S/N > 10"
+                    if SNRs.max() < 10:
+                        good_SN = 0
 
-            if j > 2 and j <= 7:
-                filt_to_find = ["Z087", "Y106", "J129", "H158", "F184"][j-3]
-                the_name = "stacked %s S/N > 20" % filt_to_find
- 
-                if filt == filt_to_find:
+                if j == 1: # All filters must have stacked S/N > 15
+                    the_name = "stacked S/N per filter > 15"
+                    if sum(SNRs_cut**2.) < 15**2.:
+                        good_SN = 0
+
+                if j == 2: # All filters must have stacked S/N > 20
+                    the_name = "stacked S/N per filter > 20"
                     if sum(SNRs_cut**2.) < 20**2.:
                         good_SN = 0
-                if 1 - any(array(lc_data["filts"]) == filt_to_find):
-                    good_SN = 0
+
+                if j > 2 and j <= 7:
+                    filt_to_find = ["Z087", "Y106", "J129", "H158", "F184"][j-3]
+                    the_name = "stacked %s S/N > 20" % filt_to_find
+
+                    if filt == filt_to_find:
+                        if sum(SNRs_cut**2.) < 20**2.:
+                            good_SN = 0
+                    if 1 - any(array(lc_data["filts"]) == filt_to_find):
+                        good_SN = 0
                         
 
         this_useful_redshift_mask.append(good_SN)
