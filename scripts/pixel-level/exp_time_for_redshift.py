@@ -146,9 +146,9 @@ WFI_args = {"PSFs": PSFs, "source_dir": wfirst_data_path + "/pixel-level/input/"
             "waves": arange(6000., 23000.1, 25.)}
 
 
-redshifts = [0.4, 0.8, 1.7, 2.0]
+redshifts = [0.4, 0.8, 1.0, 1.2, 1.7, 2.0]
 phases = [-10, 0]
-nsne = 40
+nsne = 400
 filt = sys.argv[1]
 
 exp_times = 10**arange(1.0, 4.01, 0.05)
@@ -167,6 +167,7 @@ for sqrtt in [0, 1]:
             plt.subplot(len(phases),len(redshifts),i*len(redshifts) + j + 1)
 
             SNR10s = []
+            SNR20s = []
             SNR50s = []
             SNR90s = []
             
@@ -176,12 +177,14 @@ for sqrtt in [0, 1]:
                 SNRs = run_ETC(redshift = redshifts[j], phase = phases[i], source = source, exp_time = exp_time)
 
                 SNR50 = scoreatpercentile(SNRs, 50.)
+                SNR20 = scoreatpercentile(SNRs, 20.)
                 SNR10 = scoreatpercentile(SNRs, 10.)
                 SNR90 = scoreatpercentile(SNRs, 90.)
 
                 print exp_time, SNR50
 
                 SNR10s.append(SNR10)
+                SNR20s.append(SNR20)
                 SNR50s.append(SNR50)
                 SNR90s.append(SNR90)
 
@@ -201,6 +204,7 @@ for sqrtt in [0, 1]:
             curve50 = fit_curve(exp_times, SNR50s)
             curve90 = fit_curve(exp_times, SNR90s)
             curve10 = fit_curve(exp_times, SNR10s)
+            curve20 = fit_curve(exp_times, SNR20s)
                 
             SNRtargets = [10.*(phases[i] == 0) + 4.*(phases[i] != 0)]
             SNRtargets = [SNRtargets[0]/sqrt(2.)] + SNRtargets # Only considering two dithers below, so don't change this
@@ -218,7 +222,7 @@ for sqrtt in [0, 1]:
             
             if not sqrtt:
 
-                for thecurve, percentile in ((curve50, 50), (curve10, 10)):
+                for thecurve, percentile in ((curve50, 50), (curve20, 20), (curve10, 10)):
                     these_results = SNR_label(exp_times, thecurve, SNRtargets = SNRtargets)[1]
 
                     for SNRkey in these_results:
