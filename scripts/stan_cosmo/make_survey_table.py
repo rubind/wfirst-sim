@@ -62,7 +62,7 @@ def get_FoM_from_file(item):
     FoM = get_FoM(cmat, z_list, adddesi = 0)[0]
 
     J = zeros([len(cmat), 2], dtype=float64) + 1.
-    J[0,0] = 1.
+    J[0,0] = 0.
 
     agg_prec_w1 = sum(linalg.inv(cmat[1:,1:]))
     agg_prec_w2 = dot(transpose(J), dot(linalg.inv(cmat), J))
