@@ -61,8 +61,22 @@ def get_FoM_from_file(item):
 
     FoM = get_FoM(cmat, z_list, adddesi = 0)[0]
 
+    J = zeros([len(cmat), 2], dtype=float64) + 1.
+    J[0,0] = 1.
+
+    agg_prec_w1 = sum(linalg.inv(cmat[1:,1:]))
+    agg_prec_w2 = dot(transpose(J), dot(linalg.inv(cmat), J))
+
+    agg_prec_1 = 1./sqrt(agg_prec_w1)
+    agg_prec_2 = sqrt(linalg.inv(agg_prec_w2)[0,0])
+    
+    print "Aggregate Precision Mag: ", agg_prec_1, agg_prec_2
+    agg_prec_1 *= log(10.)/5.
+    agg_prec_2 *= log(10.)/5.
+    print "Aggregate Precision Dist: ", agg_prec_1, agg_prec_2
+
     print "FoM", item, FoM
-    return FoM
+    return FoM, agg_prec_1, agg_prec_2
 
 
 
@@ -150,8 +164,8 @@ def get_line_to_write(pic_cmat):
 
 
     if FoM_table:
-        FoM = get_FoM_from_file(cmat)
-        line_to_write += "%s,%.1f" % (cmat.split("/")[-2], FoM)
+        FoM, agg_prec_1, agg_prec_2 = get_FoM_from_file(cmat)
+        line_to_write += "%s,%.1f,%.2g,%.2g" % (cmat.split("/")[-2], FoM, agg_prec_1, agg_prec_2)
     survey_eff = get_survey_efficiency(SN_data)
     line_to_write += ",%.2f" % survey_eff
     
@@ -173,7 +187,7 @@ for i in range(len(zbins) - 1):
 
 if FoM_table:
     f = open("FoM_table.csv", 'w')
-    f.write("Survey,Cycle,Pixel Scale,Time Used,Tier Fraction,Spectra Type,Spectra S/N,Has Ground,Wide Square Degrees,Wide Exp Time per Filter,Deep Square Degrees,Deep Exp Time per Filter" + zbins_txt + ",SNe at S/N 40,SNe at S/N 60,FoM Params,FoM,Survey Efficiency\n")
+    f.write("Survey,Cycle,Pixel Scale,Time Used,Tier Fraction,Spectra Type,Spectra S/N,Has Ground,Wide Square Degrees,Wide Exp Time per Filter,Deep Square Degrees,Deep Exp Time per Filter" + zbins_txt + ",SNe at S/N 40,SNe at S/N 60,FoM Params,FoM,Aggregate Precision 1,Aggregate Precision 2,Survey Efficiency\n")
 else:
     f = open("summary.csv", 'w')
     f.write("Survey,Cycle,Pixel Scale,Time Used,Tier Fraction,Spectra Type,Spectra S/N,Has Ground,Wide Square Degrees,Wide Exp Time per Filter,Deep Square Degrees,Deep Exp Time per Filter" + zbins_txt + ",SNe at S/N 40,SNe at S/N 60,Survey Efficiency\n")
