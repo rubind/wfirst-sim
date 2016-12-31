@@ -220,8 +220,11 @@ def light_curve_cuts(SN_data, nsne, crit):
     for ind in range(nsne):
         lc_data = SN_data["SN_observations"][ind]
 
-        good_SN = len(lc_data["filts"]) > 5
-        reasonable_SN = len(lc_data["filts"]) > 5
+        good_SN = len(lc_data["fluxes"]) > 5
+        reasonable_SN = len(lc_data["fluxes"]) > 5
+
+        good_SN *= any([len(item) == 4 for item in lc_data["filts"]]) # Any WFIRST data?
+        reasonable_SN *= any([len(item) == 4 for item in lc_data["filts"]])  # Any WFIRST data?
 
         for filt in list(unique(lc_data["filts"])):
             if len(filt) == 4: # WFIRST Filter 
@@ -231,17 +234,17 @@ def light_curve_cuts(SN_data, nsne, crit):
                 SNRs_cut = SNRs[where(SNRs > 2.)]
                 crit_found = 0
 
-                if crit == ">= 1 point per filter with S/N > 10": # All filters must have S/N > 10
+                if crit == ">= 1 point per filter with S/N > 10": # All WFIRST filters must have S/N > 10
                     crit_found = 1
                     if SNRs.max() < 10:
                         good_SN = 0
 
-                if crit == "stacked S/N per filter > 15": # All filters must have stacked S/N > 15
+                if crit == "stacked S/N per filter > 15": # All WFIRST filters must have stacked S/N > 15
                     crit_found = 1
                     if sum(SNRs_cut**2.) < 15**2.:
                         good_SN = 0
 
-                if crit == "stacked S/N per filter > 20": # All filters must have stacked S/N > 20
+                if crit == "stacked S/N per filter > 20": # All WFIRST filters must have stacked S/N > 20
                     crit_found = 1
                     if sum(SNRs_cut**2.) < 20**2.:
                         good_SN = 0
