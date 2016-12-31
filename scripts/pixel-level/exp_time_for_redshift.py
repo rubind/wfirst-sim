@@ -76,7 +76,7 @@ def realize_SN(redshift, daymax, source):
 
     return MB - color, x1, color, mass, sncosmo_model
 
-def run_ETC(redshift, phase, source, exp_time):
+def run_ETC(redshift, phase, source, exp_time, gal_flambs):
     SNRs = []
 
     for i in range(nsne):
@@ -147,7 +147,7 @@ WFI_args = {"PSFs": PSFs, "source_dir": wfirst_data_path + "/pixel-level/input/"
 
 
 redshifts = [0.4, 0.8, 1.0, 1.2, 1.7, 2.0]
-phases = [-10, 0]
+phases = [-10, -8, -6, 0]
 nsne = 400
 filt = sys.argv[1]
 
@@ -174,7 +174,7 @@ for sqrtt in [0, 1]:
             for exp_time in exp_times:
                 gal_flambs = make_galaxy_spectrum(redshifts = [redshifts[j]]*nsne)
 
-                SNRs = run_ETC(redshift = redshifts[j], phase = phases[i], source = source, exp_time = exp_time)
+                SNRs = run_ETC(redshift = redshifts[j], phase = phases[i], source = source, exp_time = exp_time, gal_flambs = gal_flambs)
 
                 SNR50 = scoreatpercentile(SNRs, 50.)
                 SNR20 = scoreatpercentile(SNRs, 20.)

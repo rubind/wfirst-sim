@@ -201,6 +201,8 @@ def FoM_bin_w(z_list, muCmat, bins = [0., 0.5, 1.0]):
     
     print sqrt(diag(paramcmat)), "%.2g " % (1./linalg.det(paramcmat[2:, 2:]))
 
+    return sqrt(diag(paramcmat)), 1./linalg.det(paramcmat[2:, 2:])
+
 """
 FoM_bin_w(arange(0.05, 2.01, 0.05), muCmat = diag([0.01**2.]*40), bins = [0., 0.25, 0.5])
 FoM_bin_w(arange(0.05, 1.01, 0.05), muCmat = diag([0.005**2.]*20), bins = [0., 0.25, 0.5])

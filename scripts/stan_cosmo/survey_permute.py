@@ -8,8 +8,8 @@ import sys
 
 def get_filters(include_ground, is_deep, spec_SNR, TTel):
     if TTel < 270:
-        reddest_filt = "K193"
-        reddest_exp = 1268.7
+        reddest_filt = "F184"
+        reddest_exp = 973.4
     else:
         reddest_filt = "F184"
         reddest_exp = 2312.9
@@ -219,7 +219,7 @@ def get_combination():
     
     
     params["h1rg"] = 1#random.choice([0, 1], size = 1)[0]
-    params["TTel"] = random.choice([260, 284], size = 1)[0]
+    params["TTel"] = random.choice([260], size = 1)[0]
 
     params["survey_time"] = 0.6#random.choice([0.5, 0.6], size = 1)[0]
 

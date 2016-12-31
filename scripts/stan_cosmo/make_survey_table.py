@@ -8,23 +8,15 @@ sys.path.append(wfirst_path + "/scripts/cosmo/")
 from astro_functions import get_FoM
 import pyfits
 import multiprocessing as mp
+from STEP1A_plot_survey import light_curve_cuts
 
 def get_SNe_with_imaging_LCs(SN_data):
     nsne = SN_data["nsne"]
 
-    SNe_at_40 = 0
-    SNe_at_60 = 0
-    
-    for i in range(nsne):
-        SNRs = array(SN_data["SN_observations"][i]["fluxes"])/array(SN_data["SN_observations"][i]["dfluxes"])
-        inds = where(SNRs > 0)
-        total_SNR = sqrt(dot(SNRs[inds], SNRs[inds]))
-        if total_SNR > 40:
-            SNe_at_40 += 1
-        if total_SNR > 60:
-            SNe_at_60 += 1
+    SNe_at_15 = sum(light_curve_cuts(SN_data, nsne, crit = "stacked S/N per filter > 15")[0])
+    SNe_at_20 = sum(light_curve_cuts(SN_data, nsne, crit = "stacked S/N per filter > 20")[0])
 
-    return SNe_at_40, SNe_at_60
+    return SNe_at_15, SNe_at_20
 
 def get_survey_efficiency(SN_data):
     #for key in SN_data["SN_observations"]:
@@ -88,7 +80,7 @@ def get_line_to_write(pic_cmat):
 
     #print "%s  %.3f  SN_data["total_time_used"]/(SN_data["survey_parameters"]["total_survey_time"]*365.24*86400)
 
-    SNe_at_40, SNe_at_60 = get_SNe_with_imaging_LCs(SN_data)
+    SNe_at_15, SNe_at_20 = get_SNe_with_imaging_LCs(SN_data)
 
     line_to_write = ""
     line_to_write += pic.split("/")[-2] + ","
@@ -160,7 +152,7 @@ def get_line_to_write(pic_cmat):
         counts = sum(has_IFS_mask*(SN_data["SN_table"]["redshifts"] > zbins[i])*(SN_data["SN_table"]["redshifts"] <= zbins[i+1]))
         line_to_write += "%i," % counts
 
-    line_to_write += "%i,%i," % (SNe_at_40, SNe_at_60)
+    line_to_write += "%i,%i," % (SNe_at_15, SNe_at_20)
 
 
     if FoM_table:
@@ -187,10 +179,10 @@ for i in range(len(zbins) - 1):
 
 if FoM_table:
     f = open("FoM_table.csv", 'w')
-    f.write("Survey,Cycle,Pixel Scale,Time Used,Tier Fraction,Spectra Type,Spectra S/N,Has Ground,Wide Square Degrees,Wide Exp Time per Filter,Deep Square Degrees,Deep Exp Time per Filter" + zbins_txt + ",SNe at S/N 40,SNe at S/N 60,FoM Params,FoM,Aggregate Precision 1,Aggregate Precision 2,Survey Efficiency\n")
+    f.write("Survey,Cycle,Pixel Scale,Time Used,Tier Fraction,Spectra Type,Spectra S/N,Has Ground,Wide Square Degrees,Wide Exp Time per Filter,Deep Square Degrees,Deep Exp Time per Filter" + zbins_txt + ",SNe at S/N 15,SNe at S/N 20,FoM Params,FoM,Aggregate Precision 1,Aggregate Precision 2,Survey Efficiency\n")
 else:
     f = open("summary.csv", 'w')
-    f.write("Survey,Cycle,Pixel Scale,Time Used,Tier Fraction,Spectra Type,Spectra S/N,Has Ground,Wide Square Degrees,Wide Exp Time per Filter,Deep Square Degrees,Deep Exp Time per Filter" + zbins_txt + ",SNe at S/N 40,SNe at S/N 60,Survey Efficiency\n")
+    f.write("Survey,Cycle,Pixel Scale,Time Used,Tier Fraction,Spectra Type,Spectra S/N,Has Ground,Wide Square Degrees,Wide Exp Time per Filter,Deep Square Degrees,Deep Exp Time per Filter" + zbins_txt + ",SNe at S/N 15,SNe at S/N 20,Survey Efficiency\n")
 
 pic_cmats = []
 for pic in glob.glob(sys.argv[1] + "/*/*pickle*"):

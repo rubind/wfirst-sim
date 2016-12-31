@@ -985,8 +985,21 @@ if __name__ == "__main__":
 
     PSFs = initialize_PSFs(pixel_scales = [10, 15, 22, 30], slice_scales = [30, 30, 22, 30], PSF_source = "WebbPSF") # Native is in units of 5 mas, so this is 0".075, 0".11, and 0".15
 
-    args = {"gal_flamb": lambda x:0., "pixel_scale": 0.05, "slice_scale": 0.15, "dark_current": 0.01, "mdl": 'hsiao', "PSFs": PSFs, "IFURfl": "IFU_R_Content.txt", "min_wave": 4200., "max_wave": 21000., "bad_pixel_rate": 0.0, "offset_par": 4}
+    args = {"gal_flamb": lambda x:6e-19, "pixel_scale": 0.075, "slice_scale": 0.15, "dark_current": 0.01,
+            "mdl": 'hsiao', "PSFs": PSFs, "IFURfl": "IFU_R_160720.txt", "min_wave": 4200., "max_wave": 21000., "bad_pixel_rate": 0.0, "offset_par": 4}
     PSFs = get_spec_with_err(redshift = 1.0, exp_time = 1000., show_plots = 0, phase = 0, **args)["PSFs"]
+
+
+    for redshift in [0.5, 1.0, 1.5]:
+        exptime = solve_for_exptime(S_to_N = 3.5*sqrt(15.), redshift = redshift, key1 = "rest_frame_band_S/N", key2 = (5000, 6000), phase = 0, **args)
+        print "# redshift/ exposure time ", redshift, exptime
+
+        for phase in [-8, -6, 6, 8, 10, 12]:
+            ETC_result = get_spec_with_err(redshift = redshift, exp_time = exptime, phase = phase, show_plots = 0, **args)
+            print "#  ", redshift, exptime, phase, ETC_result["rest_frame_band_S/N"][(5000, 6000)]
+
+
+    stop_here_now
 
     """
     import cProfile, pstats, StringIO

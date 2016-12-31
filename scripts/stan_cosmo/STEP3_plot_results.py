@@ -255,19 +255,122 @@ def plot_RV_by_z(other_inputs, fit_params):
     plt.close()
 
 def plot_d_mu_d_RV_by_z(other_inputs, stan_data, fit_params):
-    plt.figure()
 
     for i in range(stan_data["nred"]):
+
         the_cmat = cov(fit_params["RV_by_red"][:,i], fit_params["mus"][:,i])
         C_RVmu = the_cmat[0,1]
         C_RV = the_cmat[0,0]
 
+        plt.figure(1)
         plt.plot(other_inputs["redshifts"][i], C_RVmu/C_RV, 'o', color = 'b')
+        plt.figure(2)
+        plt.plot(other_inputs["redshifts"][i], C_RVmu/sqrt(C_RV), 'o', color = 'b')
 
+
+    plt.figure(1)
     plt.xlabel("Redshift")
     plt.ylabel("d mu/d RV")
     plt.savefig(outputdir + "dmu_dRV_z.pdf", bbox_inches = 'tight')
     plt.close()
+
+    plt.figure(2)
+    plt.xlabel("Redshift")
+    plt.ylabel("d mu/d RV")
+    plt.savefig(outputdir + "dmu_from_RV_z.pdf", bbox_inches = 'tight')
+    plt.close()
+
+def get_dmu_from_param(stan_data, fit_params, param):
+    color_dict = {'Count-Rate Nonlinearity': 'b', 'MW Extinction Normalization': 'r',
+                  'MW Extinction Zeropoint': 'orange', 'MW Extinction $R_V$': 'g',
+                  'IG Extinction': 'k', 'Fundamental Calibration': 'm', " ": 'k'}
+    
+
+    this_param = reshape(fit_params[param], [fit_params[param].shape[0], prod(fit_params[param].shape[1:])])
+    
+    ndim = len(this_param[0])
+
+    print param, ndim, this_param.shape
+
+    dmus = zeros([ndim, stan_data["nred"]], dtype=float64)
+    
+    print "HERE1", this_param.shape, len(this_param.shape)
+    for i in range(stan_data["nred"]):
+        for j in range(ndim):
+            if len(this_param.shape) == 2:
+                #print len(this_param[:,j]), len(fit_params["mus"][:,i])
+                the_cmat = cov(this_param[:,j], fit_params["mus"][:,i])
+
+            #print "the_cmat", the_cmat
+            assert the_cmat.shape == (2,2), "Bad shape! " + str(the_cmat.shape)
+            C_xy = the_cmat[0,1]
+            C_xx = the_cmat[0,0]
+            dmus[j, i] = C_xy/sqrt(C_xx)
+    print "HERE2"
+    return dmus
+
+        
+
+def plot_d_mu_d_all_by_z(other_inputs, stan_data, fit_params):
+
+    plt.figure(figsize = (8, 12))
+
+    plot_params = [
+        ["dsys"],
+        ["RV_coeff", "log_R_EBV_coeff"]]
+        #["proj_star_variable_coeff", "log_R_proj_coeff"]]
+
+    n_coeff = stan_data["ncoeff"]
+
+    plot_titles = ["Systematics", "Host-Galaxy Extinction"]# + ["Eigenvectors"]
+
+    plot_names = [other_inputs["jacobian_names"],
+                  ["$R_V$"]*n_coeff + ["$\\tau_{E(B-V)}$"]*n_coeff]
+
+    plot_colors = {'Count-Rate Nonlinearity': 'b', 'MW Extinction Normalization': 'r',
+                   'MW Extinction Zeropoint': 'orange', 'MW Extinction $R_V$': 'g',
+                   'IG Extinction': 'k', 'Fundamental Calibration': 'm', " ": 'k',
+                   '$R_V$': 'b', '$\\tau_{E(B-V)}$': 'r'}
+
+
+    ylim = [10000, -10000]
+
+    for i in range(len(plot_params)):
+        plt.subplot(len(plot_params), 1, i+1)
+        running_count = 0
+        labeled_items = []
+
+        for j in range(len(plot_params[i])):
+            dmu = get_dmu_from_param(stan_data, fit_params, plot_params[i][j])
+            print "dmu ", plot_params[i][j], dmu.shape
+
+            for k in range(len(dmu)):
+
+                the_name = plot_names[i][running_count]
+                the_color = plot_colors[the_name]
+                if labeled_items.count(the_name):
+                    the_name = ""
+                else:
+                    labeled_items.append(the_name)
+
+                plt.plot(other_inputs["redshifts"], dmu[k] - mean(dmu[k]), color = the_color, label = the_name)
+                running_count += 1
+
+        plt.xlabel("Redshift")
+        plt.ylabel("Effect on Distance Modulus (mag)")
+        plt.title(plot_titles[i])
+        plt.legend(loc = 'best', fontsize = 10)
+        ylim[0] = min(plt.ylim()[0], ylim[0])
+        ylim[1] = max(plt.ylim()[1], ylim[1])
+    
+    for i in range(len(plot_params)):
+        plt.subplot(len(plot_params), 1, i+1)
+        plt.ylim(ylim)
+
+    plt.savefig("all_dmu.eps", bbox_inches = 'tight')
+    plt.close()
+    fldksjaflsdjk
+
 
 def plot_EBV_err(fit_params):
     plt.figure()
@@ -298,6 +401,7 @@ def make_plots_from_dir(item):
     
     (fit_params, stan_data, other_inputs) = pickle.load(open(item, 'rb'))
 
+
     for key in fit_params:
         print "fit_params:", key
     for key in other_inputs:
@@ -307,6 +411,7 @@ def make_plots_from_dir(item):
         other_inputs["jacobian_names"] = " "*stan_data["nsys"]
         other_inputs["redshifts"] = arange(stan_data["nred"])*0.1 + 0.05
         print "Hack, but fixed in later versions!"
+
 
     cmat = cov(transpose(fit_params["mus"]))
     save_img(cmat, outputdir + "cmat.fits")
@@ -323,6 +428,8 @@ def make_plots_from_dir(item):
     mag_histogram(fit_params = fit_params)
     plot_diag_mu_err(other_inputs = other_inputs, stan_data = stan_data, fit_params = fit_params)
     plot_EBV_err(fit_params = fit_params)
+
+    plot_d_mu_d_all_by_z(other_inputs, stan_data, fit_params)
 
     systematics_histograms(other_inputs = other_inputs, fit_params = fit_params, stan_data = stan_data)
     plot_d_mu_d_sys(other_inputs = other_inputs, stan_data = stan_data, fit_params = fit_params)
