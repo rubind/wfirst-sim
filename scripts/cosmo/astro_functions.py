@@ -1,6 +1,5 @@
 from copy import deepcopy
 from numpy import *
-import pylab
 #from FileRead import readcol
 from scipy.interpolate import interp1d
 
@@ -103,21 +102,6 @@ def binned_w_rho(z, zbins, wbins):
 
     return rho
 
-
-def binned_rho_rho(z, zbins, wbins):
-    """Example zbins: [0, 0.5, 1.0]
-    Example wbins: [-1., -0.2, -0.5]"""
-
-    rho = 0.
-    last_rho = 1.
-
-    for i in range(len(zbins) - 1):
-        rho += (z >= zbins[i])*(z < zbins[i+1])*wbins[i]
-    rho += (z >= zbins[-1])*wbins[-1]
-
-    return rho
-
-
 """
 import matplotlib.pyplot as plt
 z = arange(0.001, 2.0, 0.001)
@@ -132,7 +116,6 @@ plt.plot(zmean, w)
 plt.savefig("tmp.pdf")
 plt.close()
 """
-
 
 def H_inv_binw(z, cparams):
     Om = cparams[0]
@@ -167,7 +150,7 @@ print get_shiftparam_binw([0.3, 0.0, 0.5, -1., -1.]) - 1.749686332235919
 print get_shiftparam_binw([0.3, 0.0, 0.5, -1., -0.2]) - 1.618651757891853
 """
 
-def FoM_bin_w(z_list, muCmat, bins = [0., 0.5, 1.0]):
+def FoM_bin_w(z_list, muCmat, bins = [0., 0.5, 1.0], shift_param_constraint = 0.002):
     nbins = len(bins)
 
     jacobian = zeros([len(z_list) + 1, nbins + 2], dtype=float64) # M, Om, wbins
@@ -193,15 +176,139 @@ def FoM_bin_w(z_list, muCmat, bins = [0., 0.5, 1.0]):
     wmat = zeros([len(muCmat) + 1]*2, dtype=float64)
 
     wmat[:-1,:-1] = linalg.inv(muCmat)
-    wmat[-1,-1] = (shift_param0*0.002)**(-2.)
+    wmat[-1,-1] = (shift_param0*shift_param_constraint)**(-2.)
     #print wmat
     
     paramwmat = dot(transpose(jacobian), dot(wmat, jacobian))
     paramcmat = linalg.inv(paramwmat)
     
-    print sqrt(diag(paramcmat)), "%.2g " % (1./linalg.det(paramcmat[2:, 2:]))
 
-    return sqrt(diag(paramcmat)), 1./linalg.det(paramcmat[2:, 2:])
+    FoM = sqrt(  1./linalg.det(paramcmat[2:, 2:])  )
+
+    print sqrt(diag(paramcmat)), "%.2g " % FoM
+
+    return sqrt(diag(paramcmat)), FoM
+
+
+def binned_rho_rho(z, zbins, rhobins):
+    """Example zbins: [0, 0.5, 1.0]
+    Example wbins: [-1., -0.2, -0.5]"""
+
+    rho = 0.
+    last_rho = 1.
+
+    for i in range(len(zbins) - 1):
+        rho += (z >= zbins[i])*(z < zbins[i+1])*rhobins[i]
+    rho += (z >= zbins[-1])*rhobins[-1]
+
+    return rho
+
+
+def H_inv_binrho(z, cparams):
+    zbinsrhobins = cparams
+    
+    zbins = zbinsrhobins[:len(zbinsrhobins)/2]
+    rhobins = zbinsrhobins[len(zbinsrhobins)/2:]
+
+    rho = binned_rho_rho(z, zbins, rhobins)
+    return 1./sqrt((1 - rhobins[0])*(1. + z)**3. + rho)
+
+def get_mu_binrho(z_list, cparams):
+    assert cparams[0] == 0
+    assert len(cparams) > 1
+
+    r_list = n_integrate(z_list, H_inv_binrho, cparams, pad_list = arange(41, dtype=float64)/20.)
+    return 5.*log10((1. + z_list)*r_list)
+
+def get_shiftparam_binrho(cparams):
+    zbinsrhobins = cparams
+
+    zbins = zbinsrhobins[:len(zbinsrhobins)/2]
+    rhobins = zbinsrhobins[len(zbinsrhobins)/2:]
+    
+    return sqrt(1. - rhobins[0])*n_integrate(log(1. + 1089.), lambda l1z, c: H_inv_binrho(exp(l1z) - 1., c)*exp(l1z), cparams, pad_list = arange(0., 7., 0.01))[0]
+
+
+def FoM_bin_rho(z_list, muCmat, bins = [0., 0.5, 1.0], shift_param_constraint = 0.002):
+    nbins = len(bins)
+
+    jacobian = zeros([len(z_list) + 1, nbins + 1], dtype=float64) # M, rhobins
+
+    jacobian[:-1, 0] = 1.
+
+    for i in range(nbins):
+        drho = 0.01
+        tmprho = zeros(nbins, dtype=float64) + 0.7
+        tmprho[i] += drho
+        #print tmpw
+
+        jacobian[:-1,i+1] = (get_mu_binrho(z_list, cparams = concatenate((bins, tmprho))) - get_mu_binrho(z_list, cparams = concatenate((bins, [0.7]*nbins))))/drho
+        jacobian[-1,i+1] = (get_shiftparam_binrho(cparams = concatenate((bins, tmprho))) - get_shiftparam_binrho(cparams = concatenate((bins, [0.7]*nbins))))/drho
+    #print jacobian
+    
+    #print shift_param0
+    shift_param0 = get_shiftparam_binrho(cparams = concatenate((bins, [0.7]*nbins)))
+    print shift_param0
+
+    wmat = zeros([len(muCmat) + 1]*2, dtype=float64)
+    wmat[:-1,:-1] = linalg.inv(muCmat)
+
+    wmat[-1,-1] = (shift_param0*shift_param_constraint)**(-2.)
+    #print wmat
+    
+    paramwmat = dot(transpose(jacobian), dot(wmat, jacobian))
+    paramcmat = linalg.inv(paramwmat)
+
+    FoM = sqrt(  1./linalg.det(paramcmat[1:, 1:])  )
+    
+    print sqrt(diag(paramcmat)), "%.2g " % FoM
+
+    return sqrt(diag(paramcmat)), FoM
+
+
+"""
+#FoM_bin_rho(z_list = arange(0.05, 1.51, 0.05), muCmat = diag([0.0001]*30), bins = [0., 0.5, 1.0])
+from FileRead import readcol
+
+[snset, NA, z] = readcol("/Users/rubind/Dropbox/SCP_Stuff/marg_test/hubbleout/set_sn_z_mu_dmu_res_c_dc_int_int_int_M_fphs_mwebv_outl_s_ds_m_dm_ressys_msys_Phigh.txt", 'iaf')
+
+inds = where(snset == 14)[0]
+
+inds = sort(inds)[::-1]
+print inds
+
+import pyfits
+f = pyfits.open("/Users/rubind/Dropbox/SCP_Stuff/marg_test/covmat_sys.fits")
+cmat = f[0].data
+f.close()
+
+for ind in inds:
+    z = delete(z, ind)
+    cmat = delete(cmat, ind, axis = 0)
+    cmat = delete(cmat, ind, axis = 1)
+
+
+for ind in inds:
+    for ind2 in inds:
+        if ind2 != ind:
+            cmat[ind, ind2] *= 1.
+
+
+FoM_bin_rho(z_list = z, muCmat = cmat, bins = [0., 1.])
+
+fldksflsdkjfs
+"""
+
+"""
+def get_shiftparam_binrho(cparams):
+    assert cparams[0] == 0
+    assert len(cparams) > 1
+
+    return sqrt(cparams[0])*n_integrate(log(1. + 1089.), lambda l1z, c: H_inv_binw(exp(l1z) - 1., c)*exp(l1z), cparams, pad_list = arange(0., 7., 0.01))[0]
+"""
+
+
+
 
 """
 FoM_bin_w(arange(0.05, 2.01, 0.05), muCmat = diag([0.01**2.]*40), bins = [0., 0.25, 0.5])

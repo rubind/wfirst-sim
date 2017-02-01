@@ -310,6 +310,8 @@ def make_selection_figure(SN_data, working_dir, nsne, plt):
 
 
 def collection_of_plots(pickle_to_read):
+    from matplotlib import use
+    use("PDF")
     import matplotlib.pyplot as plt
     from matplotlib.backends.backend_pdf import PdfPages
 

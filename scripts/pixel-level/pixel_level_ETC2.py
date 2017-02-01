@@ -7,6 +7,8 @@ import commands
 import sys
 from astropy import cosmology
 import sncosmo
+from matplotlib import use
+use("PDF")
 import matplotlib.pyplot as plt
 plt.rcParams["font.family"] = "serif"
 from matplotlib import style
@@ -314,6 +316,7 @@ def get_approximate_pixelized_broadband_PSF(PSFs, scale, waves, weights, IPC, of
 def get_1D_pixelized_sliced_PSFs(PSFs, pixel_scale, slice_scale, waves, IPC, offset_par = 0, offset_perp = 0, psfsize = 7):
     """Simulates a small IFU; for a S/N calculation, that's good enough. i = parallel j = perpendicular to slice"""
 
+
     if PSFs.has_key((pixel_scale, slice_scale, waves.min(), waves.max(), IPC, offset_par, offset_perp)):
         return PSFs[(pixel_scale, slice_scale, waves.min(), waves.max(), IPC, offset_par, offset_perp)], PSFs
 
@@ -322,7 +325,8 @@ def get_1D_pixelized_sliced_PSFs(PSFs, pixel_scale, slice_scale, waves, IPC, off
 
 
     for j, wave in enumerate(waves):
-        twoD_PSF = get_pixelized_PSF_noIPC(PSFs, pixel_scale = pixel_scale, slice_scale = slice_scale, wave = wave, offset_par = offset_par, offset_perp = offset_perp, psfsize = psfsize)
+        twoD_PSF = get_pixelized_PSF_noIPC(PSFs, pixel_scale = pixel_scale, slice_scale = slice_scale, wave = wave,
+                                           offset_par = offset_par, offset_perp = offset_perp, psfsize = psfsize)
         
         for i in range(psfsize):
             oneD_PSFs[j, i*psfsize:(i+1)*psfsize] = twoD_PSF[:,i]
@@ -988,6 +992,10 @@ if __name__ == "__main__":
     args = {"gal_flamb": lambda x:6e-19, "pixel_scale": 0.075, "slice_scale": 0.15, "dark_current": 0.01,
             "mdl": 'hsiao', "PSFs": PSFs, "IFURfl": "IFU_R_160720.txt", "min_wave": 4200., "max_wave": 21000., "bad_pixel_rate": 0.0, "offset_par": 4}
     PSFs = get_spec_with_err(redshift = 1.0, exp_time = 1000., show_plots = 0, phase = 0, **args)["PSFs"]
+
+    args["bad_pixel_rate"] = 0.01
+    ETC_result = get_spec_with_err(redshift = 1.0, exp_time = 1400., phase = 0, show_plots = 1, **args)
+    args["bad_pixel_rate"] = 0.0
 
 
     for redshift in [0.5, 1.0, 1.5]:

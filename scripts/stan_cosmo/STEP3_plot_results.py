@@ -313,7 +313,7 @@ def get_dmu_from_param(stan_data, fit_params, param):
 
 def plot_d_mu_d_all_by_z(other_inputs, stan_data, fit_params):
 
-    plt.figure(figsize = (8, 12))
+    plt.figure(figsize = (16, 12))
 
     plot_params = [
         ["dsys"],
@@ -336,7 +336,7 @@ def plot_d_mu_d_all_by_z(other_inputs, stan_data, fit_params):
     ylim = [10000, -10000]
 
     for i in range(len(plot_params)):
-        plt.subplot(len(plot_params), 1, i+1)
+        plt.subplot(len(plot_params), 2, 2*i+1)
         running_count = 0
         labeled_items = []
 
@@ -364,12 +364,39 @@ def plot_d_mu_d_all_by_z(other_inputs, stan_data, fit_params):
         ylim[1] = max(plt.ylim()[1], ylim[1])
     
     for i in range(len(plot_params)):
-        plt.subplot(len(plot_params), 1, i+1)
+        plt.subplot(len(plot_params), 2, 2*i+1)
         plt.ylim(ylim)
+
+
+
+        toplot = loadtxt("../onesigmadrifts.txt")
+        print "toplot", toplot.shape
+
+    plt.subplot(1, 2, 2)
+    try:
+        toplot = loadtxt("../onesigmadrifts.txt")
+        print "toplot", toplot.shape
+    except:
+        toplot = None
+
+    if toplot != None:
+        for i in range(1, len(toplot[0])):
+            plt.plot(toplot[:,0], toplot[:,i], label = "Neglect Component %i" % i)
+    plt.legend(fontsize = 10, loc = 'upper left')
+    plt.xlabel("Redshift")
+    plt.ylabel("Effect on Distance Modulus (mag)")
+    plt.xlim(0, 1.8)
+    plt.ylim(-0.011, 0.011)
+
+    print "Now here"
+    plt.yticks(arange(-0.01, 0.0101, 0.002))
+    print "Finally here"
+
+    plt.title("Principal Components if Neglected")
 
     plt.savefig("all_dmu.eps", bbox_inches = 'tight')
     plt.close()
-    fldksjaflsdjk
+    
 
 
 def plot_EBV_err(fit_params):

@@ -1,5 +1,7 @@
 from numpy import *
 from astropy.cosmology import FlatLambdaCDM
+from matplotlib import use
+use("PDF")
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
 from scipy.interpolate import interp1d
@@ -408,6 +410,26 @@ def run_observation_through_ETC(SN_data, row_to_add, current_date):
             SN_data["SN_observations"][ind]["filts"] = append(SN_data["SN_observations"][ind]["filts"], row_to_add["filt"])
             SN_data["SN_observations"][ind]["ispar"] = append(SN_data["SN_observations"][ind]["ispar"], row_to_add["SNind"] > -1)
 
+
+    in_pointing_mask = inside_field(SN_RAs = SN_data["test_points"][0]["RAs"],
+                                    SN_decs = SN_data["test_points"][0]["Decs"],
+                                    WFI_RA = row_to_add["RA"],
+                                    WFI_dec = row_to_add["dec"],
+                                    WFI_orient = row_to_add["orient"])
+    
+    inds = where(in_pointing_mask)
+    for ind in inds[0]:
+        f_lamb_SN = 0.10884806248*10.**(-0.4*SN_data["test_points"][0]["Mags"][ind]) /(WFI_args["waves"]**2.)
+
+        WFI_args["mdl"] = f_lamb_SN
+
+        ETC_result = get_imaging_SN(redshift = 0, exp_time = row_to_add["exptime"], gal_flamb = lambda x:0,
+                                    effective_meters2_fl = WFI_filt_fns[row_to_add["filt"]], phase = 0,
+                                    offset_par = random.random()*22, offset_perp = random.random()*22, **WFI_args)
+
+        SNR_total = ETC_result["PSF_phot_S/N"]
+        SN_data["test_points"][0]["Observations"][ind][row_to_add["filt"]].append(SNR_total)
+    
 
     if row_to_add["SNind"] > -1:
         # If IFS observation:
@@ -1289,9 +1311,31 @@ def make_SNe(square_degrees, cadence, survey_duration, rates_fn, redshift_set, I
     RAs = rs*cos(thetas)
     Decs = rs*sin(thetas)
 
+
+    rs = sqrt(random.random(size = 10))*sqrt(square_degrees/pi)
+    thetas = random.random(size = 10)*2*pi
+        
+    test_RAs = rs*cos(thetas)
+    test_Decs = rs*sin(thetas)
+    test_Mags = arange(24., 30.1, 0.4)
+
+    test_points = {"RAs": [], "Decs": [], "Mags": [], "Observations": []}
+    for i in range(len(test_Mags)):
+        test_points["RAs"].extend(test_RAs)
+        test_points["Decs"].extend(test_Decs)
+        test_points["Mags"].extend([test_Mags[i]]*len(test_RAs))
+        for j in range(len(test_RAs)):
+            test_points["Observations"].append({})
+            for filt in WFI_filt_fns:
+                test_points["Observations"][-1][filt] = []
+
+    for key in ["RAs", "Decs"]:
+        test_points[key] = array(test_points[key])
+
+
     SN_data = {"nsne": nsne, "SN_table": Table([redshifts, RAs, Decs, daymaxes, [survey_fields]*nsne],
                                                names = ["redshifts", "RAs", "Decs", "daymaxes", "survey_fields"],
-                                               dtype= ("f8", "f8", "f8", "f8", "S20")), "SN_observations": []}
+                                               dtype= ("f8", "f8", "f8", "f8", "S20")), "SN_observations": [], "test_points": [test_points]}
 
     print "Getting SNCosmo models..."
     # I'm going to put the SN LC information into the per-SN dictionary list, as it needs to contain items like an SNCosmo model
@@ -1348,6 +1392,9 @@ def merge_SN_data(SN_data, this_SN_data):
 
         print "Merging observation_table"
         SN_data["observation_table"] = vstack([SN_data["observation_table"], this_SN_data["observation_table"]])
+
+        SN_data["test_points"].extend(this_SN_data["test_points"])
+
     return SN_data
 
 ################################################### Starting here ###################################################
