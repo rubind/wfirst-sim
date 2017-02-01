@@ -369,7 +369,7 @@ def plot_d_mu_d_all_by_z(other_inputs, stan_data, fit_params):
 
     plt.savefig("all_dmu.eps", bbox_inches = 'tight')
     plt.close()
-    fldksjaflsdjk
+    
 
 
 def plot_EBV_err(fit_params):
