@@ -71,7 +71,7 @@ def make_param_file(flname, spec_SNR, square_degrees, max_z, spectra_depth_and_p
     f = open(flname, 'w')
     f.write("total_survey_time,%.2f\n" % survey_time)
     f.write("survey_duration,2.5\n") # Separate from how long the survey actually takes. This is the maximum!
-
+    f.write("hours_per_visit,15.\n")
     f.write("maximum_trigger_fraction,0.9\n")					
     f.write("adjust_each_SN_exp_time,FALSE\n")					
     f.write("normalization_wavelength_range,5000,6000\n")
@@ -136,12 +136,16 @@ def make_param_file(flname, spec_SNR, square_degrees, max_z, spectra_depth_and_p
     f.write("cadence,5\n")
     f.write("dithers_per_filter," + ",".join(dithers_per_filter) + "\n")
 
-    if max_z < 0.81:
-        trigger_redshifts = [0, max_z, max_z+0.01, 3]
-        trigger_fraction = [1, 1, 0, 0]
+    if spec_SNR == None:
+        trigger_redshifts = [0, 0.01, 3]
+        trigger_fraction = [1, 0, 0]
     else:
-        trigger_redshifts = [0, 0.8, 0.81, max_z, max_z+0.01, 3]
-        trigger_fraction = [1, 1, 0.5, 0.5, 0, 0]
+        if max_z < 0.81:
+            trigger_redshifts = [0, max_z, max_z+0.01, 3]
+            trigger_fraction = [1, 1, 0, 0]
+        else:
+            trigger_redshifts = [0, 0.8, 0.81, max_z, max_z+0.01, 3]
+            trigger_fraction = [1, 1, 0.5, 0.5, 0, 0]
 
     trigger_redshifts = ["%.2f" % item for item in trigger_redshifts]
     trigger_fraction = ["%.2f" % item for item in trigger_fraction]
@@ -151,7 +155,7 @@ def make_param_file(flname, spec_SNR, square_degrees, max_z, spectra_depth_and_p
 
         
     f.close()
-    print commands.getoutput("sbatch " + working_dir + "/survey.sh")
+    #print commands.getoutput("sbatch " + working_dir + "/survey.sh")
 
 
 def lnspace(start, stop, samples):
@@ -165,8 +169,8 @@ def get_combinations():
 
     for max_z in [0.8, 1.2, 1.7]:
         for spec_SNR in ([3.5*sqrt(15.), 6*sqrt(15.), 10.*sqrt(15), sqrt(136.*15.)], None):
-            for include_f184_for_08 in [0] + [1]*(max_z == 0.8):
-                for deg_scale in [0.7] + [0.8, 0.9]*(spec_SNR != None):
+            for include_f184_for_08 in [1] + [0]*(max_z == 0.8):
+                for deg_scale in [1.0] + [0.7, 0.8, 0.9]*(spec_SNR != None):
                     try:
                         spec_SNR[2]
                         spec_SNR = ["%.2f" % item for item in spec_SNR]
@@ -199,7 +203,8 @@ def get_combinations():
                     print "square_degrees", params["square_degrees"], max_z, include_f184_for_08
 
 
-                    params_list.append(params)
+                    if params_list.count(params) == 0:
+                        params_list.append(params)
 
     return params_list
 
@@ -208,13 +213,14 @@ params_list = get_combinations()
 
 
 commands.getoutput("rm -f slurm-*.out")
-commands.getoutput("rm -fr " + sys.argv[1])
+print "Make sure directory is empty!"
+
 
 
 print "Ready to start..."
 
 thecount = 1
 for params in params_list:
-    make_param_file(sys.argv[1] + "/survey_%05i/paramfile_%05i.csv" % (thecount, thecount), **params)
+    make_param_file(sys.argv[1] + "/survey_sqdeg=%.1f_z=%.2f_F184=%i_sp=%i/paramfile_%05i.csv" % (params["square_degrees"], params["max_z"], params["include_f184_for_08"], params["spec_SNR"] != None, thecount), **params)
     thecount += 1
 

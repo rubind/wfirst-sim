@@ -86,7 +86,7 @@ def read_csv(csv_file):
     survey_parameters = {}
 
     # Start with global parameters
-    for key in ["total_survey_time", "survey_duration", "maximum_trigger_fraction", "shallow_SNR", "medium_SNR", "deep_SNR", "reference_SNR", "number_of_reference_dithers", "SN_rates",
+    for key in ["total_survey_time", "survey_duration", "hours_per_visit", "maximum_trigger_fraction", "shallow_SNR", "medium_SNR", "deep_SNR", "reference_SNR", "number_of_reference_dithers", "SN_rates",
                 "slew_table", "zodiacal_background", "telescope_temperature", "PSFs", "interpixel_capacitance",
                 "WFI_dark_current",
                 "IFU_min_wave", "IFU_max_wave", "IFU_effective_area", "IFU_resolution", "IFU_pixel_scale", "IFU_slice_in_pixels", "IFU_dark_current", "IFU_read_noise_floor", "bad_pixel_rate"]:
@@ -1169,7 +1169,7 @@ def plan_and_add_WFI_cadence_rectangle(SN_data, current_date, rows_to_add,
     return rows_to_add
 
 
-def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, ground_depths, dithers, cadence, fraction_time, total_survey_time, IFS_trigger_params, parallel_filters, survey_duration):
+def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, ground_depths, dithers, cadence, fraction_time, total_survey_time, hours_per_visit, IFS_trigger_params, parallel_filters, survey_duration):
 
     starting_time = 31557000*total_survey_time*fraction_time  # Seconds in total_survey_time years
     total_time_left = starting_time
@@ -1250,7 +1250,7 @@ def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, ground_dept
         if current_date > 10*cadence:
             # Let's take a look at the last five steps
             time_in_last_five = SN_data["time_remaining_values"][0][-6][1] - SN_data["time_remaining_values"][0][-1][1]
-            relative_time_scaling = 30.*fraction_time*3600*5./(time_in_last_five)
+            relative_time_scaling = hours_per_visit*fraction_time*3600*5./(time_in_last_five)
 
             current_trigger_scaling = relative_time_scaling*mean([SN_data["time_remaining_values"][0][i][3] for i in range(-6, 0)])
 
@@ -1267,7 +1267,7 @@ def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, ground_dept
 
 
 
-def make_SNe(square_degrees, cadence, survey_duration, rates_fn, redshift_set, IFS_trigger_params, tier_filters, tier_exptimes, ground_depths, dithers, parallel_filters,
+def make_SNe(square_degrees, cadence, survey_duration, hours_per_visit, rates_fn, redshift_set, IFS_trigger_params, tier_filters, tier_exptimes, ground_depths, dithers, parallel_filters,
              fraction_time, total_survey_time, redshift_step = 0.05, salt2_model = True, verbose = False, phase_buffer = 20, survey_fields = "None"):
     assert square_degrees < 500, "Should use more accurate formula for large surveys!"
 
@@ -1317,7 +1317,7 @@ def make_SNe(square_degrees, cadence, survey_duration, rates_fn, redshift_set, I
         
     test_RAs = rs*cos(thetas)
     test_Decs = rs*sin(thetas)
-    test_Mags = arange(24., 30.1, 0.4)
+    test_Mags = arange(24., 31.1, 0.4)
 
     test_points = {"RAs": [], "Decs": [], "Mags": [], "Observations": []}
     for i in range(len(test_Mags)):
@@ -1364,7 +1364,8 @@ def make_SNe(square_degrees, cadence, survey_duration, rates_fn, redshift_set, I
 
         SN_data = run_survey(SN_data = SN_data, square_degrees = square_degrees, tier_filters = tier_filters, tier_exptimes = tier_exptimes,
                              ground_depths = ground_depths, dithers = dithers, cadence = cadence,
-                             fraction_time = fraction_time, total_survey_time = total_survey_time, IFS_trigger_params = IFS_trigger_params, parallel_filters = parallel_filters, survey_duration = survey_duration)
+                             fraction_time = fraction_time, total_survey_time = total_survey_time, hours_per_visit = hours_per_visit,
+                             IFS_trigger_params = IFS_trigger_params, parallel_filters = parallel_filters, survey_duration = survey_duration)
     return SN_data
 
 def merge_SN_data(SN_data, this_SN_data):
@@ -1484,6 +1485,7 @@ for i in range(len(survey_parameters["tier_parameters"]["tier_name"])):
 
     this_SN_data = make_SNe(square_degrees = survey_parameters["tier_parameters"]["square_degrees"][i],
                             cadence = survey_parameters["tier_parameters"]["cadence"][i],
+                            hours_per_visit = survey_parameters["hours_per_visit"],
                             survey_duration = survey_parameters["survey_duration"], rates_fn = rates_fn,
                             redshift_set = redshift_set,
                             IFS_trigger_params = IFS_trigger_params,
