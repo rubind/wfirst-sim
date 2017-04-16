@@ -1,0 +1,48 @@
+suffix		"default"
+
+###################################### Mission Parameters ######################################
+z_list          [5,     15, 25,  35,  45,  55,  65,  75,  85,  95,  105, 115, 125, 135, 145, 155, 165]
+
+
+####exp_times	[93.67687688,  155.22362744,  246.08409713,  382.07825157,  550.90555912,   647.62593807,  748.45926765,   833.52902407,   999.16089141,  1234.79133864, 1460.22952677,  1739.01507888,  2052.89638304,  2342.86462986,  2611.30563684,  2739.9026835]
+		# In units of 0.01 redshift
+
+NSNe          	NNNNN
+		# SNe per redshift bin
+
+min_wavelength	   4200.		# All numbers in Angstroms, supernovae z < 0.1 are assumed ground-observed
+max_wavelength	   20000.
+min_ground_wavelength	3300.
+max_ground_wavelength	10000.
+
+min_rest_wavelength	3000.
+max_rest_wavelength	10000.
+
+
+###################################### Dispersions ######################################
+HD_RMS  	[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+		      	    # In magnitudes. The amount of dispersion not related to color or spectral feature variation
+HD_lensing	0.07 	    # For convenience, (this number * redshift) is added in quadrature to the HD_RMS number
+v_pec		300.	    # For convenience, (5/log(10))*(this number/299792.458/redshift) is added in quadrature to the HD_RMS number
+
+###################################### Astrophysics ######################################
+R_V		3.1						# R_V for color variations not related to spectral features
+
+spectral_feature_names	       	    ["UV", "CaII", "SiII"]	# Spectral features to fit for. All are assumed Gaussian.
+spectral_feature_wavelengths	    [3200, 3750, 6130]
+spectral_feature_widths		    [200, 50, 70]		
+spectral_feature_correction_slopes  [0.2, 0.2, 0.2]		# These slopes are magnitudes supernova brightness/magnitude spectral feature.
+				    	    	 		# Larger numbers mean more correction.
+								# Smaller numbers imply spectral feature variation without brightness differences.
+
+###################################### Calibration ######################################
+ZP_slope	0.005     # Fundamental Calibration in Units of Magnitudes/Micron. Note: ACCESS spans 1.35 microns
+ZP_indep	0.005	  # Conservatively assume that each wavelength element can only be calibrated to this value in accuracy.
+ZP_ground_to_space  0.002		   # Assume that the space and ground calibrations can only be combined to this accuracy.
+ZP_dex    0.002
+
+###################################### Definition of Mean ######################################
+
+mean_norm       0.0001     # These parameters determine the mean, unreddened, mean-spectral-feature SED
+EBV_norm	0.0001
+feature_norm	0.0001
