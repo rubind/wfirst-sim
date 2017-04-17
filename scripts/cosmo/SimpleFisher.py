@@ -82,8 +82,10 @@ def get_params(the_file, PSFs = None):
         else:
 
             if params["exp_times"] == None:
-                exp_time = solve_for_exptime(10., redshift, PSFs, key1 = "obs_frame", key2 = (10200, 12850), pixel_scale = 0.05, slice_scale = 0.15,
-                                             source_dir = wfirst_data_path + "/pixel-level/input/", IFURfl = "IFU_R_Content.txt", min_wave = params["min_wavelength"], max_wave = params["max_wavelength"])
+                exp_time = solve_for_exptime(10., redshift, PSFs, key1 = "rest_frame_band_S/N", key2 = (5000, 6000),
+                                             pixel_scale = 0.05, slice_scale = 0.15,
+                                             source_dir = wfirst_data_path + "/pixel-level/input/",
+                                             IFURfl = "IFU_R_160720.txt", min_wave = params["min_wavelength"], max_wave = params["max_wavelength"])
             else:
                 exp_time = params["exp_times"][i-1]
             
