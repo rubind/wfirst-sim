@@ -187,7 +187,7 @@ def FoM_bin_w(z_list, muCmat, bins = [0., 0.5, 1.0], shift_param_constraint = 0.
 
     print sqrt(diag(paramcmat)), "%.2g " % FoM
 
-    return sqrt(diag(paramcmat)), FoM
+    return FoM, sqrt(diag(paramcmat))
 
 
 def binned_rho_rho(z, zbins, rhobins):
@@ -263,7 +263,7 @@ def FoM_bin_rho(z_list, muCmat, bins = [0., 0.5, 1.0], shift_param_constraint = 
     
     print sqrt(diag(paramcmat)), "%.2g " % FoM
 
-    return sqrt(diag(paramcmat)), FoM
+    return FoM, sqrt(diag(paramcmat))
 
 
 """
