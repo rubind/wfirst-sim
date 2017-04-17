@@ -2,7 +2,7 @@ from copy import deepcopy
 from numpy import *
 from DavidsNM import miniLM_new, save_img
 from scipy.interpolate import interp1d
-from astro_functions import CCM, get_FoM, write_Cmat
+from astro_functions import CCM, get_FoM, FoM_bin_w, write_Cmat
 import sys
 from string import strip
 from FileRead import readcol
@@ -364,7 +364,11 @@ def run_FoM(paramfl, PSFs = None):
     assert abs(test_inv - identity(len(test_inv))).max() < 1.e-6, "Inversion problem!"
 
     sn_Cmat = Cmat[:len(params["z_list"]), :len(params["z_list"])]
-    FoM, uncertainties = get_FoM(sn_Cmat, params["z_list"], zp = 0.3)
+    
+    if params["FoM_type"] == ["DETF"]:
+        FoM, uncertainties = get_FoM(sn_Cmat, params["z_list"], zp = 0.3)
+    elif params["FoM_type"] == ["Binw"]:
+        FoM, uncertainties = FoM_bin_w(params["z_list"], sn_Cmat, bins = [0.15, 0.5])
     print "FoM", FoM
     return FoM
 
