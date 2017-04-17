@@ -11,18 +11,18 @@ NSNe          	NNNNN
 		# SNe per redshift bin
 
 min_wavelength	   4200.		# All numbers in Angstroms, supernovae z < 0.1 are assumed ground-observed
-max_wavelength	   20000.
+max_wavelength	   21000.
 min_ground_wavelength	3300.
 max_ground_wavelength	10000.
 
-min_rest_wavelength	3000.
-max_rest_wavelength	10000.
+min_rest_wavelength	3300.
+max_rest_wavelength	8600.
 
 
 ###################################### Dispersions ######################################
 HD_RMS  	[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
 		      	    # In magnitudes. The amount of dispersion not related to color or spectral feature variation
-HD_lensing	0.07 	    # For convenience, (this number * redshift) is added in quadrature to the HD_RMS number
+HD_lensing	0.055 	    # For convenience, (this number * redshift) is added in quadrature to the HD_RMS number
 v_pec		300.	    # For convenience, (5/log(10))*(this number/299792.458/redshift) is added in quadrature to the HD_RMS number
 
 ###################################### Astrophysics ######################################

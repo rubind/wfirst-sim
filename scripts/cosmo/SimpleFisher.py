@@ -9,13 +9,13 @@ from FileRead import readcol
 import matplotlib.pyplot as plt
 sys.path.append("../pixel-level/")
 sys.path.append("../../pixel-level/")
-from pixel_level_ETC import get_spec_with_err, initialize_PSFs, solve_for_exptime
+from pixel_level_ETC2 import get_spec_with_err, initialize_PSFs, solve_for_exptime
 plt.rcParams["font.family"] = "serif"
-
+import os
 wfirst_data_path = os.environ["WFIRST_SIM_DATA"]
 
 ####################################################### Initialize Parameters ########################################################
-def get_params(the_file):
+def get_params(the_file, PSFs = None):
     f = open(the_file)
     lines = f.read().split('\n')
     f.close()
@@ -43,7 +43,8 @@ def get_params(the_file):
     min_log_restlamb = 1.e10
     max_log_restlamb = -1.e10
     
-    PSFs = initialize_PSFs(scales = [15, 30], PSF_source = "AiryObstruct", path = wfirst_data_path + "/pixel-level/")
+    if PSFs == None:
+        PSFs = initialize_PSFs(pixel_scales = [10], slice_scales = [30], PSF_source = "WebbPSF", path = wfirst_data_path + "/pixel-level/")
 
     params["weight_in_mags"] = array([], dtype=float64)
     params["redshift_vect"] = array([], dtype=float64)
@@ -74,19 +75,19 @@ def get_params(the_file):
             params["rest_lambs"] = concatenate((params["rest_lambs"], obs_waves[good_inds]/(1. + redshift)))
             params["indices"] = concatenate((params["indices"], zeros(nwave, dtype=int32)))
 
-            nearby_SN_e_per_sec = get_spec_with_err(redshift, 1., phase = 0, gal_norm = 0., pixel_scale = 0.15, slice_in_pixels = 1,
+            nearby_SN_e_per_sec = get_spec_with_err(redshift, 1., phase = 0, gal_flamb = lambda x:0., pixel_scale = 0.05, slice_scale = 0.15,
                                                     show_plots = 0, IFURfl = "IFU_R_Content.txt", min_wave = params["min_wavelength"], max_wave = params["max_wavelength"], PSFs = PSFs,
                                                     source_dir = wfirst_data_path + "/pixel-level/input/")["PSF_wghtd_e_SN"]
 
         else:
 
             if params["exp_times"] == None:
-                exp_time = solve_for_exptime(10., redshift, PSFs, key1 = "obs_frame", key2 = (10200, 12850), pixel_scale = 0.15, slice_in_pixels = 1,
+                exp_time = solve_for_exptime(10., redshift, PSFs, key1 = "obs_frame", key2 = (10200, 12850), pixel_scale = 0.05, slice_scale = 0.15,
                                              source_dir = wfirst_data_path + "/pixel-level/input/", IFURfl = "IFU_R_Content.txt", min_wave = params["min_wavelength"], max_wave = params["max_wavelength"])
             else:
                 exp_time = params["exp_times"][i-1]
             
-            signal_to_noises = get_spec_with_err(redshift, exp_time, phase = 0, gal_norm = 0., pixel_scale = 0.15, slice_in_pixels = 1,
+            signal_to_noises = get_spec_with_err(redshift, exp_time, phase = 0, gal_flamb = lambda x:0., pixel_scale = 0.05, slice_scale = 0.15,
                                                  show_plots = 0, IFURfl = "IFU_R_Content.txt", min_wave = params["min_wavelength"], max_wave = params["max_wavelength"], PSFs = PSFs,
                                                  source_dir = wfirst_data_path + "/pixel-level/input/")
             
@@ -163,7 +164,7 @@ def parseP(P, params):
 
 ####################################################### Parse Dict to Vector  ########################################################
 
-def unparseP(parsed):
+def unparseP(parsed, params):
     P = concatenate((parsed["mag"], parsed["mag_nuisance"], parsed["EBV"]))
     
     for spectral_feature_name in params["spectral_feature_names"]:
@@ -233,14 +234,25 @@ def residfn(P, wrapped):
 
     parsed = parseP(P, params)
     model, HD_RMSs = modelfn(parsed, params)
-    
+    #print model
+
     pulls = model*sqrt(params["weight_in_mags"])
+    assert all(1 - isnan(pulls)), "1"
 
     pulls = append(pulls, parsed["mag_nuisance"]/HD_RMSs)
-    
+    assert all(1 - isnan(pulls)), "2"
+
     pulls = append(pulls, parsed["ZP_indep"]/params["ZP_indep"])
+    assert all(1 - isnan(pulls)), "3"
+
     pulls = append(pulls, parsed["ZP_slope"]/params["ZP_slope"])
+    assert all(1 - isnan(pulls)), "4"
+
+
     pulls = append(pulls, parsed["ZP_ground_to_space"]/params["ZP_ground_to_space"])
+
+    assert all(1 - isnan(pulls)), "5"
+
     pulls = append(pulls, parsed["ZP_dex"]/params["ZP_dex"])
 
     pulls = append(pulls, parsed["mean"].sum() / params["mean_norm"])
@@ -250,43 +262,10 @@ def residfn(P, wrapped):
     for this_wavelength, this_width in zip(params["spectral_feature_wavelengths"], params["spectral_feature_widths"]):
         pulls = append(pulls, dot(exp(-0.5*(params["model_rest_lambs"] - this_wavelength)**2. / this_width**2.), parsed["mean"])/params["feature_norm"])
 
-    print "pull"
+    #print "pull"
     return pulls
 
-
-####################################################### Main ########################################################
-
-
-params = get_params(sys.argv[1])
-show_plots = 0
-
-ministart = {"mag": [0]*params["n_redshift"], "mag_nuisance": [0]*params["n_redshift"],
-             "EBV": [0]*params["n_redshift"], "mean": [0]*params["n_restlambs"],
-             "ZP_indep": [0]*params["n_obslambs"], "ZP_slope": 0, "ZP_ground_to_space": 0,
-             "ZP_dex": [0]*(params["n_dex"] + 1)
-             }
-
-for spectral_feature_name in params["spectral_feature_names"]:
-    ministart[spectral_feature_name] = [0,0,0]
-
-print ministart
-
-
-
-ministart = unparseP(ministart)
-print ministart
-miniscale = ministart + 1.
-
-
-NA, NA, Cmat = miniLM_new(ministart = ministart, miniscale = miniscale, passdata = params, residfn = residfn, verbose = True, maxiter = 1)
-if show_plots:
-    save_img(Cmat, "Cmat.fits")
-
-errs = sqrt(diag(Cmat))
-
-parsed_errs = parseP(errs, params)
-
-if show_plots:
+def plot_summ():
     plt.figure(figsize = (8, len(parsed_errs.keys())*3))
 
     for i, key in enumerate(parsed_errs):
@@ -320,45 +299,77 @@ if show_plots:
         plt.yticks(size = 7)
     plt.savefig("errs.pdf")
 
+    cor_mat = zeros(Cmat.shape, dtype=float64)
+    for i in range(len(Cmat)):
+        for j in range(i, len(Cmat)):
+            cor_mat[i,j] = Cmat[i,j]/sqrt(Cmat[i,i]*Cmat[j,j])
+            cor_mat[j,i] = cor_mat[i,j]
 
-
-cor_mat = zeros(Cmat.shape, dtype=float64)
-for i in range(len(Cmat)):
-    for j in range(i, len(Cmat)):
-        cor_mat[i,j] = Cmat[i,j]/sqrt(Cmat[i,i]*Cmat[j,j])
-        cor_mat[j,i] = cor_mat[i,j]
-
-if show_plots:
     save_img(cor_mat, "cor_mat.fits")
-    
-test_inv = dot(Cmat, linalg.inv(Cmat))
-print "Inverse Test", abs(test_inv - identity(len(test_inv))).max()
-assert abs(test_inv - identity(len(test_inv))).max() < 1.e-6, "Inversion problem!"
 
-sn_Cmat = Cmat[:len(params["z_list"]), :len(params["z_list"])]
+    #plt.figure(figsize = (8,4))
+    #plt.subplot(1,2,1)
+    plt.imshow(sn_Cmat, interpolation = 'nearest', origin = 'lower', cmap=plt.get_cmap('Greys'), aspect = 'equal')
+    #plt.colorbar()
+    plt.xticks([0,5,10,15], ["0.05", "0.55", "1.05", "1.55"])
+    #plt.xticklabels(["0.05", "0.55", "1.05", "1.55"])
+    plt.yticks([0,5,10,15], ["0.05", "0.55", "1.05", "1.55"])
+    #plt.yicklabels(["0.05", "0.55", "1.05", "1.55"])
+    #plt.subplot(1,2,2)
+    #plt.plot(params["z_list"], sqrt(diag(sn_Cmat)*params["NSNe"]), color = 'k')
+    #plt.xlabel("Redshift")
+    #plt.ylabel("Total Distance Modulus Uncertainty per SN")
+    plt.title("Estimated Covariance Matrix, Binned in Redshift")
+    plt.xlabel("Redshift")
+    plt.ylabel("Redshift")
 
-#plt.figure(figsize = (8,4))
-#plt.subplot(1,2,1)
-plt.imshow(sn_Cmat, interpolation = 'nearest', origin = 'lower', cmap=plt.get_cmap('Greys'), aspect = 'equal')
-#plt.colorbar()
-plt.xticks([0,5,10,15], ["0.05", "0.55", "1.05", "1.55"])
-#plt.xticklabels(["0.05", "0.55", "1.05", "1.55"])
-plt.yticks([0,5,10,15], ["0.05", "0.55", "1.05", "1.55"])
-#plt.yicklabels(["0.05", "0.55", "1.05", "1.55"])
-#plt.subplot(1,2,2)
-#plt.plot(params["z_list"], sqrt(diag(sn_Cmat)*params["NSNe"]), color = 'k')
-#plt.xlabel("Redshift")
-#plt.ylabel("Total Distance Modulus Uncertainty per SN")
-plt.title("Estimated Covariance Matrix, Binned in Redshift")
-plt.xlabel("Redshift")
-plt.ylabel("Redshift")
+    plt.savefig("Cmat.eps", bbox_inches = 'tight')
 
-plt.savefig("Cmat.eps", bbox_inches = 'tight')
-#for zp in arange(0, 1.001, 0.05): 
-FoM, uncertainties = get_FoM(sn_Cmat, params["z_list"], zp = 0.3)
-print "FoM", FoM
-#    print "zp, uncertainties ", zp, " ".join([str(item) for item in uncertainties])
-
-if show_plots:
     write_Cmat(params["orig_lines"], sn_Cmat, FoM, flname = "Cmat_" + params["suffix"] + ".txt")
 
+def run_FoM(paramfl, PSFs = None):
+    params = get_params(paramfl, PSFs)
+
+    show_plots = 0
+
+    ministart = {"mag": [0]*params["n_redshift"], "mag_nuisance": [0]*params["n_redshift"],
+                 "EBV": [0]*params["n_redshift"], "mean": [0]*params["n_restlambs"],
+                 "ZP_indep": [0]*params["n_obslambs"], "ZP_slope": 0, "ZP_ground_to_space": 0,
+                 "ZP_dex": [0]*(params["n_dex"] + 1)
+                 }
+
+    for spectral_feature_name in params["spectral_feature_names"]:
+        ministart[spectral_feature_name] = [0,0,0]
+
+    print ministart
+
+
+
+    ministart = unparseP(ministart, params)
+    print ministart
+    miniscale = ministart + 1.
+
+
+    NA, NA, Cmat = miniLM_new(ministart = ministart, miniscale = miniscale, passdata = params, residfn = residfn, verbose = False, maxiter = 1)
+    if show_plots:
+        save_img(Cmat, "Cmat.fits")
+
+    errs = sqrt(diag(Cmat))
+
+    parsed_errs = parseP(errs, params)
+
+
+    test_inv = dot(Cmat, linalg.inv(Cmat))
+    print "Inverse Test", abs(test_inv - identity(len(test_inv))).max()
+    assert abs(test_inv - identity(len(test_inv))).max() < 1.e-6, "Inversion problem!"
+
+    sn_Cmat = Cmat[:len(params["z_list"]), :len(params["z_list"])]
+    FoM, uncertainties = get_FoM(sn_Cmat, params["z_list"], zp = 0.3)
+    print "FoM", FoM
+    return FoM
+
+
+####################################################### Main ########################################################
+
+if __name__ == "__main__":
+    run_FoM(sys.argv[1])
