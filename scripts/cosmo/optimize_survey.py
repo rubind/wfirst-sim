@@ -2,8 +2,8 @@ from numpy import *
 from DavidsNM import miniNM_new
 import matplotlib.pyplot as plt
 import sys
-sys.path.append("../pixel-level/")
 import os
+sys.path.append(os.environ['WFIRST'] + "/scripts/pixel-level/")
 from pixel_level_ETC2 import get_spec_with_err, initialize_PSFs, solve_for_exptime
 from scipy.interpolate import interp1d
 from SimpleFisher import run_FoM
@@ -30,9 +30,9 @@ def search_time(z):
     return interp1d([0.,
                      0.8,
                      1.7],
-                    [18.*2 + 70*2.,
-                     67.*2 + 70*2.,
-                     265.*2 + 70.*2], kind = 'linear')(z)
+                    [18.*2 + slew_time*2.,
+                     67.*2 + slew_time*2.,
+                     265.*2 + slew_time*2.], kind = 'linear')(z)
 
 
 def supernova_survey_time(redshifts, sn_counts, verbose = False):
@@ -89,7 +89,7 @@ def chi2fn(new_guess, NA):
 
     return -FoM
 
-
+slew_time = float(sys.argv[1])
 
 find_from_ground = 0
 
@@ -97,13 +97,13 @@ f = open("paramfile_wrap.txt")
 orig_lines = f.read()
 f.close()
 
-PSFs = initialize_PSFs(pixel_scales = [10], slice_scales = [30], PSF_source = "WebbPSF", path = "../pixel-level/")
+PSFs = initialize_PSFs(pixel_scales = [10], slice_scales = [30], PSF_source = "WebbPSF")
 redshifts = arange(0.15, 1.66, 0.1)
 exp_times = []
 for redshift in redshifts:
     exp_time = solve_for_exptime(10., redshift, PSFs, key1 = "obs_frame", key2 = (10200, 12850), pixel_scale = 0.05, slice_scale = 0.15,
-                                 source_dir = "../pixel-level/input/", IFURfl = "IFU_R_160720.txt", min_wave = 4200.)*3
-    exp_time += 70.*6 # 6 visits; 1+1 + 4-point ref
+                                 source_dir = os.environ["WFIRST_SIM_DATA"] + "/pixel-level/input/", IFURfl = "IFU_R_160720.txt", min_wave = 4200.)*3
+    exp_time += slew_time*6. # 6 visits; 1+1 + 4-point ref
     exp_times.append(exp_time)
 
 exp_times = array(exp_times)
@@ -114,7 +114,10 @@ plt.plot(redshifts, exp_times)
 plt.savefig("exptime_vs_z.pdf")
 plt.close()
 
-initial_guess = ones(16.) #array([69, 208, 402, 223, 327, 136, 136, 136, 136, 136, 136, 136, 136, 136, 136, 136.])
+if sys.argv[2] == "1":
+    initial_guess = array([69, 208, 402, 223, 327, 136, 136, 136, 136, 136, 136, 136, 136, 136, 136, 136.])
+elif sys.argv[2] == "0":
+    initial_guess = ones(16, dtype=float64)
 
 total_time = 15778463.04
 
