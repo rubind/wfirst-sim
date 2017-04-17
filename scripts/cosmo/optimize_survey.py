@@ -80,6 +80,7 @@ def chi2fn(new_guess, NA):
     print "scaled ", list(scaled_guess)
     
     lines = orig_lines.replace("NNNNN", str([800.] + list(scaled_guess)))
+    lines = orig_lines.replace("FFFFF", '["' + str(sys.argv[3]) + '"]')
     f = open("paramfile_tmp.txt", 'w')
     f.write(lines)
     f.close()
