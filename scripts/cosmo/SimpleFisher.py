@@ -6,6 +6,8 @@ from astro_functions import CCM, get_FoM, FoM_bin_w, write_Cmat
 import sys
 from string import strip
 from FileRead import readcol
+from matplotlib import use
+use("PDF")
 import matplotlib.pyplot as plt
 sys.path.append("../pixel-level/")
 sys.path.append("../../pixel-level/")
@@ -367,10 +369,10 @@ def run_FoM(paramfl, PSFs = None):
 
     sn_Cmat = Cmat[:len(params["z_list"]), :len(params["z_list"])]
     
-    if params["FoM_type"] == ["DETF"]:
+    if params["FoM_type"][0] == "DETF":
         FoM, uncertainties = get_FoM(sn_Cmat, params["z_list"], zp = 0.3)
-    elif params["FoM_type"] == ["Binw"]:
-        FoM, uncertainties = FoM_bin_w(params["z_list"], sn_Cmat, bins = [0.15, 0.5])
+    elif params["FoM_type"][0] == "Binw":
+        FoM, uncertainties = FoM_bin_w(params["z_list"], sn_Cmat, bins = params["FoM_type"][1:])
     print "FoM", FoM
     return FoM
 
