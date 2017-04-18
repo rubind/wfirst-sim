@@ -1,5 +1,7 @@
 from numpy import *
 from DavidsNM import miniNM_new
+from matplotlib import use
+use("PDF")
 import matplotlib.pyplot as plt
 import sys
 import os
@@ -80,7 +82,7 @@ def chi2fn(new_guess, NA):
     print "scaled ", list(scaled_guess)
     
     lines = orig_lines.replace("NNNNN", str([800.] + list(scaled_guess)))
-    lines = orig_lines.replace("FFFFF", sys.argv[3])
+    lines = lines.replace("FFFFF", sys.argv[3])
     f = open("paramfile_tmp.txt", 'w')
     f.write(lines)
     f.close()
