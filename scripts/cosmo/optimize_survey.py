@@ -82,7 +82,7 @@ def chi2fn(new_guess, NA):
     print "scaled ", list(scaled_guess)
     
     lines = orig_lines.replace("NNNNN", str([800.] + list(scaled_guess)))
-    lines = lines.replace("FFFFF", sys.argv[3])
+    lines = lines.replace("FFFFF", sys.argv[2])
     lines = lines.replace("EEEEE", str(at_max_exp_times))
     f = open("paramfile_tmp.txt", 'w')
     f.write(lines)
@@ -124,10 +124,10 @@ plt.plot(redshifts, exp_times)
 plt.savefig("exptime_vs_z.pdf")
 plt.close()
 
-if sys.argv[2] == "1":
-    initial_guess = array([69, 208, 402, 223, 327, 136, 136, 136, 136, 136, 136, 136, 136, 136, 136, 136.])
-elif sys.argv[2] == "0":
-    initial_guess = ones(16, dtype=float64)
+
+
+
+initial_guess = exp(-redshifts/2.)*10. * (1 + random.random(size = len(redshifts)))
 
 total_time = 15778463.04
 
