@@ -83,6 +83,7 @@ def chi2fn(new_guess, NA):
     
     lines = orig_lines.replace("NNNNN", str([800.] + list(scaled_guess)))
     lines = lines.replace("FFFFF", sys.argv[3])
+    lines = lines.replace("EEEEE", str(at_max_exp_times))
     f = open("paramfile_tmp.txt", 'w')
     f.write(lines)
     f.close()
@@ -103,11 +104,15 @@ f.close()
 PSFs = initialize_PSFs(pixel_scales = [10], slice_scales = [30], PSF_source = "WebbPSF")
 redshifts = arange(0.15, 1.66, 0.1)
 exp_times = []
+at_max_exp_times = []
+
 for redshift in redshifts:
     exp_time = solve_for_exptime(10.*sqrt(15.), redshift, PSFs, key1 = "rest_frame_band_S/N", key2 = (5000, 6000),
                                  pixel_scale = 0.05, slice_scale = 0.15,
                                  source_dir = os.environ["WFIRST_SIM_DATA"] + "/pixel-level/input/",
                                  IFURfl = "IFU_R_160720.txt", min_wave = 4200.)*3
+    at_max_exp_times.append(exp_time/3.)
+
     exp_time += slew_time*6. # 6 visits; 1+1 + 4-point ref
     exp_times.append(exp_time)
 
