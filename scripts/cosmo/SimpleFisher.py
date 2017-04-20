@@ -1,6 +1,7 @@
 from copy import deepcopy
 from numpy import *
-from DavidsNM import miniLM_new, save_img
+from DavidsNM import save_img
+import time
 from scipy.interpolate import interp1d
 from astro_functions import CCM, get_FoM, FoM_bin_w, write_Cmat
 import sys
@@ -48,7 +49,7 @@ def get_params(the_file, PSFs = None):
     if PSFs == None:
         PSFs = initialize_PSFs(pixel_scales = [10], slice_scales = [30], PSF_source = "WebbPSF", path = wfirst_data_path + "/pixel-level/")
 
-    params["weight_in_mags"] = array([], dtype=float64)
+    params["weight_in_mags_perSN"] = array([], dtype=float64)
     params["redshift_vect"] = array([], dtype=float64)
     params["obs_lambs"] = array([], dtype=float64)
     params["rest_lambs"] = array([], dtype=float64)
@@ -70,7 +71,7 @@ def get_params(the_file, PSFs = None):
 
             good_inds = where((obs_waves/(1. + redshift) >= params["min_rest_wavelength"])*(obs_waves/(1. + redshift) <= params["max_rest_wavelength"]))
             nwave = len(obs_waves[good_inds])
-            params["weight_in_mags"] = concatenate((params["weight_in_mags"], ones(nwave, dtype=float64)*100. * params["NSNe"][i]))
+            params["weight_in_mags_perSN"] = concatenate((params["weight_in_mags_perSN"], ones(nwave, dtype=float64)*100.))
             params["log10_elec_per_sec"] = concatenate((params["log10_elec_per_sec"], zeros(nwave, dtype=float64)))
             params["redshift_vect"] = concatenate((params["redshift_vect"], ones(nwave, dtype=float64)*redshift))
             params["obs_lambs"] = concatenate((params["obs_lambs"], obs_waves[good_inds]))
@@ -103,7 +104,7 @@ def get_params(the_file, PSFs = None):
             params["log10_elec_per_sec"] = concatenate((params["log10_elec_per_sec"], log10(signal_to_noises["PSF_wghtd_e_SN"]/(exp_time*nearby_SN_e_per_sec))[good_inds]
                                                     ))
 
-            params["weight_in_mags"] = concatenate((params["weight_in_mags"], signal_to_noises["spec_S/N"][good_inds]**2. * 0.848304  * params["NSNe"][i]))
+            params["weight_in_mags_perSN"] = concatenate((params["weight_in_mags_perSN"], signal_to_noises["spec_S/N"][good_inds]**2. * 0.848304))
             params["redshift_vect"] = concatenate((params["redshift_vect"], ones(nwave, dtype=float64)*redshift))
             params["obs_lambs"] = concatenate((params["obs_lambs"], signal_to_noises["obs_waves"][good_inds]))
             params["rest_lambs"] = concatenate((params["rest_lambs"], signal_to_noises["obs_waves"][good_inds]/(1. + redshift)))
@@ -205,8 +206,7 @@ def modelfn(parsed, params):
 
     for i, redshift in enumerate(params["z_list"]):
         HD_RMSs = append(HD_RMSs, sqrt(params["HD_RMS"][i]**2. + (params["HD_lensing"]*redshift)**2. + (5*params["v_pec"]/(log(10.)*299792.458*redshift))**2.
-                                   )/sqrt(params["NSNe"][i])
-                     )
+                                   ))
     
 
     model = parsed["mag"][params["indices"]] + parsed["mag_nuisance"][params["indices"]]
@@ -240,7 +240,8 @@ def residfn(P, wrapped):
     model, HD_RMSs = modelfn(parsed, params)
     #print model
 
-    pulls = model*sqrt(params["weight_in_mags"])
+
+    pulls = model*sqrt(params["weight_in_mags_perSN"])
     assert all(1 - isnan(pulls)), "1"
 
     pulls = append(pulls, parsed["mag_nuisance"]/HD_RMSs)
@@ -268,7 +269,7 @@ def residfn(P, wrapped):
 
     #print "pull"
     return pulls
-
+"""
 def plot_summ():
     plt.figure(figsize = (8, len(parsed_errs.keys())*3))
 
@@ -330,31 +331,74 @@ def plot_summ():
     plt.savefig("Cmat.eps", bbox_inches = 'tight')
 
     write_Cmat(params["orig_lines"], sn_Cmat, FoM, flname = "Cmat_" + params["suffix"] + ".txt")
+"""
 
-def run_FoM(paramfl, PSFs = None):
-    params = get_params(paramfl, PSFs)
-
-    show_plots = 0
-
+def get_Jacobian_NSNe1(params):
     ministart = {"mag": [0]*params["n_redshift"], "mag_nuisance": [0]*params["n_redshift"],
                  "EBV": [0]*params["n_redshift"], "mean": [0]*params["n_restlambs"],
                  "ZP_indep": [0]*params["n_obslambs"], "ZP_slope": 0, "ZP_ground_to_space": 0,
-                 "ZP_dex": [0]*(params["n_dex"] + 1)
-                 }
+                 "ZP_dex": [0]*(params["n_dex"] + 1)}
 
+    
     for spectral_feature_name in params["spectral_feature_names"]:
         ministart[spectral_feature_name] = [0,0,0]
 
     print ministart
+        
 
 
-
-    ministart = unparseP(ministart, params)
+    ministart = array(unparseP(ministart, params), dtype=float64)
     print ministart
-    miniscale = ministart + 1.
 
 
-    NA, NA, Cmat = miniLM_new(ministart = ministart, miniscale = miniscale, passdata = params, residfn = residfn, verbose = False, maxiter = 1)
+    orig = residfn(ministart, [params])
+    miniscale = 1e-6
+
+    jacobian = zeros([len(orig), len(ministart)], dtype=float64)
+    print jacobian.shape
+    
+    for i in range(len(ministart)):
+        new_pos = deepcopy(ministart)
+        new_pos[i] += miniscale
+
+        new = residfn(new_pos, [params])
+        jacobian[:,i] = (new - orig)/miniscale
+    return jacobian
+
+def get_Jacobian(jacobian_NSNe1, params):
+    jacobian = deepcopy(jacobian_NSNe1)
+
+    NSNe_by_wave = zeros(len(params["indices"]), dtype=float64)
+    
+    for i in range(len(params["NSNe"])):
+        NSNe_by_wave += params["NSNe"][i]*(params["indices"] == i)
+        
+    for i in range(len(NSNe_by_wave)):
+        jacobian[i] *= sqrt(NSNe_by_wave[i])
+
+    for i in range(len(params["NSNe"])):
+        jacobian[len(NSNe_by_wave) + i] *= sqrt(params["NSNe"][i])
+    return jacobian
+
+
+
+def run_FoM(paramfl = None, PSFs = None, jacobian_NSNe1 = None, params = None):
+    if params == None:
+        params = get_params(paramfl, PSFs)
+
+    show_plots = 0
+
+    if jacobian_NSNe1 == None:
+        jacobian_NSNe1 = get_Jacobian_NSNe1(params)
+
+    jacobian = get_Jacobian(jacobian_NSNe1, params)
+
+    print time.time()
+    Wmat = dot(transpose(jacobian), jacobian)
+    print time.time()
+    Cmat = linalg.inv(Wmat)
+    print time.time()
+
     if show_plots:
         save_img(Cmat, "Cmat.fits")
 

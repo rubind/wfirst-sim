@@ -1,5 +1,6 @@
+from copy import deepcopy
 from numpy import *
-from DavidsNM import miniNM_new
+from DavidsNM import miniNM_new, save_img
 from matplotlib import use
 use("PDF")
 import matplotlib.pyplot as plt
@@ -8,7 +9,7 @@ import os
 sys.path.append(os.environ['WFIRST'] + "/scripts/pixel-level/")
 from pixel_level_ETC2 import get_spec_with_err, initialize_PSFs, solve_for_exptime
 from scipy.interpolate import interp1d
-from SimpleFisher import run_FoM
+from SimpleFisher import run_FoM, get_Jacobian_NSNe1, get_params
 
 def volume_of_z(z):
     return interp1d(
@@ -72,6 +73,19 @@ def supernova_survey_time(redshifts, sn_counts, verbose = False):
 #supernova_survey_time(arange(0.15, 1.66, 0.1), [float(item) for item in "60.77459864  159.32710831  291.06756882  451.99380599  618.66594294  260.02681612  177.87616905  177.62276607  187.9598534   206.62014954  208.51613857  201.82254882  193.18932657  167.3886341   147.07147408  124.02081812".split(None)], verbose = True)
 #supernova_survey_time(arange(0.15, 1.66, 0.1), [100]*16, verbose = True)
 
+def make_paramfile(scaled_guess):
+    f = open("paramfile_wrap.txt")
+    orig_lines = f.read()
+    f.close()
+
+    lines = orig_lines.replace("NNNNN", str([800.] + list(scaled_guess)))
+    lines = lines.replace("FFFFF", sys.argv[2])
+    lines = lines.replace("EEEEE", str(at_max_exp_times))
+    f = open("paramfile_tmp.txt", 'w')
+    f.write(lines)
+    f.close()
+
+
 def chi2fn(new_guess, NA):
     eval_time = dot(exp_times, new_guess)
     survey_time = supernova_survey_time(redshifts, new_guess)*(1 - find_from_ground)
@@ -81,14 +95,10 @@ def chi2fn(new_guess, NA):
 
     print "scaled ", list(scaled_guess)
     
-    lines = orig_lines.replace("NNNNN", str([800.] + list(scaled_guess)))
-    lines = lines.replace("FFFFF", sys.argv[2])
-    lines = lines.replace("EEEEE", str(at_max_exp_times))
-    f = open("paramfile_tmp.txt", 'w')
-    f.write(lines)
-    f.close()
+    these_params = deepcopy(params)
+    these_params["NSNe"] = concatenate(([800.], scaled_guess))
 
-    FoM = run_FoM("paramfile_tmp.txt", PSFs = PSFs)
+    FoM = run_FoM(jacobian_NSNe1 = jacobian_NSNe1, PSFs = PSFs, params = these_params)
     print "FoM resulting from scaled: ", FoM
 
     return -FoM
@@ -97,9 +107,6 @@ slew_time = float(sys.argv[1])
 
 find_from_ground = 0
 
-f = open("paramfile_wrap.txt")
-orig_lines = f.read()
-f.close()
 
 PSFs = initialize_PSFs(pixel_scales = [10], slice_scales = [30], PSF_source = "WebbPSF")
 redshifts = arange(0.15, 1.66, 0.1)
@@ -125,7 +132,9 @@ plt.savefig("exptime_vs_z.pdf")
 plt.close()
 
 
-
+make_paramfile(scaled_guess = 100*ones(16, dtype=float64))
+params = get_params("paramfile_tmp.txt", PSFs)
+jacobian_NSNe1 = get_Jacobian_NSNe1(params)
 
 initial_guess = exp(-redshifts/2.)*10. * (1 + random.random(size = len(redshifts)))
 
