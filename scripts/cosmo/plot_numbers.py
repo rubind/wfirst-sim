@@ -10,7 +10,7 @@ drs = glob.glob("opt_slew*start=1*")
 drs.sort()
 
 
-plt.figure(figsize = (12, 8))
+plt.figure(figsize = (18, 12))
 for i in range(len(drs)):
     plt.subplot(int(ceil(sqrt(len(drs)))),
                 int(ceil(sqrt(len(drs)))),
