@@ -52,16 +52,17 @@ def supernova_survey_time(redshifts, sn_counts, verbose = False):
         plt.figure()
         plt.plot(redshifts, sn_counts, 'o')
 
+    sqdeg_tot = 0.
+
     for i in range(len(redshifts))[::-1]:
         sne_to_find = sn_counts[i] - sne_found[i]
 
         if sne_to_find > 0:
             sqdeg = sne_to_find/sne_in_sqdeg_per_twoobsyear(redshifts[i])
+            sqdeg_tot += sqdeg
             pointings = sqdeg / 0.28
             exp_time += pointings*search_time(redshifts[i])*146. # About 140 search visits
             sne_found[i] += sne_in_sqdeg_per_twoobsyear(redshifts[i])*sqdeg
-            if sqdeg > 100.:
-                return 1e10
 
             if verbose:
                 print "Surveying at z=" + str(redshifts[i]) + " sqdeg=" + str(sqdeg)
@@ -77,7 +78,9 @@ def supernova_survey_time(redshifts, sn_counts, verbose = False):
         plt.savefig("sn_survey.pdf")
         plt.close()
     #print "HACK!!!!!"*100
-    return exp_time#*2.5
+    if sqdeg_tot > 100.:
+        return 1e10
+    return exp_time
 
 """
 class tmpclass:
@@ -163,7 +166,7 @@ make_paramfile(scaled_guess = 100*ones(len(redshifts), dtype=float64))
 params = get_params("paramfile_tmp.txt", PSFs)
 jacobian_NSNe1 = get_Jacobian_NSNe1(params)
 
-initial_guess = exp(-redshifts/2.)*10. * (1 + random.random(size = len(redshifts)))
+initial_guess = exp(-redshifts/2.)*10. * (1 + random.random(size = len(redshifts))) * (redshifts/2.)
 
 total_time = 15778463.04
 
