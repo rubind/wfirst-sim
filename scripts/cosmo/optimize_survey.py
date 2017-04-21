@@ -165,6 +165,8 @@ initial_guess = exp(-redshifts/2.)*10. * (1 + random.random(size = len(redshifts
 total_time = 15778463.04
 
 
-P, F, NA = miniNM_new(ministart = initial_guess, miniscale = initial_guess/3., chi2fn = chi2fn, passdata = None, verbose = True, inlimit = lambda x: all(x >= 0), maxruncount = 100, maxiter = 500)
+P, F, NA = miniNM_new(ministart = initial_guess, miniscale = initial_guess/3., chi2fn = chi2fn, passdata = None, verbose = True, inlimit = lambda x: all(x >= 0), maxruncount = 100, maxiter = 500, compute_Cmat = False)
 
-
+print "best P", P
+chi2fn(P, None)
+print "Done!"
