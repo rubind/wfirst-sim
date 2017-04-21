@@ -3,7 +3,7 @@ from numpy import *
 from DavidsNM import save_img
 import time
 from scipy.interpolate import interp1d
-from astro_functions import CCM, get_FoM, FoM_bin_w, write_Cmat
+from astro_functions import CCM, get_FoM, FoM_bin_w, FoM_bin_rho, write_Cmat
 import sys
 from string import strip
 from FileRead import readcol
@@ -417,6 +417,8 @@ def run_FoM(paramfl = None, PSFs = None, jacobian_NSNe1 = None, params = None):
         FoM, uncertainties = get_FoM(sn_Cmat, params["z_list"], zp = 0.3)
     elif params["FoM_type"][0] == "Binw":
         FoM, uncertainties = FoM_bin_w(params["z_list"], sn_Cmat, bins = params["FoM_type"][1:])
+    elif params["FoM_type"][0] == "Binrho":
+        FoM, uncertainties = FoM_bin_rho(params["z_list"], sn_Cmat, bins = params["FoM_type"][1:])
     print "FoM", FoM
     return FoM
 
