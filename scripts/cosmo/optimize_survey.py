@@ -38,8 +38,8 @@ def sne_in_sqdeg_per_twoobsyear(z, dz = 0.1):
 def search_time(z):
 
     return interp1d([0, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0],
-                    [21.6 + 2.*opts.slew, 21.6 + 2.*opts.slew, 37.5 + 2.*opts.slew, 52.9 + 2.*opts.slew, 65.5 + 2.*opts.slew,
-                     81.2 + 2.*opts.slew, 94.1 + 2.*opts.slew, 112.5 + 2.*opts.slew, 129.6 + 2.*opts.slew, 148.9 + 2.*opts.slew,
+                    [(21.6 + 2.*opts.slew)*(1 - opts.LSST), (21.6 + 2.*opts.slew)*(1 - opts.LSST), (37.5 + 2.*opts.slew)*(1 - opts.LSST), (52.9 + 2.*opts.slew)*(1 - opts.LSST), (65.5 + 2.*opts.slew)*(1 - opts.LSST),
+                     (81.2 + 2.*opts.slew)*(1 - opts.LSST), (94.1 + 2.*opts.slew)*(1 - opts.LSST), (112.5 + 2.*opts.slew)*(1 - opts.LSST), 129.6 + 2.*opts.slew, 148.9 + 2.*opts.slew,
                      172.5 + 2.*opts.slew, 205.6 + 2.*opts.slew, 236.1 + 2.*opts.slew, 277.4 + 2.*opts.slew, 307.2 + 2.*opts.slew,
                      347.6 + 2.*opts.slew, 401.8 + 2.*opts.slew, 454.8 + 2.*opts.slew, 535.0 + 2.*opts.slew, 629.3 + 2.*opts.slew], kind = 'linear')(z)
 
@@ -60,6 +60,8 @@ def supernova_survey_time(redshifts, sn_counts, verbose = False):
             pointings = sqdeg / 0.28
             exp_time += pointings*search_time(redshifts[i])*146. # About 140 search visits
             sne_found[i] += sne_in_sqdeg_per_twoobsyear(redshifts[i])*sqdeg
+            if sqdeg > 100.:
+                return 1e10
 
             if verbose:
                 print "Surveying at z=" + str(redshifts[i]) + " sqdeg=" + str(sqdeg)
@@ -123,6 +125,7 @@ parser.add_argument('-slew', help='Slew time (s)', type = float)
 parser.add_argument('-maxz', help='Maximum Redshift', type = float, default = 1.8)
 parser.add_argument('-FoM', help='FoM type', type = str)
 parser.add_argument('-bins', help='Redshift bins, starts with 0', type = float, default = [], nargs = '*')
+parser.add_argument('-LSST', help='Use LSST for z<0.8 discovery', type = int, default = 0)
 opts = parser.parse_args()
 
 
