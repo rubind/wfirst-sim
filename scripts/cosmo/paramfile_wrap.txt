@@ -2,7 +2,7 @@ suffix		"default"
 FoM_type	FFFFF
 
 ###################################### Mission Parameters ######################################
-z_list          [5,     15, 25,  35,  45,  55,  65,  75,  85,  95,  105, 115, 125, 135, 145, 155, 165]
+z_list          ZZZZZ
 
 
 exp_times	EEEEE
@@ -22,7 +22,7 @@ max_rest_wavelength	8600.
 
 
 ###################################### Dispersions ######################################
-HD_RMS  	[0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+HD_RMS  	HHHHH
 		      	    # In magnitudes. The amount of dispersion not related to color or spectral feature variation
 HD_lensing	0.055 	    # For convenience, (this number * redshift) is added in quadrature to the HD_RMS number
 v_pec		300.	    # For convenience, (5/log(10))*(this number/299792.458/redshift) is added in quadrature to the HD_RMS number
