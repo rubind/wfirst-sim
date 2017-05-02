@@ -263,10 +263,10 @@ def get_pixelized_PSF_noIPC(PSFs, pixel_scale, slice_scale, wave, offset_par, of
     len_PSF_over_two = aint(len(PSFs[nearest_waves[0], pixel_scale, slice_scale])/2)
 
                                                                 
-    PSF_at_wave = (nearest_weights[0]*PSFs[nearest_waves[0], pixel_scale, slice_scale][len_PSF_over_two - aint(floor(psfsize/2.))*pixel_scale + offset_par: len_PSF_over_two + aint(ceil(psfsize/2.))*pixel_scale + offset_par: pixel_scale,
-                                                                    len_PSF_over_two - aint(floor(psfsize/2.))*slice_scale + offset_perp: len_PSF_over_two + aint(ceil(psfsize/2.))*slice_scale + offset_perp: slice_scale] + 
-                   nearest_weights[1]*PSFs[nearest_waves[1], pixel_scale, slice_scale][len_PSF_over_two - aint(floor(psfsize/2.))*pixel_scale + offset_par: len_PSF_over_two + aint(ceil(psfsize/2.))*pixel_scale + offset_par: pixel_scale,
-                                                                    len_PSF_over_two - aint(floor(psfsize/2.))*slice_scale + offset_perp: len_PSF_over_two + aint(ceil(psfsize/2.))*slice_scale + offset_perp: slice_scale])
+    PSF_at_wave = (nearest_weights[0]*PSFs[nearest_waves[0], pixel_scale, slice_scale][aint(len_PSF_over_two - floor(psfsize/2.)*pixel_scale + offset_par): aint(len_PSF_over_two + ceil(psfsize/2.)*pixel_scale + offset_par): pixel_scale,
+                                                                    aint(len_PSF_over_two - floor(psfsize/2.)*slice_scale + offset_perp): aint(len_PSF_over_two + ceil(psfsize/2.)*slice_scale + offset_perp): slice_scale] + 
+                   nearest_weights[1]*PSFs[nearest_waves[1], pixel_scale, slice_scale][aint(len_PSF_over_two - floor(psfsize/2.)*pixel_scale + offset_par): aint(len_PSF_over_two + ceil(psfsize/2.)*pixel_scale + offset_par): pixel_scale,
+                                                                    aint(len_PSF_over_two - floor(psfsize/2.)*slice_scale + offset_perp): aint(len_PSF_over_two + ceil(psfsize/2.)*slice_scale + offset_perp): slice_scale])
     assert len(PSF_at_wave) >= psfsize, "PSF .fits is too small!"
 
 
