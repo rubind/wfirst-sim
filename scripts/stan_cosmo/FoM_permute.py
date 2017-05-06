@@ -38,17 +38,21 @@ def permute(**kwargs):
 
 dosub = 1
 one_permute = 0
+shared_queue = int(sys.argv[1])
+debug = int(sys.argv[2])
 
+if debug:
+    assert shared_queue == 0, "Can't use shared queue and debug!"
 
 if sys.argv.count("nosub"):
     dosub = 0
     del sys.argv[sys.argv.index("nosub")]
 
-surveys = sys.argv[1:]
+surveys = sys.argv[3:]
 
 if os.path.isfile(surveys[0]):
     print "Reading in file!"
-    surveys = [line.rstrip('\n') for line in open(sys.argv[1])]
+    surveys = [line.rstrip('\n') for line in open(surveys[0])]
 
     if surveys[-1] == "":
         del surveys[-1]
@@ -87,6 +91,7 @@ for permutation, name in zip(permutations, names):
     print name
     print permutation
 
+file_count = 0
 
 for permutation, name in zip(permutations, names):
     # Start with default configuration
@@ -97,25 +102,45 @@ for permutation, name in zip(permutations, names):
         print wd
 
         commands.getoutput("mkdir -p " + wd)
+        if shared_queue or (file_count % 4 == 0):
+            f = open(wd + "/unity.sh", 'w')
 
-        f = open(wd + "/unity.sh", 'w')
-        f.write("#!/bin/bash -l\n")
+            f.write("#!/bin/bash -l\n")
 
-        f.write("#SBATCH --partition=shared\n")
-        f.write("#SBATCH -n 8\n")
-        #f.write("#SBATCH --nodes=1\n")
-        f.write("#SBATCH --time=48:00:00\n")
-        if commands.getoutput("hostname").count("cori"):
-            f.write("#SBATCH -C haswell\n")
-        f.write("#SBATCH --job-name=unity\n")
-        f.write("#SBATCH --mem=15000\n")
+            if shared_queue:
+                f.write("#SBATCH --partition=shared\n")
+                f.write("#SBATCH -n 8\n")
+            elif not debug:
+                f.write("#SBATCH --partition=regular\n")
+                f.write("#SBATCH -N 1\n")
+            elif debug:
+                f.write("#SBATCH --partition=debug\n")
+                f.write("#SBATCH -N 1\n")
+
+
+            #f.write("#SBATCH --nodes=1\n")
+            if shared_queue:
+                f.write("#SBATCH --time=48:00:00\n")
+            elif not debug:
+                f.write("#SBATCH --time=96:00:00\n")
+            elif debug:
+                f.write("#SBATCH --time=00:10:00\n")
+                
+            if commands.getoutput("hostname").count("cori"):
+                f.write("#SBATCH -C haswell\n")
+                f.write("#SBATCH -L cscratch1\n")
+
+            f.write("#SBATCH --job-name=unity\n")
+            if shared_queue:
+                f.write("#SBATCH --mem=15000\n")
+
+            f.write("module load python/2.7-anaconda\n")
 
         sys_scale = clip(permutation["include_sys"], 0.01, 1)
         nrestlamb = int(around(log(permutation["redwave"]/3300.)*21.))
         print "nrestlamb ", nrestlamb
         
 
-        f.write("module load python/2.7-anaconda\n")
         f.write("cd " + commands.getoutput("pwd") + "/" + wd + "\n")
         f.write("srun -n 1 -c 8 python " + wfirst_path + "/scripts/stan_cosmo/STEP2_UNITY.py -p ../pickle*t -nrestlamb " + str(nrestlamb) + " -neigen 1 "
                 + " -gray " + str(permutation["graydisp"])
@@ -125,13 +150,17 @@ for permutation, name in zip(permutations, names):
                 + " -fund " + str(permutation["fundcal"]*sys_scale)
                 + " -TTel " + str(permutation["TTel"]) + " -IFCmaxwave 21000 "*(permutation["TTel"] < 280)
                 + " -mwnorm " + str(permutation["MWnorm"]*sys_scale) + " -mwZP " + str(permutation["MWZP"]*sys_scale) + " -mwRV " + str(0.2*sys_scale) + " -IGext " + str(0.25*sys_scale) + " -redwave " + str(permutation["redwave"])
-                + " > log2.txt\n")
+                + " > log2.txt " + "&"*int(shared_queue == 0) + "\n")
         # + " -IFCdark " + str(permutation["dark_current"])
         # + " -IFCRNfloor " + str(permutation["read_noise_floor"])
 
+        
+        if shared_queue or (file_count % 4 == 3):
+            if 1 - shared_queue:
+                f.write("wait\n")
+            f.close()
 
-        f.close()
-
-        if dosub:
-            print commands.getoutput("sbatch " + wd + "/unity.sh")
+            if dosub:
+                print commands.getoutput("sbatch " + wd + "/unity.sh")
+        file_count += 1
 
