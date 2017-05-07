@@ -136,11 +136,11 @@ for permutation, name in zip(permutations, names):
                 f.write("#SBATCH --mem=15000\n")
 
             f.write("module load python/2.7-anaconda\n")
-            findiv.write("cd " + commands.getoutput("pwd") + "/" + wd + "\n")
             f.write("srun -n 1 -c 8 run.sh")
 
             findiv = open(wd + "/run.sh", 'w')
-
+            findiv.write("module load python/2.7-anaconda\n")
+            
         sys_scale = clip(permutation["include_sys"], 0.01, 1)
         nrestlamb = int(around(log(permutation["redwave"]/3300.)*21.))
         print "nrestlamb ", nrestlamb
