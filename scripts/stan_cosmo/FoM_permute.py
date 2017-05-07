@@ -104,6 +104,7 @@ for permutation, name in zip(permutations, names):
         commands.getoutput("mkdir -p " + wd)
         if shared_queue or (file_count % 4 == 0):
             f = open(wd + "/unity.sh", 'w')
+            open_fl = wd + "/unity.sh"
 
             f.write("#!/bin/bash -l\n")
 
@@ -135,14 +136,16 @@ for permutation, name in zip(permutations, names):
                 f.write("#SBATCH --mem=15000\n")
 
             f.write("module load python/2.7-anaconda\n")
+            f.close()
 
         sys_scale = clip(permutation["include_sys"], 0.01, 1)
         nrestlamb = int(around(log(permutation["redwave"]/3300.)*21.))
         print "nrestlamb ", nrestlamb
         
 
+
         f.write("cd " + commands.getoutput("pwd") + "/" + wd + "\n")
-        f.write("srun -n 1 -c 8 python " + wfirst_path + "/scripts/stan_cosmo/STEP2_UNITY.py -p ../pickle*t -nrestlamb " + str(nrestlamb) + " -neigen 1 "
+        f.write("srun -n 1 -c 8 " + " python " + wfirst_path + "/scripts/stan_cosmo/STEP2_UNITY.py -p ../pickle*t -nrestlamb " + str(nrestlamb) + " -neigen 1 "
                 + " -gray " + str(permutation["graydisp"])
                 + " -nredcoeff " + str(permutation["nredcoeff"])
                 + " -IFCIPC " + str(permutation["IPC"])
@@ -161,6 +164,6 @@ for permutation, name in zip(permutations, names):
             f.close()
 
             if dosub:
-                print commands.getoutput("sbatch " + wd + "/unity.sh")
+                print commands.getoutput("sbatch " + open_fl)
         file_count += 1
 
