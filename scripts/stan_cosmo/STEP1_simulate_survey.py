@@ -212,7 +212,9 @@ def round_to_cadence(vals, cadence):
     return cadence*around(vals/float(cadence))
 
 def date_to_roll_angle(the_date):
-    return (the_date*2.*pi/365.24) % (2.*pi)
+    even_step = float(isclose(the_date % 2, 0)) # Assumes cadence is odd!!!!!!
+    delta_angle = even_step*0.35 - 0.175
+    return (the_date*2.*pi/365.24 + delta_angle) % (2.*pi)
 
 def compress_lc_data(SN_data, current_date, filt):
     """If more than one observation per day, bin."""
@@ -825,7 +827,7 @@ def plan_and_add_triggers(SN_data, rows_to_add, current_date, cadence, IFS_trigg
                 # For every SN Ia triggered on, assume there is one CC SN that is falsely triggered on for two epochs. The assumption of a random place is conservative; we're not doing anything with the parallels.
                 CC_WFI_RA, CC_WFI_Dec = IFS_to_WFI(CC_RA, CC_Dec, date_to_roll_angle(date))
 
-                if phase < 0:
+                if phase < 3:
                     if random.random() < 0.2:
                         rows_to_add.add_row((date, "W149", IFS_exptimes[SNR], CC_WFI_RA, CC_WFI_Dec, date_to_roll_angle(date), "WFI", -2))
                         print "Triggering on CC SN, phase=", phase

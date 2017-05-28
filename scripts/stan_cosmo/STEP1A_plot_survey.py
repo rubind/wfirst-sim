@@ -474,21 +474,24 @@ def make_SNR_vs_z(SN_data, working_dir, nsne, plt):
     for ind in inds:
         lc_data = SN_data["SN_observations"][ind]
 
-        if any(array(lc_data["filts"]) == "F184") and abs(SN_data["SN_table"]["redshifts"][ind] - 1.3) < 0.1:
-            filtinds = where(array(lc_data["filts"]) == "F184")
+        if any(array(lc_data["filts"]) == "J129") and abs(SN_data["SN_table"]["redshifts"][ind] - 1.3) < 0.1:
+            filtinds = where(array(lc_data["filts"]) == "J129")
             SNRs = lc_data["fluxes"][filtinds]/lc_data["dfluxes"][filtinds]
 
-            waveinds = where((SN_data["IFC_waves"] > 17000.)*(SN_data["IFC_waves"] > 20000.))
+            waveinds = where((SN_data["IFC_waves"] > 12500.)*(SN_data["IFC_waves"] > 13300.))
+            flambmean = mean(SN_data["SN_observations"][ind]["gal_background"][waveinds])
+            abref = 0.10884806248/12900**2.
 
-            plot_gals.append(mean(SN_data["SN_observations"][ind]["gal_background"][waveinds]))
+            plot_gals.append(-2.5*log10(flambmean/abref))
             plot_SNRs.append(SNRs.max())
 
 
     plt.plot(plot_gals, plot_SNRs, '.', color = 'b')
 
-    plt.xscale('log')
+    #plt.xscale('log')
     plt.yscale('log')
     plt.ylim(1, 100)
+    plt.xlabel("1.29 $\mu$m AB mag")
 
     plt.savefig(working_dir + "/max_SNR_vs_host.png", bbox_inches = 'tight')
     plt.close()
