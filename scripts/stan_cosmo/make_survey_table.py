@@ -166,7 +166,7 @@ def get_line_to_write(pic_cmat):
 
 
 FoM_table = int(sys.argv[2])
-cores_to_use = 20
+cores_to_use = int(sys.argv[3])
 
 if FoM_table:
     zbins = arange(0.1, 2.01, 0.1)
@@ -185,7 +185,11 @@ else:
     f.write("Survey,Cycle,Pixel Scale,Time Used,Tier Fraction,Spectra Type,Spectra S/N,Has Ground,Wide Square Degrees,Wide Exp Time per Filter,Deep Square Degrees,Deep Exp Time per Filter" + zbins_txt + ",SNe at S/N 15,SNe at S/N 20,Survey Efficiency\n")
 
 pic_cmats = []
-for pic in glob.glob(sys.argv[1] + "/*/*pickle*"):
+
+pics = glob.glob(sys.argv[1] + "/*/*pickle*")
+if pics == []:
+    pics = glob.glob(sys.argv[1] + "/*/*/*pickle*")
+for pic in pics:
     print pic
 
     if FoM_table:
