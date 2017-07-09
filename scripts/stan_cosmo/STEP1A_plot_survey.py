@@ -391,10 +391,17 @@ def make_selection_figure(SN_data, working_dir, nsne, plt):
                 inds = where(this_useful_redshift_mask)
                 all_inds = where(survey_fields != "AAAAAAAA")
 
+
             if len(inds[0]) > 0:
                 plt.hist(SN_data["SN_table"]["redshifts"][all_inds], bins = arange(0., 2.6, 0.1), color = 'r')
-                plt.hist(SN_data["SN_table"]["redshifts"][inds], bins = arange(0., 2.6, 0.1), color = 'b', label = crit_list[j])
+                n_list, bins_list, NA = plt.hist(SN_data["SN_table"]["redshifts"][inds], bins = arange(0., 2.6, 0.1), color = 'b', label = crit_list[j])
                 plt.legend(loc = 'best', fontsize = 8)
+
+                if crit_list[j] == "stacked S/N per filter > 15" and tier_name == "All":
+                    f = open(working_dir + "/StoN_gt_15.txt", 'w')
+                    f.write(str(list(n_list)) + '\n')
+                    f.write(str(list(bins_list)) + '\n')
+                    f.close()
 
             plt.axvline(0.8, color = 'gray')
             plt.axvline(1.7, color = 'gray')
@@ -514,6 +521,22 @@ def get_cadence_stops(SN_data):
     return cadence_stops
 
 
+def write_pointings(SN_data, working_dir):
+    try:
+        SN_data["ordered_sol"]
+    except:
+        return 0
+
+    f = open(working_dir + "/pointings.txt", 'w')
+    f.write("date\tfilter\tRA1_from_cent\tdec1_from_cent\tRA2_from_cent\tdec2_from_cent\tdegrees\tseconds\n")
+
+    for i in range(len(SN_data["ordered_sol"]["date"])):
+        towrite = []
+        for key in ["date", "filt", "RA1", "dec1", "RA2", "dec2", "deg", "time"]:
+            towrite.append(str(SN_data["ordered_sol"][key][i]))
+        f.write("\t".join(towrite) + '\n')
+    f.close()
+
 
 
 def collection_of_plots(pickle_to_read):
@@ -551,6 +574,8 @@ def collection_of_plots(pickle_to_read):
 
     #print SN_data["SN_observations"]
     print SN_data["SN_table"]
+
+    write_pointings(SN_data, working_dir)
 
     z_set = list(set(list(SN_data["SN_table"]["redshifts"])))
     z_set.sort()
@@ -642,7 +667,29 @@ def collection_of_plots(pickle_to_read):
                     plt.savefig(working_dir + "/redshifts_" + outputname + "_cumulative"*cumulative + "_nomalm"*(1 - use_malm) + "_hasIFS"*has_IFS + "_SNR_key=" + SNR_key + ".pdf", bbox_inches = 'tight')
                     plt.close()
 
+    if SN_data["survey_parameters"]["tier_parameters"]["tier_name"].count("Wide"):
+        plt.figure(figsize=(6,4))
+        
 
+
+        inds = where((stacked_SNRs["HFK"] >= 20.)*(survey_fields == "Wide"))#*(SN_data["SN_table"]["redshifts"] < 1.01))
+        plt.hist(SN_data["SN_table"]["redshifts"][inds], bins = arange(0., 2.01, 0.1), color = 'r', label = "Parallel-Observed, $F184$ S/N > 20, NSNe = %i" % len(SN_data["SN_table"]["redshifts"][inds]))
+
+        inds = where((stacked_SNRs["RZYJHFK"] >= 40.)*(survey_fields == "Deep"))#*(SN_data["SN_table"]["redshifts"] < 1.01))
+        plt.hist(SN_data["SN_table"]["redshifts"][inds], bins = arange(0., 2.01, 0.1), color = 'g', label = "WFIRST Deep Tier, NSNe = %i" % len(SN_data["SN_table"]["redshifts"][inds]))
+        
+        inds = where(has_IFS_mask)#*(survey_fields == "Wide"))
+        plt.hist(SN_data["SN_table"]["redshifts"][inds], bins = arange(0., 2.01, 0.1), color = 'b', label = "IFC Observed, NSNe = %i" % len(SN_data["SN_table"]["redshifts"][inds]))
+        
+        plt.legend(loc = 'best')
+        plt.xlabel("Redshift")
+        plt.ylabel("Number of SNe")
+        plt.xlim(0, 2)
+        plt.savefig(working_dir + "/LSST.pdf", bbox_inches = 'tight')
+        plt.close()
+
+
+        
 
     plt.figure(figsize=(6,8))
     for i, tier_name in enumerate(SN_data["survey_parameters"]["tier_parameters"]["tier_name"]):
