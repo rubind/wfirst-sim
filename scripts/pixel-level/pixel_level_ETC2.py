@@ -126,7 +126,7 @@ def resolution_to_wavelengths(source_dir, IFURfl, min_wave, max_wave, waves = No
     else:
         spec_R = interpfile(source_dir + "/" + IFURfl)
 
-    if waves == None:
+    if any(waves == None):
         waves = array([min_wave], dtype=float64)
         while waves[-1] <= max_wave:
             waves = append(waves, waves[-1]*exp(0.5/spec_R(waves[-1]))
