@@ -104,7 +104,7 @@ for permutation, name in zip(permutations, names):
         commands.getoutput("mkdir -p " + wd)
         if shared_queue or (file_count % 4 == 0):
             f = open(wd + "/unity.sh", 'w')
-            last_fl_dir = wd + "/unity.sh"
+            last_fl_dir = wd + "/"
 
             f.write("#!/bin/bash -l\n")
 
@@ -136,9 +136,12 @@ for permutation, name in zip(permutations, names):
                 f.write("#SBATCH --mem=15000\n")
 
             f.write("module load python/2.7-anaconda\n")
-            f.write("srun -n 1 -c 8 run.sh")
+            f.write("cd " + commands.getoutput("pwd") + "/" + wd + "\n")
+            f.write("srun -n 1 -c 8 ./run.sh\n")
+            f.close()
 
             findiv = open(wd + "/run.sh", 'w')
+            findiv.write("#!/bin/bash -l\n")
             findiv.write("module load python/2.7-anaconda\n")
             
         sys_scale = clip(permutation["include_sys"], 0.01, 1)
@@ -156,12 +159,13 @@ for permutation, name in zip(permutations, names):
                 + " -fund " + str(permutation["fundcal"]*sys_scale)
                 + " -TTel " + str(permutation["TTel"]) + " -IFCmaxwave 21000 "*(permutation["TTel"] < 280)
                 + " -mwnorm " + str(permutation["MWnorm"]*sys_scale) + " -mwZP " + str(permutation["MWZP"]*sys_scale) + " -mwRV " + str(0.2*sys_scale) + " -IGext " + str(0.25*sys_scale) + " -redwave " + str(permutation["redwave"])
-                + " > log2.txt \n")
+                + " > log2.txt & \n")
         # + " -IFCdark " + str(permutation["dark_current"])
         # + " -IFCRNfloor " + str(permutation["read_noise_floor"])
 
         
         if shared_queue or (file_count % 4 == 3):
+            findiv.write("wait\n")
             findiv.close()
             commands.getoutput("chmod a+x " + last_fl_dir + "/run.sh")
 

@@ -406,7 +406,7 @@ def make_selection_figure(SN_data, working_dir, nsne, plt):
             plt.axvline(0.8, color = 'gray')
             plt.axvline(1.7, color = 'gray')
 
-            plt.title(tier_name + ", NSNe: " + str(len(inds[0])))
+            plt.title(working_dir + " " + tier_name + ", NSNe: " + str(len(inds[0])), fontsize = 8)
 
     plt.savefig(working_dir + "/redshifts_selection_crit.pdf", bbox_inches = 'tight')
     plt.close()
@@ -455,7 +455,7 @@ def make_SNR_vs_z(SN_data, working_dir, nsne, plt):
             for k in range(len(plot_zs)):
                 fSNR.write("%s  %s  %f  %f\n" % (filts[j], tier_name, plot_zs[k], plot_SNRs[k]))
 
-            plt.title(tier_name + ", " + filts[j])
+            plt.title(tier_name + ", " + filts[j], fontsize = 10)
             plt.yscale('log')
             plt.ylim(1, 100)
 
@@ -662,7 +662,7 @@ def collection_of_plots(pickle_to_read):
                             if len(inds[0]) > 0:
                                 plt.hist(SN_data["SN_table"]["redshifts"][inds], bins = arange(0., 2.6, 0.1), color = SNR_color, label = "SNR>%.0f: %i"% (SNR_thresh, len(inds[0])), cumulative=cumulative)
 
-                        plt.title(tier_name)
+                        plt.title(working_dir + " " + tier_name)
                         plt.legend(loc = 'best', fontsize = 8)
                     plt.savefig(working_dir + "/redshifts_" + outputname + "_cumulative"*cumulative + "_nomalm"*(1 - use_malm) + "_hasIFS"*has_IFS + "_SNR_key=" + SNR_key + ".pdf", bbox_inches = 'tight')
                     plt.close()
@@ -763,7 +763,7 @@ def collection_of_plots(pickle_to_read):
 if __name__ == "__main__":
 
     if len(sys.argv[1:]) > 1:
-        processors_to_use = 18
+        processors_to_use = clip(len(sys.argv[1:]), 1, 32)
         
         pool = mp.Pool(processes = processors_to_use)
         pool.map(collection_of_plots, sys.argv[1:])

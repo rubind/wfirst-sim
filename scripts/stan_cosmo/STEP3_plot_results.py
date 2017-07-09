@@ -500,7 +500,7 @@ for i in range(len(files_to_do))[::-1]:
             del files_to_do[i]
    
 
-procs_to_use = 20
+procs_to_use = 30
 
 pool = mp.Pool(processes = procs_to_use)
 pool.map(make_plots_from_dir, files_to_do)
