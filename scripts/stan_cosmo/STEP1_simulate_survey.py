@@ -365,7 +365,7 @@ stop_here
 """
 
 def IFS_to_WFI(IFS_RA, IFS_Dec, WFI_orient):
-    dr = 0.617 - 0.16 - 0.0712295833333
+    dr = 0.491 + 0.0712295833333 + 0.039
     return IFS_RA + cos(WFI_orient)*dr, IFS_Dec + sin(WFI_orient)*dr
 
 
@@ -508,11 +508,14 @@ def get_single_slew_or_filt_change(RAs, Decs, roll_angles, i, j, filt_inds, NN_f
 def get_slew_time(RAs, Decs, roll_angles, filt_inds = None, NN_filt_change = 120/7., show_solution = False, label_slews = True, label_filts = True,
                   square_degrees = 0, n_filters = 8, filt_names = None):
     if len(RAs) < 2:
-        return 0
+        print "No slew"
+        return 0, []
     elif len(RAs) == 2:
+        print "Only one slew"
         dist = sqrt((RAs[1] - RAs[0])**2. + (Decs[1] - Decs[0])**2.)
-
-        return quantize_time(slew_fn(dist))    
+        return quantize_time(slew_fn(dist)), [[RAs[0], Decs[0], RAs[1], Decs[1],
+                                              dist,
+                                              quantize_time(slew_fn(dist))]]
 
     if len(unique(roll_angles)) > 2:
         print "Large number of roll angles found!!! ", len(unique(roll_angles))
@@ -571,6 +574,8 @@ def get_slew_time(RAs, Decs, roll_angles, filt_inds = None, NN_filt_change = 120
 
     labeled = []
     total_time = 0.
+
+
     if show_solution:
         if label_filts:
             for i in range(len(RAs)):
@@ -603,13 +608,30 @@ def get_slew_time(RAs, Decs, roll_angles, filt_inds = None, NN_filt_change = 120
 
     print "slew ", 
 
+
+    ordered_sol = []
+
+    slew_times_found = []
+    for i in range(len(RAs) - 1):
+        slew_time = get_single_slew_or_filt_change(RAs, Decs, roll_angles, sol[i], sol[i+1], filt_inds, NN_filt_change, n_filters)
+        slew_times_found.append(slew_time)
+    slew_times_found = sort(list(set(slew_times_found)))
+
+    color_dict = {}
+
     if label_slews:
-        color_dict = {'28.25': 'm', '59.33': 'b', '64.98': 'g', '70.62': 'g', '62.15': 'g', '67.80': 'orange', '81.93': 'orange', '79.10': 'r', '84.75': 'r', '87.58': 'r'}
-    else:
-        color_dict = {}
+        for i in range(len(slew_times_found)):
+            if len(slew_times_found) <= 4:
+                color_dict["%.2f" % slew_times_found[i]] = ['b', 'g', 'orange', 'r'][i]
+            else:
+                color_dict["%.2f" % slew_times_found[i]] = ['m', 'b', 'c', 'g', 'orange', 'r', 'k'][i]
 
     for i in range(len(RAs) - 1):
         slew_time = get_single_slew_or_filt_change(RAs, Decs, roll_angles, sol[i], sol[i+1], filt_inds, NN_filt_change, n_filters)
+        ordered_sol.append([RAs[sol[i]], Decs[sol[i]], RAs[sol[i+1]], Decs[sol[i+1]],
+                            sqrt((RAs[sol[i]] - RAs[sol[i+1]])**2. + (Decs[sol[i]] - Decs[sol[i+1]])**2.),
+                            slew_time])
+
         print slew_time, 
         total_time += slew_time
         
@@ -635,7 +657,7 @@ def get_slew_time(RAs, Decs, roll_angles, filt_inds = None, NN_filt_change = 120
         
     print "done ", total_time
     
-    return total_time
+    return total_time, ordered_sol
 
 
 """
@@ -662,7 +684,7 @@ stophere
 """
 
 
-def add_observations_to_sndata(SN_data, rows_to_add, current_date, ground_depths):
+def add_observations_to_sndata(SN_data, rows_to_add, current_date, ground_depths, ordered_sol):
     rows_added = Table(names = ["date", "filt", "exptime", "RA", "dec", "orient", "instr", "SNind"],
                        dtype= ("f8", "S10", "f8", "f8", "f8", "f8", "S10", "i4"))
 
@@ -678,7 +700,12 @@ def add_observations_to_sndata(SN_data, rows_to_add, current_date, ground_depths
         inds = sort(inds)[::-1]
         print inds
         if len(inds) > 0 and rows_to_add["instr"][inds[0]] != "ground":
-            tmp_slew_time = get_slew_time(rows_to_add["RA"][inds], rows_to_add["dec"][inds], rows_to_add["orient"][inds]) + quantize_time(3. * 120./7.) # 51 seconds for changing filters (three changes)
+            tmp_slew_time, tmp_ordered_sol = get_slew_time(rows_to_add["RA"][inds], rows_to_add["dec"][inds], rows_to_add["orient"][inds])
+            tmp_slew_time += quantize_time(3. * 120./7.) # 51 seconds for changing filters (three changes)
+
+            for item in tmp_ordered_sol:
+                ordered_sol.add_row([current_date, filt] + item)
+
             time_used += tmp_slew_time
             slew_time += tmp_slew_time
         
@@ -696,7 +723,7 @@ def add_observations_to_sndata(SN_data, rows_to_add, current_date, ground_depths
         # Finished adding all data for this filter, now, take variance-weighted mean of all repeat observations for a given SN (either because of dithers, or parallels)
         SN_data = compress_lc_data(SN_data, current_date, filt)
 
-    return SN_data, rows_to_add, rows_added, time_used, slew_time
+    return SN_data, rows_to_add, rows_added, time_used, slew_time, ordered_sol
 
 
 def find_SNe(SN_data, current_date):
@@ -846,13 +873,14 @@ def optimize_triggers(rows_to_add, current_date, cadence, parallel_filters):
         print rows_to_add[inds]
         RA_need_filt = rows_to_add[inds]["RA"]
         Dec_need_filt = rows_to_add[inds]["dec"]
+        exp_need_filt = rows_to_add[inds]["exptime"]
 
         print RA_need_filt
         print Dec_need_filt
 
         best_metric = -1
         best_filts = None
-        for i in range(100):
+        for i in range(400):
             possible_choice = random.choice(parallel_filters, size=len(RA_need_filt), replace=True)
             #print possible_choice
             this_metric = 1e10
@@ -870,9 +898,20 @@ def optimize_triggers(rows_to_add, current_date, cadence, parallel_filters):
                         #print this_metric
 
             for filt in parallel_filters:
-                this_metric += abs(
-                    sum(possible_choice == filt)/float(len(possible_choice))
-                    - 1./len(parallel_filters))
+                actual_frac = sum(possible_choice == filt)/float(len(possible_choice))
+                actual_frac = clip(actual_frac, 0.001, 1.) # Prevent zeros
+
+                target_frac = 1./len(parallel_filters)
+
+                this_metric -= abs(log(target_frac/actual_frac))
+
+            if parallel_filters.count("F184") and len(parallel_filters) > 1:
+                target_for_F184 = 3./(len(parallel_filters) + 2.)
+                actual_frac = sum(exp_need_filt[where(possible_choice == "F184")])/sum(exp_need_filt)
+
+                actual_frac = clip(actual_frac, 0.001, 1.) # Prevent zeros
+
+                this_metric -= 2.*abs(log(target_for_F184/actual_frac))
 
             if this_metric > best_metric:
                 best_filts = possible_choice
@@ -1075,9 +1114,9 @@ plt.close()
         
 stop_here
 """
-"""
 
-for square_degrees in [1.2, 1.3]:#arange(1., 20.1, 1.):
+"""
+for square_degrees in arange(1., 20.1, 1.):
     print square_degrees
     RAs_to_add, Decs_to_add = get_RA_dec_for_cadence(square_degrees = square_degrees, next_angle = 0)
     
@@ -1103,7 +1142,7 @@ for square_degrees in [1.2, 1.3]:#arange(1., 20.1, 1.):
     plt.savefig("square_degrees=%04i.pdf" % (square_degrees*100))
     plt.close()
 
-    slew_fn = file_to_fn(wfirst_data_path + "/pixel-level/input/SlewTimes_Nominal_20170222.txt", col = 2)
+    slew_fn = file_to_fn(wfirst_data_path + "/pixel-level/input/slew_settle_170419.txt", col = 2)
     get_slew_time(RAs_to_add, Decs_to_add, roll_angles = [0]*len(RAs_to_add), show_solution = 1, square_degrees = square_degrees, filt_names = ["Pointings"]*len(RAs_to_add))
     commands.getoutput("mv slew_solution.eps slew_solution_%04i.eps" % (square_degrees*100))
 
@@ -1196,6 +1235,9 @@ def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, ground_dept
 
     observation_table = Table(names = ["date", "filt", "exptime", "RA", "dec", "orient", "instr", "SNind"],
                               dtype= ("f8", "S10", "f8", "f8", "f8", "f8", "S10", "i4"))
+    ordered_sol = Table(names = ["date", "filt", "RA1", "dec1", "RA2", "dec2", "deg", "time"],
+                        dtype= ("f8", "S10", "f8", "f8", "f8", "f8", "f8", "f8"))
+
     # RA is x, Dec is y
 
     print observation_table
@@ -1214,7 +1256,8 @@ def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, ground_dept
 
 
         # Step 1: Add previously planned observations
-        SN_data, rows_to_add, rows_added, time_used, slew_time = add_observations_to_sndata(SN_data, rows_to_add, current_date, ground_depths)
+        SN_data, rows_to_add, rows_added, time_used, slew_time, ordered_sol = add_observations_to_sndata(SN_data, rows_to_add, current_date,
+                                                                                                         ground_depths, ordered_sol = ordered_sol)
         for i in range(len(rows_added)):
             observation_table.add_row(rows_added[i])
         total_time_left -= time_used
@@ -1276,6 +1319,7 @@ def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, ground_dept
     print "Done with tier. Slew time = ", total_slew_time
     SN_data["total_time_used"] = starting_time - total_time_left
     SN_data["observation_table"] = observation_table
+    SN_data["ordered_sol"] = ordered_sol
     return SN_data
 
 
@@ -1427,6 +1471,9 @@ def merge_SN_data(SN_data, this_SN_data):
 
         print "Merging observation_table"
         SN_data["observation_table"] = vstack([SN_data["observation_table"], this_SN_data["observation_table"]])
+
+        print "Merging ordered_sol"
+        SN_data["ordered_sol"] = vstack([SN_data["ordered_sol"], this_SN_data["ordered_sol"]])
 
         SN_data["test_points"].extend(this_SN_data["test_points"])
 
