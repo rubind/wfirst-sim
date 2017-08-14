@@ -182,8 +182,11 @@ def FoM_bin_w(z_list, muCmat, bins = [0., 0.5, 1.0], shift_param_constraint = 0.
     paramwmat = dot(transpose(jacobian), dot(wmat, jacobian))
     paramcmat = linalg.inv(paramwmat)
     
+    nvar = float(len(paramcmat[2:, 2:]))
 
     FoM = sqrt(  1./linalg.det(paramcmat[2:, 2:])  )
+    FoM = FoM**(2./nvar)
+
 
     print sqrt(diag(paramcmat)), "%.2g " % FoM
 
@@ -260,6 +263,8 @@ def FoM_bin_rho(z_list, muCmat, bins = [0., 0.5, 1.0], shift_param_constraint = 
     paramcmat = linalg.inv(paramwmat)
 
     FoM = sqrt(  1./linalg.det(paramcmat[1:, 1:])  )
+    nvar = float(len(paramcmat[1:, 1:]))
+    FoM = FoM**(2./nvar)
     
     print sqrt(diag(paramcmat)), "%.2g " % FoM
 
@@ -383,7 +388,7 @@ def get_Jacobian(z_list, zp):
 
 
 
-def get_FoM(SN_Cmat, z_list, zp = 0.3, addcmb = 1, adddesi = 0, verbose = True, shift_constraint = 0.002):
+def get_FoM(SN_Cmat, z_list, zp = 0.3, addcmb = 1, adddesi = 0, verbose = True, shift_constraint = 0.002, add_GRS = 0):
     SNe_W = linalg.inv(SN_Cmat)
 
     jacobian = get_Jacobian(z_list, zp)
@@ -394,6 +399,13 @@ def get_FoM(SN_Cmat, z_list, zp = 0.3, addcmb = 1, adddesi = 0, verbose = True, 
         param_W[1:,1:] += shift_parameter_Wmat(shift_constraint, zp)
     if adddesi:
         param_W[1:,1:] += DESI_Wmat(zp)
+    if add_GRS:
+        assert zp == 0
+        assert addcmb == 0
+
+        param_W[1:, 1:] += array([[20904.42363046825, 80.84315605888776, -17.955133241326582],
+                                  [80.84315605888774, 373.4941719933849, -15.73620545568711],
+                                  [-17.95513324132658, -15.73620545568711, 48.9661512574516]])
 
 
     param_C = linalg.inv(param_W)
