@@ -51,7 +51,13 @@ def get_FoM_from_file(item):
     z_list = concatenate(([0.05], arange(len(cmat) - 1)*0.05 + 0.125))
     print z_list
 
-    FoM = get_FoM(cmat, z_list, adddesi = 0)[0]
+    FoMs = {}
+    
+    FoMs["No SNe"] = get_FoM(cmat*10000, z_list, adddesi = 0, addcmb = 1, zp = 0.0)[0]
+    FoMs["WFIRST"] = get_FoM(cmat, z_list, adddesi = 0, addcmb = 1, zp = 0.0)[0]
+    for desikey in ["DESI", "DESI+Euclid", "DESI+Euclid+GRS"]:
+        FoMs[desikey] = get_FoM(cmat, z_list, adddesi = desikey, addcmb = 0, zp = 0.0)[0]
+    #FoM = get_FoM(cmat, z_list, adddesi = 1, add_GRS = 0, addcmb = 0, zp = 0)[0]
 
     J = zeros([len(cmat), 2], dtype=float64) + 1.
     J[0,0] = 0.
@@ -67,8 +73,8 @@ def get_FoM_from_file(item):
     agg_prec_2 *= log(10.)/5.
     print "Aggregate Precision Dist: ", agg_prec_1, agg_prec_2
 
-    print "FoM", item, FoM
-    return FoM, agg_prec_1, agg_prec_2
+    print "FoMs", item, FoMs
+    return FoMs, agg_prec_1, agg_prec_2
 
 
 
@@ -156,8 +162,14 @@ def get_line_to_write(pic_cmat):
 
 
     if FoM_table:
-        FoM, agg_prec_1, agg_prec_2 = get_FoM_from_file(cmat)
-        line_to_write += "%s,%.1f,%.2g,%.2g" % (cmat.split("/")[-2], FoM, agg_prec_1, agg_prec_2)
+        FoMs, agg_prec_1, agg_prec_2 = get_FoM_from_file(cmat)
+        line_to_write += "%s,%.1f,%.1f,%.1f,%.1f,%.2g,%.2g" % (cmat.split("/")[-2],
+                                                               FoMs["No SNe"],
+                                                               FoMs["WFIRST"],
+                                                               FoMs["DESI"],
+                                                               FoMs["DESI+Euclid"],
+                                                               FoMs["DESI+Euclid+GRS"],
+                                                               agg_prec_1, agg_prec_2)
     survey_eff = get_survey_efficiency(SN_data)
     line_to_write += ",%.2f" % survey_eff
     
@@ -179,7 +191,7 @@ for i in range(len(zbins) - 1):
 
 if FoM_table:
     f = open("FoM_table.csv", 'w')
-    f.write("Survey,Cycle,Pixel Scale,Time Used,Tier Fraction,Spectra Type,Spectra S/N,Has Ground,Wide Square Degrees,Wide Exp Time per Filter,Deep Square Degrees,Deep Exp Time per Filter" + zbins_txt + ",SNe at S/N 15,SNe at S/N 20,FoM Params,FoM,Aggregate Precision 1,Aggregate Precision 2,Survey Efficiency\n")
+    f.write("Survey,Cycle,Pixel Scale,Time Used,Tier Fraction,Spectra Type,Spectra S/N,Has Ground,Wide Square Degrees,Wide Exp Time per Filter,Deep Square Degrees,Deep Exp Time per Filter" + zbins_txt + ",SNe at S/N 15,SNe at S/N 20,FoM Params,FoM no SNe,FoM WFIRST,FoM DESI,FoM DESI+Euclid,FoM DESI+Euclid+GRS,Aggregate Precision 1,Aggregate Precision 2,Survey Efficiency\n")
 else:
     f = open("summary.csv", 'w')
     f.write("Survey,Cycle,Pixel Scale,Time Used,Tier Fraction,Spectra Type,Spectra S/N,Has Ground,Wide Square Degrees,Wide Exp Time per Filter,Deep Square Degrees,Deep Exp Time per Filter" + zbins_txt + ",SNe at S/N 15,SNe at S/N 20,Survey Efficiency\n")

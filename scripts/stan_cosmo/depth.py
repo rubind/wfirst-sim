@@ -19,7 +19,8 @@ for test_tier in SN_data["test_points"]:
     
     SNR_by_pos = [{} for i in range(len(ra_dec_set))]
     mag_by_pos = [{} for i in range(len(ra_dec_set))]
-    
+    Nobs_by_pos = [{} for i in range(len(ra_dec_set))]
+
     for i in range(len(test_tier["Observations"])):
         ind = ra_dec_set.index((test_tier["RAs"][i], test_tier["Decs"][i]))
         
@@ -28,13 +29,16 @@ for test_tier in SN_data["test_points"]:
                             dot(test_tier["Observations"][i][filt], test_tier["Observations"][i][filt])
                             ))
             this_mag = test_tier["Mags"][i]
+            this_Nobs = len(test_tier["Observations"][i][filt])
                 
             if SNR_by_pos[ind].has_key(filt):
                 SNR_by_pos[ind][filt] = append(SNR_by_pos[ind][filt], this_SNR)
                 mag_by_pos[ind][filt] = append(mag_by_pos[ind][filt], this_mag)
+                Nobs_by_pos[ind][filt] = append(Nobs_by_pos[ind][filt], this_Nobs)
             else:
                 SNR_by_pos[ind][filt] = array([this_SNR])
                 mag_by_pos[ind][filt] = array([this_mag])
+                Nobs_by_pos[ind][filt] = array([this_Nobs])
 
     depths_by_filt = {}
 
@@ -56,3 +60,5 @@ for test_tier in SN_data["test_points"]:
                     depths_by_filt[filt] = [depth]
     for filt in depths_by_filt:
         print filt, "%.1f" % median(depths_by_filt[filt])
+
+    print Nobs_by_pos

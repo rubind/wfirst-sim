@@ -619,7 +619,7 @@ def get_slew_time(RAs, Decs, roll_angles, filt_inds = None, NN_filt_change = 120
 
     color_dict = {}
 
-    if label_slews:
+    if label_slews and show_solution:
         for i in range(len(slew_times_found)):
             if len(slew_times_found) <= 4:
                 color_dict["%.2f" % slew_times_found[i]] = ['b', 'g', 'orange', 'r'][i]
