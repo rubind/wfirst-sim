@@ -42,16 +42,7 @@ def get_EVs_and_color_law(filt, z, filtfns, phases, cosmo, filtwaves, nEV, meanf
     return ab_mags_mean, array(tmp_eval), color_law
 
 
-def get_EVs_and_color_law_prism(z, cosmo, nEV, meanfn, compfns):
-    if z > 0.1:
-        lambs = exp(
-            arange(log(max(6000., 3300.*(1. + z))),
-                   log(min(18000., 8600.*(1. + z))), 0.01))
-    else:
-        lambs = exp(arange(log(3300*(1. + z)), log(8600*(1. + z)), 0.01))
-
-
-
+def get_EVs_and_color_law_prism(z, cosmo, nEV, meanfn, compfns, lambs):
     ab_spec_mean = synth_functions.get_spectrum(true_norm = 1., true_proj = zeros(nEV, dtype=float64), true_AV = 0, restlambs = lambs/(1. + z), ncomp = nEV, meanfn = meanfn, compfns = compfns)
 
 
@@ -70,7 +61,7 @@ def get_EVs_and_color_law_prism(z, cosmo, nEV, meanfn, compfns):
     return ab_spec_mean, array(tmp_eval), color_law
 
 
-def make_sim_SN(i, SN_data, stan_data, filts, spec_SNR = None):
+def make_sim_SN(i, SN_data, stan_data, filts, lowz_SNR = 20., has_IFC = 0, IFC_lambs = None, IFC_SNR = None):
     stan_data["nsne"] += 1
 
     if i != None:
@@ -128,11 +119,14 @@ def make_sim_SN(i, SN_data, stan_data, filts, spec_SNR = None):
         stan_data["obs_fluxes"].extend(true_flux + random.normal(size = len(true_flux))*true_err)
         stan_data["obs_dfluxes"].extend(true_err)
 
-    if spec_SNR != None:
-        assert i == None
+    if i == None or has_IFC:
+        if i == None:
+            lambs = exp(arange(log(3300*(1. + stan_data["redshifts"][-1])), log(8600*(1. + stan_data["redshifts"][-1])), 0.01))
+        else:
+            lambs = IFC_lambs*1.
 
         the_mean, the_EVs, the_color_law = get_EVs_and_color_law_prism(stan_data["redshifts"][-1],
-                                                                       cosmo, nEV, meanfn, compfns)
+                                                                       cosmo, nEV, meanfn, compfns, lambs = lambs)
         stan_data["nobs"] += len(the_mean)
         stan_data["highind"][-1] += len(the_mean)
 
@@ -142,13 +136,42 @@ def make_sim_SN(i, SN_data, stan_data, filts, spec_SNR = None):
             stan_data["EVs"][j].extend(the_EVs[j])
 
         true_flux = true_norm*(the_mean + dot(true_proj, the_EVs))*10.**(-0.4*(true_dM + true_AV*the_color_law))
-        true_err = abs(true_flux/spec_SNR)
+
+        if i == None:
+            true_err = abs(true_flux/lowz_SNR)
+        else:
+            true_err = abs(true_flux/IFC_SNR)
 
         stan_data["obs_fluxes"].extend(true_flux + random.normal(size = len(true_flux))*true_err)
         stan_data["obs_dfluxes"].extend(true_err)
 
     return stan_data
 
+
+def bin_IFC(IFC_phases, IFC_waves, IFC_fluxes, IFC_dfluxes, this_z):
+    inds = where((IFC_waves > 3300*(1. + this_z))*(IFC_waves < 8600.*(1. + z)))
+    IFC_waves = IFC_waves[inds]
+    IFC_fluxes = [item[inds] for item in IFC_fluxes]
+    IFC_dfluxes = [item[inds] for item in IFC_dfluxes]
+
+    new_waves = exp(arange(log(IFC_waves[0]), log(IFC_waves[1]), 0.01))
+    ref_w = new_waves*0.
+    new_f = new_waves*0. # flux
+    new_w = new_waves*0. # flux
+    
+    for i in range(len(new_waves)):
+        inds = where(abs(log(IFC_waves/new_waves[i])) <= 0.005)
+        for j in range(len(IFC_phases)):
+            if abs(IFC_phases) < 5.:
+                new_f[i] += sum(IFC_fluxes[j][inds]/IFC_dfluxes[j][inds]**2.)
+                new_w[i] += sum(IFC_dfluxes[j][inds]**2.)
+            elif IFC_phase > 100:
+                ref_w[i] += sum(IFC_dfluxes[j][inds]**2.)
+    ref_err = 1./sqrt(ref_w)
+    new_err = 1./sqrt(new_w)
+    
+    
+    return new_waves, abs(new_f)/sqrt(ref_err**2. + new_err**2.)
 
 stan_model = """
 data {
@@ -260,7 +283,7 @@ print "okay_filters ", okay_filters
 
 for ii in range(800 - args.fast * 700):
     print ii
-    stan_data = make_sim_SN(None, SN_data, stan_data, filts = ["g", "r", "i"], spec_SNR = 20.)
+    stan_data = make_sim_SN(None, SN_data, stan_data, filts = ["g", "r", "i"], lowz_SNR = 20.)
 
 pdf = PdfPages("SNe_and_selection.pdf")
 
@@ -271,7 +294,7 @@ for i in range(SN_data["nsne"]):
     this_z = SN_data["SN_table"]["redshifts"][i]
 
     if len(SN_data["SN_observations"][i]["fluxes"]) > 4:
-        has_IFC = len(SN_data["SN_observations"][i]["IFS_dates"]) > 0
+        has_IFC = int(len(SN_data["SN_observations"][i]["IFS_dates"]) > 0)
         
         SNRs = array(SN_data["SN_observations"][i]["fluxes"])/array(SN_data["SN_observations"][i]["dfluxes"])
         phases = (SN_data["SN_observations"][i]["dates"] - SN_data["SN_table"]["daymaxes"][i])/(1. + this_z)
@@ -281,13 +304,23 @@ for i in range(SN_data["nsne"]):
         inds = where((SNRs > 8)*filts_are_okay_mask*(phases > -10)*(phases < 30))
 
         filts = unique(SN_data["SN_observations"][i]["filts"][inds])
-        if ((len(filts) > 2) and (sum(SNRs > 8) > 4)):# or has_IFC:
+        if ((len(filts) > 2) and (sum(SNRs > 8) > 4)) or has_IFC:
             print "Using SN ", i, " of ", SN_data["nsne"]
             selected = 1
 
-            stan_data = make_sim_SN(i, SN_data, stan_data, filts)
+            # def make_sim_SN(i, SN_data, stan_data, filts, lowz_SNR = 20., has_IFC = 0, IFC_lambs = None, IFC_SNR = None):
+            if has_IFC:
+                IFC_lambs, IFC_SNR = bin_IFC((array(SN_data["SN_observations"][i]["IFS_dates"]) - SN_data["SN_table"]["daymaxes"][i])/(1. + this_z),
+                                             SN_data["IFC_waves"]*1.0,
+                                             SN_data["SN_observations"][i]["IFS_fluxes"],
+                                             SN_data["SN_observations"][i]["IFS_dfluxes"], this_z)
+            else:
+                IFC_lambs = None
+                IFC_SNR = None
+                
+            stan_data = make_sim_SN(i, SN_data, stan_data, filts, has_IFC = has_IFC, IFC_lambs = IFC_lambs, IFC_SNR = IFC_SNR)
 
-            stan_data["has_IFC"].append(int(has_IFC))
+            stan_data["has_IFC"].append(has_IFC)
             if has_IFC:
                 stan_data["redshifts_has_IFC"].append(SN_data["SN_table"]["redshifts"][i])
 
