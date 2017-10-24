@@ -47,7 +47,7 @@ def get_useful_redshifts(z_set, tier_set, redshifts, stacked_SNRs, survey_fields
 
     useful_redshift_mask = {}
 
-    for SNR_thresh, plot_color in zip((0., 20., 40., 80., 120.), ['r', "orange", 'g', 'c',  'b']):
+    for SNR_thresh, plot_color in zip((0., 20., 40., 80., 120., 160), ['r', "orange", 'g', 'c',  'b', 'm']):
         useful_redshifts = {}
 
         for tier in tier_set:
@@ -378,9 +378,12 @@ def make_selection_figure(SN_data, working_dir, nsne, plt):
     n_crit = len(crit_list)
 
     plt.figure(figsize = (1+5*n_tiers + 5*extra_tier, 3*n_crit))
+    f_crit = open(working_dir + "/redshifts_selection_crit.txt", 'w')
+    
 
     for j in range(n_crit):
         this_useful_redshift_mask, all_reasonable_SNe = light_curve_cuts(SN_data, nsne, crit_list[j], include_z = False)
+        f_crit.write(crit_list[j] + '\n')
 
         for i, tier_name in enumerate(SN_data["survey_parameters"]["tier_parameters"]["tier_name"] + ["All"]*extra_tier):
             plt.subplot(n_crit, n_tiers+extra_tier, i+1 + (n_tiers + extra_tier)*j)
@@ -390,6 +393,7 @@ def make_selection_figure(SN_data, working_dir, nsne, plt):
             else:
                 inds = where(this_useful_redshift_mask)
                 all_inds = where(survey_fields != "AAAAAAAA")
+            f_crit.write(tier_name + '\n')
 
 
             if len(inds[0]) > 0:
@@ -402,6 +406,8 @@ def make_selection_figure(SN_data, working_dir, nsne, plt):
                     f.write(str(list(n_list)) + '\n')
                     f.write(str(list(bins_list)) + '\n')
                     f.close()
+                f_crit.write(str(list(n_list)) + '\n')
+                f_crit.write(str(list(bins_list)) + '\n')
 
             plt.axvline(0.8, color = 'gray')
             plt.axvline(1.7, color = 'gray')
@@ -410,6 +416,8 @@ def make_selection_figure(SN_data, working_dir, nsne, plt):
 
     plt.savefig(working_dir + "/redshifts_selection_crit.pdf", bbox_inches = 'tight')
     plt.close()
+    f_crit.close()
+
 
 
 def make_SNR_vs_z(SN_data, working_dir, nsne, plt):
@@ -519,6 +527,21 @@ def get_cadence_stops(SN_data):
         cadence_stops.append(last_date)
     print "cadence_stops", cadence_stops
     return cadence_stops
+
+
+def make_lc_sampling(SN_data, working_dir, nsne, n_tiers, cadence_stops, plt):
+    return 0
+
+    plt.figure(figsize = (8, (n_tiers+1)*8))
+
+    extra_tier = n_tiers > 1
+
+    for i, tier_name in enumerate(SN_data["survey_parameters"]["tier_parameters"]["tier_name"] + ["All"]*extra_tier):
+        plt.subplot(n_tiers+1, 1, i+1)
+        this_useful_redshift_mask = (SN_data["SN_table"]["daymaxes"] < cadence_stops[i] - 20*(1. + SN_data["SN_table"]["redshifts"]))
+        inds = where((survey_fields == tier_name)*(stacked_SNRs[SNR_key] >= SNR_thresh)*this_useful_redshift_mask)
+        
+    
 
 
 def write_pointings(SN_data, working_dir):
@@ -631,6 +654,7 @@ def collection_of_plots(pickle_to_read):
     make_IFS_date_plot(SN_data, working_dir, nsne, outputname, plt = plt)
     make_IFS_phase_plot(SN_data, working_dir, nsne, outputname, plt = plt)
 
+    make_lc_sampling(SN_data, working_dir, nsne, n_tiers, cadence_stops = cadence_stops, plt = plt)
     make_selection_figure(SN_data, working_dir, nsne, plt = plt)
     make_SNR_vs_z(SN_data, working_dir, nsne, plt)
 
@@ -642,7 +666,7 @@ def collection_of_plots(pickle_to_read):
 
                     for i, tier_name in enumerate(SN_data["survey_parameters"]["tier_parameters"]["tier_name"] + ["All"]*extra_tier):
                         plt.subplot(n_tiers+1, 1, i+1)
-                        for SNR_thresh, SNR_color in zip((0., 20., 40., 80., 120.), ['r', "orange", 'g', 'c',  'b']):
+                        for SNR_thresh, SNR_color in zip((0., 20., 40., 80., 120., 160), ['r', "orange", 'g', 'c',  'b', 'm']):
 
                             if use_malm:
                                 this_useful_redshift_mask = 1
@@ -657,6 +681,10 @@ def collection_of_plots(pickle_to_read):
                                 this_useful_redshift_mask *= (SN_data["SN_table"]["daymaxes"] < cadence_stops[i] - 20*(1. + SN_data["SN_table"]["redshifts"]))
                                 inds = where((survey_fields == tier_name)*(stacked_SNRs[SNR_key] >= SNR_thresh)*this_useful_redshift_mask)
                             else:
+                                for j in SN_data["survey_parameters"]["tier_parameters"]["tier_name"]:
+                                    inds = where(survey_fields == tier_name)
+                                    #this_useful_redshift_mask[inds] *= (SN_data["SN_table"]["daymaxes"][inds] < cadence_stops[j] - 20*(1. + SN_data["SN_table"]["redshifts"][inds]))
+
                                 inds = where((stacked_SNRs[SNR_key] >= SNR_thresh)*this_useful_redshift_mask)
 
                             if len(inds[0]) > 0:
