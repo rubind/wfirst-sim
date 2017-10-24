@@ -4,6 +4,7 @@ from DavidsNM import save_img
 from astropy import cosmology
 from FileRead import readcol
 from extinction import fm07, ccm89
+import os
 
 def NMAD(vals, axis = None):
     return 1.4826*median(abs(vals - median(vals, axis = axis)), axis = axis)
@@ -20,10 +21,13 @@ def file_to_fn(fl):
     return interp1d(x, y, kind = 'linear', fill_value = 0, bounds_error = False)
 
 def get_data(dP = 0.5, clip_kernel = 0):
-    [phase, wave] = readcol("../../../ClareModel/sample_sn.dat", 'ff')
+
+    wfirst_path = os.environ["WFIRST"]
+
+    [phase, wave] = readcol(wfirst_path + "/../ClareModel/sample_sn.dat", 'ff')
     
-    data = loadtxt("../../../ClareModel/EMfa_eigenvectors_Aprem_15.dat")
-    projs = loadtxt("../../../ClareModel/EMfa_projections_Aprem_15.dat")
+    data = loadtxt(wfirst_path + "/../ClareModel/EMfa_eigenvectors_Aprem_15.dat")
+    projs = loadtxt(wfirst_path + "/../ClareModel/EMfa_projections_Aprem_15.dat")
 
     projs[:, 0] *= -1
     data[:, 0] *= -1
@@ -74,12 +78,15 @@ def get_filts():
     filtwaves = {}
     test_waves = arange(3000., 25000.)
 
+    wfirst_data_path = os.environ["WFIRST_SIM_DATA"]
+
+
     for filt in ["g", "r", "i", "z", "Y",
                  "R062", "Z087", "Y106", "J129", "H158", "F184"]:
         if len(filt) > 1:
-            filtfns[filt] = file_to_fn("../../../wfirst-sim-data/pixel-level/input/" + filt + ".txt")
+            filtfns[filt] = file_to_fn(wfirst_data_path + "/pixel-level/input/" + filt + ".txt")
         else:
-            filtfns[filt] = file_to_fn("../../../wfirst-sim-data/pixel-level/input/LSST_" + filt + ".txt")
+            filtfns[filt] = file_to_fn(wfirst_data_path + "/pixel-level/input/LSST_" + filt + ".txt")
 
         ifilt = filtfns[filt](test_waves)
         ifilt = ifilt[1:]*sign(ifilt[1:] - ifilt[:-1])

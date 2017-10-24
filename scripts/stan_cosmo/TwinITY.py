@@ -2,7 +2,9 @@ from numpy import *
 import pystan
 from DavidsNM import save_img
 import sys
-sys.path.append("../synth_dataset/")
+import os
+wfirst_path = os.environ["WFIRST"]
+sys.path.append(wfirst_path + "/scripts/synth_dataset/")
 import synth_functions
 from astropy import cosmology
 from extinction import fm07
@@ -41,25 +43,27 @@ def get_EVs_and_color_law(filt, z, filtfns, phases, cosmo, filtwaves, nEV, meanf
 
 
 def get_EVs_and_color_law_prism(z, cosmo, nEV, meanfn, compfns):
-    lambs = exp(
-        arange(log(max(6000., 3300.*(1. + z))),
-               log(min(18000., 8600.*(1. + z))), 0.007))
-    
+    if z > 0.1:
+        lambs = exp(
+            arange(log(max(6000., 3300.*(1. + z))),
+                   log(min(18000., 8600.*(1. + z))), 0.01))
+    else:
+        lambs = exp(arange(log(3300*(1. + z)), log(8600*(1. + z)), 0.01))
 
 
 
-    ab_spec_mean = get_spectrum(true_norm = 1., true_proj = zeros(nEV, dtype=float64), true_AV = 0, restlambs = lambs/(1. + z), ncomp = nEV, meanfn = meanfn, compfns = compfns)
+    ab_spec_mean = synth_functions.get_spectrum(true_norm = 1., true_proj = zeros(nEV, dtype=float64), true_AV = 0, restlambs = lambs/(1. + z), ncomp = nEV, meanfn = meanfn, compfns = compfns)
 
 
-    color_law = -2.5*log10(get_spectrum(true_norm = 1., true_proj = zeros(nEV, dtype=float64), true_AV = 1., restlambs = lambs/(1. + z), ncomp = nEV, meanfn = meanfn, compfns = compfns)/
-                           ab_mags_mean)
+    color_law = -2.5*log10(synth_functions.get_spectrum(true_norm = 1., true_proj = zeros(nEV, dtype=float64), true_AV = 1., restlambs = lambs/(1. + z), ncomp = nEV, meanfn = meanfn, compfns = compfns)/
+                           ab_spec_mean)
     
     tmp_eval = []
     for i in range(nEV):
         tmp_proj = zeros(nEV, dtype=float64)
         tmp_proj[i] = 1
 
-        ab_spec = get_spectrum(true_norm = 1., true_proj = tmp_proj, true_AV = 0, restlambs = lambs/(1. + z), ncomp = nEV, meanfn = meanfn, compfns = compfns)
+        ab_spec = synth_functions.get_spectrum(true_norm = 1., true_proj = tmp_proj, true_AV = 0, restlambs = lambs/(1. + z), ncomp = nEV, meanfn = meanfn, compfns = compfns)
         ab_spec -= ab_spec_mean
 
         tmp_eval.append(ab_spec)
@@ -70,7 +74,7 @@ def make_sim_SN(i, SN_data, stan_data, filts, spec_SNR = None):
     stan_data["nsne"] += 1
 
     if i != None:
-        phases = (SN_data["SN_observations"][i]["dates"] - SN_data["SN_table"]["daymaxes"][i])/(1. + this_z)
+        phases = (SN_data["SN_observations"][i]["dates"] - SN_data["SN_table"]["daymaxes"][i])/(1. + SN_data["SN_table"]["redshifts"][i])
         stan_data["redshifts"].append(SN_data["SN_table"]["redshifts"][i])
     else:
         phases = arange(-10, 31., 4.)
@@ -228,6 +232,7 @@ cosmo = cosmology.FlatLambdaCDM(Om0 = 0.3, H0 = 70.)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--sigint", type = float, help = "intrinsic dispersion", default = 0.08)
+parser.add_argument("--fast", type = int, help = "fast (for testing)", default = 0)
 parser.add_argument("--pickle", type = str, help = "pickle file")
 args = parser.parse_args()
 
@@ -253,11 +258,14 @@ for z in unique(SN_data["SN_table"]["redshifts"]):
 
 print "okay_filters ", okay_filters
 
-for ii in range(800):
+for ii in range(800 - args.fast * 700):
     print ii
     stan_data = make_sim_SN(None, SN_data, stan_data, filts = ["g", "r", "i"], spec_SNR = 20.)
 
 pdf = PdfPages("SNe_and_selection.pdf")
+
+if args.fast:
+    SN_data["nsne"] = 200
 
 for i in range(SN_data["nsne"]):
     this_z = SN_data["SN_table"]["redshifts"][i]
@@ -266,9 +274,11 @@ for i in range(SN_data["nsne"]):
         has_IFC = len(SN_data["SN_observations"][i]["IFS_dates"]) > 0
         
         SNRs = array(SN_data["SN_observations"][i]["fluxes"])/array(SN_data["SN_observations"][i]["dfluxes"])
-        
+        phases = (SN_data["SN_observations"][i]["dates"] - SN_data["SN_table"]["daymaxes"][i])/(1. + this_z)
+
+
         filts_are_okay_mask = [okay_filters[this_z].count(filtitem) for filtitem in SN_data["SN_observations"][i]["filts"]]
-        inds = where((SNRs > 8)*filts_are_okay_mask)
+        inds = where((SNRs > 8)*filts_are_okay_mask*(phases > -10)*(phases < 30))
 
         filts = unique(SN_data["SN_observations"][i]["filts"][inds])
         if ((len(filts) > 2) and (sum(SNRs > 8) > 4)):# or has_IFC:
@@ -277,6 +287,7 @@ for i in range(SN_data["nsne"]):
 
             stan_data = make_sim_SN(i, SN_data, stan_data, filts)
 
+            stan_data["has_IFC"].append(int(has_IFC))
             if has_IFC:
                 stan_data["redshifts_has_IFC"].append(SN_data["SN_table"]["redshifts"][i])
 
@@ -344,6 +355,8 @@ stan_data["redcoeff"] = transpose(array([
     1./(1. + stan_data["redshifts"])]))
     
 print "redcoeff", stan_data["redcoeff"].shape
+
+pickle.dump(stan_data, open("input.pickle", 'wb'))
 
 sm = pystan.StanModel(model_code=stan_model)
 

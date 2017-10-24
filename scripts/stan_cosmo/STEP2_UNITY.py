@@ -514,6 +514,7 @@ def generate_data(SN_data):
 
     if opts.missing != -1:
         eigen_vecs = eigen_vecs[:-1]
+        true_projs = true_projs[:,:-1]
 
     stan_data = dict(nrestlamb = opts.nrestlamb, nsne = nsne, nred = nred, neigen = opts.neigen - (opts.missing != -1), nsys = nsys, ncoeff = opts.nredcoeff,
                      fluxes = fluxes, fluxerrs = dfluxes, eigen_vecs = eigen_vecs, dflux_dsys = dflux_dsys, CCM_31 = F99_31, CCM_dAdRV = F99_dAdRV,
