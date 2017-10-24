@@ -344,6 +344,13 @@ for i in range(SN_data["nsne"]):
 
             pdf.savefig(plt.gcf())
             plt.close()
+
+            if has_IFC and selected:
+                plt.figure(figsize = (7,5))
+                plt.plot(IFC_lambs, IFC_SNR, '.')
+                pdf.savefig(plt.gcf())
+                plt.close()
+
 pdf.close()
 
 print "nobs ", stan_data["nobs"]
