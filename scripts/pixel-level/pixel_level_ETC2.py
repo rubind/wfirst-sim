@@ -833,7 +833,7 @@ def solve_for_exptime(S_to_N, redshift, PSFs, key1 = "obs_frame", key2 = (10200,
 
 def get_imaging_SN(PSFs, exp_time, effective_meters2_fl, wavemin = 4000, wavemax = 25000, waves = None, redshift=0, phase=0, gal_flamb = lambda x:0., pixel_scale = 0.11, IPC = 0.02, offset_par = 5, offset_perp = 5, source_dir = "input", zodi_fl = "aldering.txt", mdl = "hsiao", dark_current = 0.015, TTel = 282., verbose = False, approximate_PSF = True, bad_pixel_rate = 0, read_noise_floor = 5., read_noise_white = 20.):
     scale = int(round(pixel_scale/0.005))
-    if waves == None:
+    if any(waves == None):
         waves = arange(wavemin, wavemax, 50.) # These should span (and perhaps slightly overfill) the filter
         dwaves = ones(len(waves), dtype=float64)*50.
     else:
