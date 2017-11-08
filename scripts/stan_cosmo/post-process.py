@@ -1,5 +1,7 @@
 import cPickle as pickle
 from numpy import *
+from matplotlib import use
+use("PDF")
 import matplotlib.pyplot as plt
 import time
 import sys
@@ -8,7 +10,10 @@ import multiprocessing as mp
 from functools import partial
 
 import sys
-sys.path.append("../synth_dataset/")
+import os
+wfirst_path = os.environ["WFIRST"]
+sys.path.append(wfirst_path + "/scripts/synth_dataset/")
+
 from synth_functions import NMAD, get_weights
 
 
@@ -217,6 +222,7 @@ for pfl in sys.argv[1:]:
         except:
             print "Couldn't invert!"
             pcmat = 0.
+
 
         plty.append(pcmat)
         pltHR.append(std(h_resids, ddof = 1))

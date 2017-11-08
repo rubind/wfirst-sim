@@ -149,29 +149,41 @@ def make_sim_SN(i, SN_data, stan_data, filts, lowz_SNR = 20., has_IFC = 0, IFC_l
 
 
 def bin_IFC(IFC_phases, IFC_waves, IFC_fluxes, IFC_dfluxes, this_z):
+    assert len(IFC_waves) > 1
     inds = where((IFC_waves > 3300*(1. + this_z))*(IFC_waves < 8600.*(1. + z)))
     IFC_waves = IFC_waves[inds]
     IFC_fluxes = [item[inds] for item in IFC_fluxes]
     IFC_dfluxes = [item[inds] for item in IFC_dfluxes]
 
-    new_waves = exp(arange(log(IFC_waves[0]), log(IFC_waves[1]), 0.01))
+    new_waves = exp(arange(log(IFC_waves[0]), log(IFC_waves[-1]), 0.01))
     ref_w = new_waves*0.
     new_f = new_waves*0. # flux
     new_w = new_waves*0. # flux
     
+    for j in range(len(IFC_phases)):
+        assert all(1 - isnan(IFC_fluxes[j]))
+        assert all(1 - isnan(IFC_dfluxes[j]))
+
+
     for i in range(len(new_waves)):
         inds = where(abs(log(IFC_waves/new_waves[i])) <= 0.005)
         for j in range(len(IFC_phases)):
-            if abs(IFC_phases) < 5.:
+            if abs(IFC_phases[j]) < 5.:
                 new_f[i] += sum(IFC_fluxes[j][inds]/IFC_dfluxes[j][inds]**2.)
-                new_w[i] += sum(IFC_dfluxes[j][inds]**2.)
-            elif IFC_phase > 100:
-                ref_w[i] += sum(IFC_dfluxes[j][inds]**2.)
+                new_w[i] += sum(IFC_dfluxes[j][inds]**-2.)
+            elif IFC_phases[j] > 100:
+                ref_w[i] += sum(IFC_dfluxes[j][inds]**-2.)
+
+    new_f /= new_w # complete the weighted mean
     ref_err = 1./sqrt(ref_w)
     new_err = 1./sqrt(new_w)
     
-    
-    return new_waves, abs(new_f)/sqrt(ref_err**2. + new_err**2.)
+
+    SNR = abs(new_f)/sqrt(ref_err**2. + new_err**2.)
+    if any(abs(IFC_phases[j]) < 5.):
+        assert SNR.max() > 1 and SNR.max() < 200
+
+    return new_waves, SNR
 
 stan_model = """
 data {
@@ -265,6 +277,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--sigint", type = float, help = "intrinsic dispersion", default = 0.08)
 parser.add_argument("--fast", type = int, help = "fast (for testing)", default = 0)
 parser.add_argument("--pickle", type = str, help = "pickle file")
+parser.add_argument("--nnearby", type = int, help = "number of nearby SNe", default = 800)
 args = parser.parse_args()
 
 print time.asctime()
@@ -289,7 +302,7 @@ for z in unique(SN_data["SN_table"]["redshifts"]):
 
 print "okay_filters ", okay_filters
 
-for ii in range(800 - args.fast * 700):
+for ii in range(args.nnearby - args.fast * 700):
     print ii
     stan_data = make_sim_SN(None, SN_data, stan_data, filts = ["g", "r", "i"], lowz_SNR = 20.)
 
@@ -323,6 +336,9 @@ for i in range(SN_data["nsne"]):
                                              SN_data["IFC_waves"]*1.0,
                                              SN_data["SN_observations"][i]["IFS_fluxes"],
                                              SN_data["SN_observations"][i]["IFS_dfluxes"], this_z)
+
+                
+                
             else:
                 IFC_lambs = None
                 IFC_SNR = None
@@ -337,7 +353,7 @@ for i in range(SN_data["nsne"]):
             print "Not using SN ", i
             selected = 0
 
-        if random.random() < 0.005:
+        if random.random() < 0.005 + 0.02*has_IFC:
             plt.figure(figsize = (7,5))
             for filt in unique(SN_data["SN_observations"][i]["filts"]):
                 inds = where(SN_data["SN_observations"][i]["filts"] == filt)
@@ -394,7 +410,7 @@ def pullfn(P, thisdata):
 
     return concatenate((
         (obs_fluxes - the_mod)/obs_dfluxes,
-        P/100.))
+        P/Pconstraint))
 
 
 stan_data["obs_Lmats"] = []
@@ -403,13 +419,27 @@ for i in range(stan_data["nsne"]):
     lowi = stan_data["lowind"][i]
     highi = stan_data["highind"][i] + 1
 
-    P, F, Cmat = miniLM_new(ministart = [0]*(nEV + 2), miniscale = [1]*(nEV + 2), residfn = pullfn,
-                            passdata = (stan_data["obs_fluxes"][lowi:highi], stan_data["obs_dfluxes"][lowi:highi],
-                                        stan_data["mean_eval"][lowi:highi], stan_data["color_law"][lowi:highi], stan_data["EVs"][lowi:highi]),
-                            maxiter = 5, verbose = False)
+    Pconstraint = 100.
+    itworked = 0
 
-    assert all(1 - isnan(P))
-    assert all(1 - isnan(Cmat))
+    while itworked == 0:
+
+
+        P, F, Cmat = miniLM_new(ministart = [0]*(nEV + 2), miniscale = [1]*(nEV + 2), residfn = pullfn,
+                                passdata = (stan_data["obs_fluxes"][lowi:highi], stan_data["obs_dfluxes"][lowi:highi],
+                                            stan_data["mean_eval"][lowi:highi], stan_data["color_law"][lowi:highi], stan_data["EVs"][lowi:highi]),
+                                maxiter = 5, verbose = False)
+        
+        assert all(1 - isnan(P))
+        assert all(1 - isnan(Cmat))
+        
+        try:
+            linalg.cholesky(Cmat)
+            itworked = 1
+        except:
+            itworked = 0
+            Pconstraint /= 2.
+            print "Trying again! Pconstraint:", Pconstraint
 
     stan_data["obs_mAVprojs"].append(P)
     stan_data["obs_Lmats"].append(linalg.cholesky(Cmat))
@@ -444,7 +474,7 @@ pickle.dump(stan_data, open("input.pickle", 'wb'))
 
 sm = pystan.StanModel(model_code=stan_model)
 
-fit = sm.sampling(data=stan_data, iter=1000, chains=4, refresh = 1, init = initfn)
+fit = sm.sampling(data=stan_data, iter=1000, chains=4, refresh = 1, init = initfn, sample_file = commands.getoutput("pwd") + "/sample_file")
 fit_params = fit.extract(permuted = True)
 
 
