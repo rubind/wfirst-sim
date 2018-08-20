@@ -132,6 +132,14 @@ def get_eigen():
     eigen_fns = []
     for i in range(1,1+opts.neigen):
         eigen_fns.append(interp1d(evecs[0], evecs[i], kind = 'linear', fill_value = 0, bounds_error = False))
+
+    if opts.missing != -1:
+        print "Missing eigenvector requested! Moving that one to last.", opts.missing
+        eigen_fns.append(eigen_fns[opts.missing])
+        print [item(5000.) for item in eigen_fns]
+        del eigen_fns[opts.missing]
+        print [item(5000.) for item in eigen_fns]
+
     return eigen_fns
 
 
@@ -329,6 +337,13 @@ def generate_data(SN_data):
     rest_mod /= sum(rest_mod) # This is just for intializing the model; it's not used anywhere else.
 
     true_projs = random.normal(size = (nsne, opts.neigen))
+    if opts.missing != -1:
+        print "Adding drift for ", opts.missing
+        a_scaled = 1 - 1./(1 + redshift_vector)
+        a_scaled -= a_scaled.min()
+        a_scaled /= (a_scaled.max() - a_scaled.min())
+
+        true_projs[:,-1] += a_scaled # Varies between 0 and 1 over the maximum redshift range
 
 
     true_fluxes = []
@@ -494,9 +509,14 @@ def generate_data(SN_data):
 
     eigen_vecs = array([item(rest_waves) for item in eigen_fns])
 
+
     save_img(eigen_vecs, "sampled_eigen_vecs.fits")
 
-    stan_data = dict(nrestlamb = opts.nrestlamb, nsne = nsne, nred = nred, neigen = opts.neigen, nsys = nsys, ncoeff = opts.nredcoeff,
+    if opts.missing != -1:
+        eigen_vecs = eigen_vecs[:-1]
+        true_projs = true_projs[:,:-1]
+
+    stan_data = dict(nrestlamb = opts.nrestlamb, nsne = nsne, nred = nred, neigen = opts.neigen - (opts.missing != -1), nsys = nsys, ncoeff = opts.nredcoeff,
                      fluxes = fluxes, fluxerrs = dfluxes, eigen_vecs = eigen_vecs, dflux_dsys = dflux_dsys, CCM_31 = F99_31, CCM_dAdRV = F99_dAdRV,
                      redshift_coeffs = redshift_coeffs, zinds = zinds,
                      gray_variance = 0.055**2. * redshift_vector**2.  + 0.00217147**2. / redshift_vector**2.
@@ -557,7 +577,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-pickle', help='pickle file to read', type=str)
 parser.add_argument('-niter', help='number of iterations', type=int, default = 1000)
 parser.add_argument('-nchains', help='number of chains', type=int, default = 8)
-parser.add_argument('-writecsv', help='write csv files for chains', type=int, default = 0)
+parser.add_argument('-writecsv', help='write csv files for chains', type=int, default = 1)
 parser.add_argument('-nnearby', help='number of nearby SNe', type=int, default = 800)
 parser.add_argument('-nrestlamb', help='number of rest-frame wavelengths', type=int, default=100)
 parser.add_argument('-nredcoeff', help='number of redshift coeffs', type=int, default=3)
@@ -580,6 +600,7 @@ parser.add_argument('-IGext', help='intergalactic extinction fractional uncertai
 parser.add_argument('-crnl', help='count-rate nonlinearity (mag)', type=float, default=0.005)
 parser.add_argument('-fund', help='fundamental calibration (mag)', type=float, default=0.005)
 parser.add_argument('-gray', help='gray dispersion (mag)', type=float, default=0.08)
+parser.add_argument('-missing', help='leave out an eigenvector for testing. Useage: -missing 2 -neigen 5', type=int, default= -1)
 
 
 opts = parser.parse_args()

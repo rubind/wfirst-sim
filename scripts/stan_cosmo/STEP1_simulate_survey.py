@@ -88,8 +88,8 @@ def read_csv(csv_file):
     # Start with global parameters
     for key in ["total_survey_time", "survey_duration", "hours_per_visit", "maximum_trigger_fraction", "shallow_SNR", "medium_SNR", "deep_SNR", "reference_SNR", "number_of_reference_dithers", "SN_rates",
                 "slew_table", "zodiacal_background", "telescope_temperature", "PSFs", "interpixel_capacitance",
-                "WFI_dark_current",
-                "IFU_min_wave", "IFU_max_wave", "IFU_effective_area", "IFU_resolution", "IFU_pixel_scale", "IFU_slice_in_pixels", "IFU_dark_current", "IFU_read_noise_floor", "bad_pixel_rate"]:
+                "WFI_dark_current", "WFI_read_noise_floor", "WFI_read_noise_white",
+                "IFU_min_wave", "IFU_max_wave", "IFU_effective_area", "IFU_resolution", "IFU_pixel_scale", "IFU_slice_in_pixels", "IFU_dark_current", "IFU_read_noise_floor", "IFU_read_noise_white", "bad_pixel_rate"]:
         survey_parameters[key] = read_from_lines(lines, key)
     for key in ["adjust_each_SN_exp_time", "targeted_parallels"]:
         survey_parameters[key] = ["true", "t", "yes", "y"].count(lower(read_from_lines(lines, key)))
@@ -141,7 +141,7 @@ def init_ground(grizY_30s_ground_depths):
                                       Y = grizY_30s_ground_depths[4] + 1.25*log10(3600/30.))
 
     WFI_filt_fns = {}
-    for filt in ["Z087", "Y106", "J129", "H158", "F184", "K193"]:
+    for filt in ["R062", "Z087", "Y106", "J129", "H158", "F184", "K193"]:
         WFI_filt_fns[filt] = file_to_fn(wfirst_data_path + "/pixel-level/input/" + filt + ".txt")
 
     return ground_filt_fns, ground_obslambs, ground_five_sigma_one_hour, WFI_filt_fns
@@ -212,7 +212,9 @@ def round_to_cadence(vals, cadence):
     return cadence*around(vals/float(cadence))
 
 def date_to_roll_angle(the_date):
-    return (the_date*2.*pi/365.24) % (2.*pi)
+    even_step = float(isclose(the_date % 2, 0)) # Assumes cadence is odd!!!!!!
+    delta_angle = even_step*0.35 - 0.175
+    return (the_date*2.*pi/365.24 + delta_angle) % (2.*pi)
 
 def compress_lc_data(SN_data, current_date, filt):
     """If more than one observation per day, bin."""
@@ -363,7 +365,7 @@ stop_here
 """
 
 def IFS_to_WFI(IFS_RA, IFS_Dec, WFI_orient):
-    dr = 0.617 - 0.16 - 0.0712295833333
+    dr = 0.491 + 0.0712295833333 + 0.039
     return IFS_RA + cos(WFI_orient)*dr, IFS_Dec + sin(WFI_orient)*dr
 
 
@@ -506,11 +508,14 @@ def get_single_slew_or_filt_change(RAs, Decs, roll_angles, i, j, filt_inds, NN_f
 def get_slew_time(RAs, Decs, roll_angles, filt_inds = None, NN_filt_change = 120/7., show_solution = False, label_slews = True, label_filts = True,
                   square_degrees = 0, n_filters = 8, filt_names = None):
     if len(RAs) < 2:
-        return 0
+        print "No slew"
+        return 0, []
     elif len(RAs) == 2:
+        print "Only one slew"
         dist = sqrt((RAs[1] - RAs[0])**2. + (Decs[1] - Decs[0])**2.)
-
-        return quantize_time(slew_fn(dist))    
+        return quantize_time(slew_fn(dist)), [[RAs[0], Decs[0], RAs[1], Decs[1],
+                                              dist,
+                                              quantize_time(slew_fn(dist))]]
 
     if len(unique(roll_angles)) > 2:
         print "Large number of roll angles found!!! ", len(unique(roll_angles))
@@ -569,11 +574,13 @@ def get_slew_time(RAs, Decs, roll_angles, filt_inds = None, NN_filt_change = 120
 
     labeled = []
     total_time = 0.
+
+
     if show_solution:
         if label_filts:
             for i in range(len(RAs)):
                 plt.plot(RAs[i], Decs[i], '.',
-                         color = {"Z087": 'm', "Y106": 'b', "J129": 'c', "H158": 'g', "F184": 'r', "K193": 'k', "W149": 'gray', "None": 'gray', "Pointings": 'gray'}[filt_names[i]],
+                         color = {"R087": (1, 0.5, 1), "Z087": 'm', "Y106": 'b', "J129": 'c', "H158": 'g', "F184": 'r', "K193": 'k', "W149": 'gray', "None": 'gray', "Pointings": 'gray'}[filt_names[i]],
                          label = filt_names[i]*(labeled.count(filt_names[i]) == 0)*label_filts, zorder = 3)
                 labeled.append(filt_names[i])
         else:
@@ -601,13 +608,30 @@ def get_slew_time(RAs, Decs, roll_angles, filt_inds = None, NN_filt_change = 120
 
     print "slew ", 
 
-    if label_slews:
-        color_dict = {'28.25': 'm', '59.33': 'b', '64.98': 'g', '70.62': 'g', '62.15': 'g', '67.80': 'orange', '81.93': 'orange', '79.10': 'r', '84.75': 'r'}
-    else:
-        color_dict = {}
+
+    ordered_sol = []
+
+    slew_times_found = []
+    for i in range(len(RAs) - 1):
+        slew_time = get_single_slew_or_filt_change(RAs, Decs, roll_angles, sol[i], sol[i+1], filt_inds, NN_filt_change, n_filters)
+        slew_times_found.append(slew_time)
+    slew_times_found = sort(list(set(slew_times_found)))
+
+    color_dict = {}
+
+    if label_slews and show_solution:
+        for i in range(len(slew_times_found)):
+            if len(slew_times_found) <= 4:
+                color_dict["%.2f" % slew_times_found[i]] = ['b', 'g', 'orange', 'r'][i]
+            else:
+                color_dict["%.2f" % slew_times_found[i]] = ['m', 'b', 'c', 'g', 'orange', 'r', 'k'][i]
 
     for i in range(len(RAs) - 1):
         slew_time = get_single_slew_or_filt_change(RAs, Decs, roll_angles, sol[i], sol[i+1], filt_inds, NN_filt_change, n_filters)
+        ordered_sol.append([RAs[sol[i]], Decs[sol[i]], RAs[sol[i+1]], Decs[sol[i+1]],
+                            sqrt((RAs[sol[i]] - RAs[sol[i+1]])**2. + (Decs[sol[i]] - Decs[sol[i+1]])**2.),
+                            slew_time])
+
         print slew_time, 
         total_time += slew_time
         
@@ -633,7 +657,7 @@ def get_slew_time(RAs, Decs, roll_angles, filt_inds = None, NN_filt_change = 120
         
     print "done ", total_time
     
-    return total_time
+    return total_time, ordered_sol
 
 
 """
@@ -660,7 +684,7 @@ stophere
 """
 
 
-def add_observations_to_sndata(SN_data, rows_to_add, current_date, ground_depths):
+def add_observations_to_sndata(SN_data, rows_to_add, current_date, ground_depths, ordered_sol):
     rows_added = Table(names = ["date", "filt", "exptime", "RA", "dec", "orient", "instr", "SNind"],
                        dtype= ("f8", "S10", "f8", "f8", "f8", "f8", "S10", "i4"))
 
@@ -676,7 +700,12 @@ def add_observations_to_sndata(SN_data, rows_to_add, current_date, ground_depths
         inds = sort(inds)[::-1]
         print inds
         if len(inds) > 0 and rows_to_add["instr"][inds[0]] != "ground":
-            tmp_slew_time = get_slew_time(rows_to_add["RA"][inds], rows_to_add["dec"][inds], rows_to_add["orient"][inds]) + quantize_time(3. * 120./7.) # 51 seconds for changing filters (three changes)
+            tmp_slew_time, tmp_ordered_sol = get_slew_time(rows_to_add["RA"][inds], rows_to_add["dec"][inds], rows_to_add["orient"][inds])
+            tmp_slew_time += quantize_time(3. * 120./7.) # 51 seconds for changing filters (three changes)
+
+            for item in tmp_ordered_sol:
+                ordered_sol.add_row([current_date, filt] + item)
+
             time_used += tmp_slew_time
             slew_time += tmp_slew_time
         
@@ -694,7 +723,7 @@ def add_observations_to_sndata(SN_data, rows_to_add, current_date, ground_depths
         # Finished adding all data for this filter, now, take variance-weighted mean of all repeat observations for a given SN (either because of dithers, or parallels)
         SN_data = compress_lc_data(SN_data, current_date, filt)
 
-    return SN_data, rows_to_add, rows_added, time_used, slew_time
+    return SN_data, rows_to_add, rows_added, time_used, slew_time, ordered_sol
 
 
 def find_SNe(SN_data, current_date):
@@ -796,9 +825,15 @@ def plan_and_add_triggers(SN_data, rows_to_add, current_date, cadence, IFS_trigg
 
             # Add references
             trigger_SNRs = IFS_trigger_params["SNRs"] + [IFS_trigger_params["SNR_set"][-1]]*IFS_trigger_params["number_of_reference_dithers"]
-            for ref in range(IFS_trigger_params["number_of_reference_dithers"]):
-                trigger_dates.append(SN_data["SN_table"]["daymaxes"][possible_inds[i]] + 365.)
-            
+
+            dates_wrt_one_year = linspace(0., 365./2., IFS_trigger_params["number_of_reference_dithers"] + 1.)
+            dates_wrt_one_year = dates_wrt_one_year[:-1]
+            dates_wrt_one_year -= median(dates_wrt_one_year)
+            print "dates_wrt_one_year", dates_wrt_one_year
+
+            for dwrtoy in dates_wrt_one_year:
+                trigger_dates.append(SN_data["SN_table"]["daymaxes"][possible_inds[i]] + 365.*(1. + possible_redshifts[i]) + dwrtoy)
+                
             trigger_dates = round_to_cadence(array(trigger_dates), cadence)
             print "trigger_dates, trigger_SNRs", trigger_dates, trigger_SNRs
             
@@ -815,12 +850,17 @@ def plan_and_add_triggers(SN_data, rows_to_add, current_date, cadence, IFS_trigg
             CC_RA = r*cos(theta)
             CC_Dec = r*sin(theta)
 
-            for date, SNR in zip(trigger_dates[:2], trigger_SNRs[:2]):
+            for date, phase, SNR in zip(trigger_dates[:2], IFS_trigger_params["phases"], trigger_SNRs[:2]):
                 # For every SN Ia triggered on, assume there is one CC SN that is falsely triggered on for two epochs. The assumption of a random place is conservative; we're not doing anything with the parallels.
                 CC_WFI_RA, CC_WFI_Dec = IFS_to_WFI(CC_RA, CC_Dec, date_to_roll_angle(date))
 
-                rows_to_add.add_row((date, "W149", IFS_exptimes[SNR], CC_WFI_RA, CC_WFI_Dec, date_to_roll_angle(date), "WFI", -2))
-    
+                if phase < 3:
+                    if random.random() < 0.2:
+                        rows_to_add.add_row((date, "W149", IFS_exptimes[SNR], CC_WFI_RA, CC_WFI_Dec, date_to_roll_angle(date), "WFI", -2))
+                        print "Triggering on CC SN, phase=", phase
+            
+
+
     return rows_to_add
 
 
@@ -833,13 +873,14 @@ def optimize_triggers(rows_to_add, current_date, cadence, parallel_filters):
         print rows_to_add[inds]
         RA_need_filt = rows_to_add[inds]["RA"]
         Dec_need_filt = rows_to_add[inds]["dec"]
+        exp_need_filt = rows_to_add[inds]["exptime"]
 
         print RA_need_filt
         print Dec_need_filt
 
         best_metric = -1
         best_filts = None
-        for i in range(100):
+        for i in range(400):
             possible_choice = random.choice(parallel_filters, size=len(RA_need_filt), replace=True)
             #print possible_choice
             this_metric = 1e10
@@ -857,9 +898,20 @@ def optimize_triggers(rows_to_add, current_date, cadence, parallel_filters):
                         #print this_metric
 
             for filt in parallel_filters:
-                this_metric += abs(
-                    sum(possible_choice == filt)/float(len(possible_choice))
-                    - 1./len(parallel_filters))
+                actual_frac = sum(possible_choice == filt)/float(len(possible_choice))
+                actual_frac = clip(actual_frac, 0.001, 1.) # Prevent zeros
+
+                target_frac = 1./len(parallel_filters)
+
+                this_metric -= abs(log(target_frac/actual_frac))
+
+            if parallel_filters.count("F184") and len(parallel_filters) > 1:
+                target_for_F184 = 3./(len(parallel_filters) + 2.)
+                actual_frac = sum(exp_need_filt[where(possible_choice == "F184")])/sum(exp_need_filt)
+
+                actual_frac = clip(actual_frac, 0.001, 1.) # Prevent zeros
+
+                this_metric -= 2.*abs(log(target_for_F184/actual_frac))
 
             if this_metric > best_metric:
                 best_filts = possible_choice
@@ -970,10 +1022,11 @@ def plan_and_add_triggers_old(SN_data, rows_to_add, current_date, cadence, IFS_t
             CC_RA = r*cos(theta)
             CC_Dec = r*sin(theta)
 
-            for date, SNR in zip(trigger_dates[:2], trigger_SNRs[:2]):
+            for date, phase, SNR in zip(trigger_dates, IFS_trigger_params["phases"], trigger_SNRs):
                 # For every SN Ia triggered on, assume there is one CC SN that is falsely triggered on for two epochs. The assumption of a random place is conservative; we're not doing anything with the parallels.
-                rows_to_add.add_row((date, random.choice(parallel_filters), IFS_exptimes[SNR], CC_RA, CC_Dec, trigger_roll_angle, "WFI", -2))
-
+                if phase < 0:
+                    rows_to_add.add_row((date, random.choice(parallel_filters), IFS_exptimes[SNR], CC_RA, CC_Dec, trigger_roll_angle, "WFI", -2))
+                    print "Triggering on CC SN, phase=", phase
             
     
     return rows_to_add
@@ -1089,14 +1142,14 @@ for square_degrees in arange(1., 20.1, 1.):
     plt.savefig("square_degrees=%04i.pdf" % (square_degrees*100))
     plt.close()
 
-    slew_fn = file_to_fn(wfirst_data_path + "/pixel-level/input/slewtable_I32000_t0.40_vmax0.12_Tr2.0.txt", col = 2)
+    slew_fn = file_to_fn(wfirst_data_path + "/pixel-level/input/slew_settle_170419.txt", col = 2)
     get_slew_time(RAs_to_add, Decs_to_add, roll_angles = [0]*len(RAs_to_add), show_solution = 1, square_degrees = square_degrees, filt_names = ["Pointings"]*len(RAs_to_add))
     commands.getoutput("mv slew_solution.eps slew_solution_%04i.eps" % (square_degrees*100))
 
 
 stop_here
-
 """
+
 
 def plan_and_add_cadence(SN_data, wfi_time_left, current_date, rows_to_add,
                          square_degrees, cadence,
@@ -1182,6 +1235,9 @@ def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, ground_dept
 
     observation_table = Table(names = ["date", "filt", "exptime", "RA", "dec", "orient", "instr", "SNind"],
                               dtype= ("f8", "S10", "f8", "f8", "f8", "f8", "S10", "i4"))
+    ordered_sol = Table(names = ["date", "filt", "RA1", "dec1", "RA2", "dec2", "deg", "time"],
+                        dtype= ("f8", "S10", "f8", "f8", "f8", "f8", "f8", "f8"))
+
     # RA is x, Dec is y
 
     print observation_table
@@ -1194,13 +1250,14 @@ def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, ground_dept
 
     SN_data["time_remaining_values"] = [[(current_date, total_time_left, total_time_left, current_trigger_scaling)]]
 
-    while (len(rows_to_add["filt"]) > 0 or current_date == 0) and current_date < 365*(1.5 + survey_duration):
+    while (len(rows_to_add["filt"]) > 0 or current_date == 0) and current_date < 365*(3 + survey_duration):
         # The extra 1.5 on the 2 years is to get references + have some margin
         IFS_trigger_params["trigger_scaling"] = current_trigger_scaling
 
 
         # Step 1: Add previously planned observations
-        SN_data, rows_to_add, rows_added, time_used, slew_time = add_observations_to_sndata(SN_data, rows_to_add, current_date, ground_depths)
+        SN_data, rows_to_add, rows_added, time_used, slew_time, ordered_sol = add_observations_to_sndata(SN_data, rows_to_add, current_date,
+                                                                                                         ground_depths, ordered_sol = ordered_sol)
         for i in range(len(rows_added)):
             observation_table.add_row(rows_added[i])
         total_time_left -= time_used
@@ -1250,7 +1307,7 @@ def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, ground_dept
         if current_date > 10*cadence:
             # Let's take a look at the last five steps
             time_in_last_five = SN_data["time_remaining_values"][0][-6][1] - SN_data["time_remaining_values"][0][-1][1]
-            relative_time_scaling = hours_per_visit*fraction_time*3600*5./(time_in_last_five)
+            relative_time_scaling = hours_per_visit*fraction_time*3600*5./(time_in_last_five + 1e-6)
 
             current_trigger_scaling = relative_time_scaling*mean([SN_data["time_remaining_values"][0][i][3] for i in range(-6, 0)])
 
@@ -1262,6 +1319,7 @@ def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, ground_dept
     print "Done with tier. Slew time = ", total_slew_time
     SN_data["total_time_used"] = starting_time - total_time_left
     SN_data["observation_table"] = observation_table
+    SN_data["ordered_sol"] = ordered_sol
     return SN_data
 
 
@@ -1335,7 +1393,11 @@ def make_SNe(square_degrees, cadence, survey_duration, hours_per_visit, rates_fn
 
     SN_data = {"nsne": nsne, "SN_table": Table([redshifts, RAs, Decs, daymaxes, [survey_fields]*nsne],
                                                names = ["redshifts", "RAs", "Decs", "daymaxes", "survey_fields"],
-                                               dtype= ("f8", "f8", "f8", "f8", "S20")), "SN_observations": [], "test_points": [test_points]}
+                                               dtype= ("f8", "f8", "f8", "f8", "S20")), "SN_observations": [],
+               "CC_table": Table([redshifts, RAs, Decs, daymaxes, [survey_fields]*nsne],
+                                 names = ["redshifts", "RAs", "Decs", "daymaxes", "survey_fields"],
+                                 dtype= ("f8", "f8", "f8", "f8", "S20")), "SN_observations": [],
+               "test_points": [test_points]}
 
     print "Getting SNCosmo models..."
     # I'm going to put the SN LC information into the per-SN dictionary list, as it needs to contain items like an SNCosmo model
@@ -1355,6 +1417,22 @@ def make_SNe(square_degrees, cadence, survey_duration, hours_per_visit, rates_fn
             filts = array([], dtype=(str, 10)), ispar = array([], dtype=bool), IFS_dates = [], IFS_fluxes = [], IFS_dfluxes = [], IFS_exptimes = [],
             found_date = None
         ))
+
+    """
+    dust = sncosmo.CCM89Dust()
+
+    for i in range(1000):
+        sncosmo_model = sncosmo.Model(source="nugent-sn2p", effects=[dust],
+                                      effect_names=['host'],
+                                      effect_frames=['rest'])
+
+        SN_data["CC_observations"].append(dict(
+            sncosmo_model = sncosmo_model, gal_background = gal_backgrounds[i],
+            dates = array([], dtype=float64), fluxes = array([], dtype=float64), dfluxes = array([], dtype=float64),
+            filts = array([], dtype=(str, 10)), ispar = array([], dtype=bool), IFS_dates = [], IFS_fluxes = [], IFS_dfluxes = [], IFS_exptimes = [],
+            found_date = None
+        ))
+    """
 
 
     if salt2_model:
@@ -1394,6 +1472,9 @@ def merge_SN_data(SN_data, this_SN_data):
         print "Merging observation_table"
         SN_data["observation_table"] = vstack([SN_data["observation_table"], this_SN_data["observation_table"]])
 
+        print "Merging ordered_sol"
+        SN_data["ordered_sol"] = vstack([SN_data["ordered_sol"], this_SN_data["ordered_sol"]])
+
         SN_data["test_points"].extend(this_SN_data["test_points"])
 
     return SN_data
@@ -1415,7 +1496,10 @@ slew_fn = file_to_fn(wfirst_data_path + "/pixel-level/input/" + survey_parameter
 
     
 WFI_args = {"PSFs": PSFs_WFC, "source_dir": wfirst_data_path + "/pixel-level/input",
-            "pixel_scale": 0.11, "dark_current": survey_parameters["WFI_dark_current"],
+            "pixel_scale": 0.11,
+            "dark_current": survey_parameters["WFI_dark_current"],
+            "read_noise_floor": survey_parameters["WFI_read_noise_floor"],
+            "read_noise_white": survey_parameters["WFI_read_noise_white"],
             "IPC": survey_parameters["interpixel_capacitance"],
             "TTel": survey_parameters["telescope_temperature"],
             "zodi_fl": file_to_fn(wfirst_data_path + "/pixel-level/input/" + survey_parameters["zodiacal_background"]),
@@ -1427,6 +1511,7 @@ IFS_args = {"PSFs": PSFs, "source_dir": wfirst_data_path + "/pixel-level/input",
             "slice_scale": survey_parameters["IFU_slice_in_pixels"]*survey_parameters["IFU_pixel_scale"],
             "dark_current": survey_parameters["IFU_dark_current"],
             "read_noise_floor": survey_parameters["IFU_read_noise_floor"],
+            "white_noise": survey_parameters["IFU_read_noise_white"],
             "IFURfl": file_to_fn(wfirst_data_path + "/pixel-level/input/" + survey_parameters["IFU_resolution"]),
             "zodifl": file_to_fn(wfirst_data_path + "/pixel-level/input/" + survey_parameters["zodiacal_background"]),
             "effareafl": file_to_fn(wfirst_data_path + "/pixel-level/input/" + survey_parameters["IFU_effective_area"]),
@@ -1477,6 +1562,7 @@ for redshift in redshift_set:
 IFS_trigger_params["uniform_IFS_exptimes"] = survey_parameters["uniform_IFS_exptimes"]
 
 SN_data = {}
+
 
 for i in range(len(survey_parameters["tier_parameters"]["tier_name"])):
     IFS_trigger_params["trigger_redshifts"] = survey_parameters["tier_parameters"]["trigger_redshifts"][i]

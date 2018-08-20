@@ -182,8 +182,11 @@ def FoM_bin_w(z_list, muCmat, bins = [0., 0.5, 1.0], shift_param_constraint = 0.
     paramwmat = dot(transpose(jacobian), dot(wmat, jacobian))
     paramcmat = linalg.inv(paramwmat)
     
+    nvar = float(len(paramcmat[2:, 2:]))
 
     FoM = sqrt(  1./linalg.det(paramcmat[2:, 2:])  )
+    FoM = FoM**(2./nvar)
+
 
     print sqrt(diag(paramcmat)), "%.2g " % FoM
 
@@ -260,6 +263,8 @@ def FoM_bin_rho(z_list, muCmat, bins = [0., 0.5, 1.0], shift_param_constraint = 
     paramcmat = linalg.inv(paramwmat)
 
     FoM = sqrt(  1./linalg.det(paramcmat[1:, 1:])  )
+    nvar = float(len(paramcmat[1:, 1:]))
+    FoM = FoM**(2./nvar)
     
     print sqrt(diag(paramcmat)), "%.2g " % FoM
 
@@ -392,8 +397,25 @@ def get_FoM(SN_Cmat, z_list, zp = 0.3, addcmb = 1, adddesi = 0, verbose = True, 
 
     if addcmb:
         param_W[1:,1:] += shift_parameter_Wmat(shift_constraint, zp)
-    if adddesi:
-        param_W[1:,1:] += DESI_Wmat(zp)
+    if adddesi != 0:
+        assert zp == 0
+        assert addcmb == 0
+        if adddesi == "DESI":
+            param_W[1:, 1:] += array([[107044.68490272206, -12158.679280863544, -816.2740811493574],
+                                      [-12158.679280863576, 2449.526355600522, 428.0781198008199],
+                                      [-816.2740811493647, 428.0781198008203, 119.00731931656223]])
+        elif adddesi == "DESI+Euclid":
+            param_W[1:, 1:] += array([[136901.14042331226, -18890.766471415904, -2093.89993122075],
+                                      [-18890.766471415947, 4035.9540997086365, 744.4553322356882],
+                                      [-2093.899931220761, 744.4553322356896, 185.538152548756]])
+        elif adddesi =="DESI+Euclid+GRS":
+            param_W[1:, 1:] += array([[148381.26067097083, -22191.916438403918, -2905.307136685933],
+                                      [-22191.916438403958, 5019.427364520403, 992.3987553106355],
+                                      [-2905.3071366859476, 992.3987553106361, 249.341315166026]])
+        else:
+            assert 0, adddesi
+
+        #param_W[1:,1:] += DESI_Wmat(zp)
 
 
     param_C = linalg.inv(param_W)

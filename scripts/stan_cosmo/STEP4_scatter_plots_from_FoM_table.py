@@ -45,7 +45,7 @@ def scatter_by_param(x, y, labels, key, shape_mask, FoM_run, dolabel = None):
             label = ""
             if ind == inds[0][0]:
                 label = label_set[i]
-            plt.plot(x[ind], y[ind], '*'*shape_mask[ind] + '.'*(1 - shape_mask[ind]), label = label, color = colors[i], markeredgewidth = 0, markersize = 8)
+            plt.plot(x[ind], y[ind], '*'*int(shape_mask[ind]) + '.'*int(1 - shape_mask[ind]), label = label, color = colors[i], markeredgewidth = 0, markersize = 8)
             if dolabel != None:
                 plt.text(x[ind], y[ind], dolabel[ind].replace("survey_", ""), color = colors[i], fontsize = 6)
                     

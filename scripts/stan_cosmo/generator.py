@@ -31,25 +31,25 @@ def make_SALT2_params(size):
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     
-    mB, x1, color, mass = make_SALT2_params(10000)
+    mB, x1, color, mass = make_SALT2_params(100000)
 
     print ("Median mB", np.median(mB))
 
 
     plt.subplot(2,2,1)
-    plt.hist(mB)
+    plt.hist(mB, bins = 30)
     plt.title("mB")
 
     plt.subplot(2,2,2)
-    plt.hist(x1)
+    plt.hist(x1, bins = 30)
     plt.title("x1")
 
     plt.subplot(2,2,3)
-    plt.hist(color)
+    plt.hist(color, bins = 30)
     plt.title("color")
 
     plt.subplot(2,2,4)
-    plt.hist(mass)
+    plt.hist(mass, bins = 30)
     plt.title("mass")
     
     plt.savefig("SALT_params.pdf")

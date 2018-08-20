@@ -126,7 +126,7 @@ def resolution_to_wavelengths(source_dir, IFURfl, min_wave, max_wave, waves = No
     else:
         spec_R = interpfile(source_dir + "/" + IFURfl)
 
-    if waves == None:
+    if any(waves == None):
         waves = array([min_wave], dtype=float64)
         while waves[-1] <= max_wave:
             waves = append(waves, waves[-1]*exp(0.5/spec_R(waves[-1]))
@@ -263,10 +263,10 @@ def get_pixelized_PSF_noIPC(PSFs, pixel_scale, slice_scale, wave, offset_par, of
     len_PSF_over_two = aint(len(PSFs[nearest_waves[0], pixel_scale, slice_scale])/2)
 
                                                                 
-    PSF_at_wave = (nearest_weights[0]*PSFs[nearest_waves[0], pixel_scale, slice_scale][len_PSF_over_two - aint(floor(psfsize/2.))*pixel_scale + offset_par: len_PSF_over_two + aint(ceil(psfsize/2.))*pixel_scale + offset_par: pixel_scale,
-                                                                    len_PSF_over_two - aint(floor(psfsize/2.))*slice_scale + offset_perp: len_PSF_over_two + aint(ceil(psfsize/2.))*slice_scale + offset_perp: slice_scale] + 
-                   nearest_weights[1]*PSFs[nearest_waves[1], pixel_scale, slice_scale][len_PSF_over_two - aint(floor(psfsize/2.))*pixel_scale + offset_par: len_PSF_over_two + aint(ceil(psfsize/2.))*pixel_scale + offset_par: pixel_scale,
-                                                                    len_PSF_over_two - aint(floor(psfsize/2.))*slice_scale + offset_perp: len_PSF_over_two + aint(ceil(psfsize/2.))*slice_scale + offset_perp: slice_scale])
+    PSF_at_wave = (nearest_weights[0]*PSFs[nearest_waves[0], pixel_scale, slice_scale][aint(len_PSF_over_two - floor(psfsize/2.)*pixel_scale + offset_par): aint(len_PSF_over_two + ceil(psfsize/2.)*pixel_scale + offset_par): pixel_scale,
+                                                                    aint(len_PSF_over_two - floor(psfsize/2.)*slice_scale + offset_perp): aint(len_PSF_over_two + ceil(psfsize/2.)*slice_scale + offset_perp): slice_scale] + 
+                   nearest_weights[1]*PSFs[nearest_waves[1], pixel_scale, slice_scale][aint(len_PSF_over_two - floor(psfsize/2.)*pixel_scale + offset_par): aint(len_PSF_over_two + ceil(psfsize/2.)*pixel_scale + offset_par): pixel_scale,
+                                                                    aint(len_PSF_over_two - floor(psfsize/2.)*slice_scale + offset_perp): aint(len_PSF_over_two + ceil(psfsize/2.)*slice_scale + offset_perp): slice_scale])
     assert len(PSF_at_wave) >= psfsize, "PSF .fits is too small!"
 
 
@@ -833,7 +833,7 @@ def solve_for_exptime(S_to_N, redshift, PSFs, key1 = "obs_frame", key2 = (10200,
 
 def get_imaging_SN(PSFs, exp_time, effective_meters2_fl, wavemin = 4000, wavemax = 25000, waves = None, redshift=0, phase=0, gal_flamb = lambda x:0., pixel_scale = 0.11, IPC = 0.02, offset_par = 5, offset_perp = 5, source_dir = "input", zodi_fl = "aldering.txt", mdl = "hsiao", dark_current = 0.015, TTel = 282., verbose = False, approximate_PSF = True, bad_pixel_rate = 0, read_noise_floor = 5., read_noise_white = 20.):
     scale = int(round(pixel_scale/0.005))
-    if waves == None:
+    if any(waves == None):
         waves = arange(wavemin, wavemax, 50.) # These should span (and perhaps slightly overfill) the filter
         dwaves = ones(len(waves), dtype=float64)*50.
     else:

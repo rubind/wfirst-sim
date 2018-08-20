@@ -1,15 +1,20 @@
 from numpy import *
 import commands
+from matplotlib import use
+use("PDF")
 import matplotlib.pyplot as plt
 from pixel_level_ETC2 import *
 from copy import deepcopy
 
 
-slew_time = 50.
+slew_time = 70.
 dither_time = 25.425
 generate_data = 0
 #SN_counts = [69, 208, 403, 223, 327, 136, 136, 136, 136, 136, 136, 136, 136, 136, 136, 136]
-SN_counts = [69] + [400]*6 + [100]*9
+SN_counts = [100] + [400]*4 + [100]*11
+
+
+SN_counts = [30, 70, 137, 224, 280, 300, 406, 87, 83, 90, 95, 85, 114, 112, 99]
 
 # for pixel_scale, slice_in_pixels, PSF_source, read_noise_floor, white_noise, gal_flamb, dark_current, live_dithers, ref_dithers, effareafl, IFURfl, run_color in runs:
 
@@ -28,9 +33,16 @@ runs = [#(0.15, 1, "test", 4.0, 0),
         #(0.05, 3, "WebbPSF", 2, 15, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
         #(0.05, 3, "WebbPSF", 4, 15, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
         #(0.05, 3, "WebbPSF", 2, 12, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-        (0.05, 3, "WebbPSF", 4., 15, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-        (0.05, 3, "WebbPSF", 3., 20, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-        (0.045, 3.333, "WebbPSF", 3., 20, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+        #(0.05, 3, "WebbPSF", 4., 15, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+        #(0.05, 3, "WebbPSF", 4., 15, 0, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_500.txt"),
+        (0.05, 3, "WebbPSF", 4., 15, 0, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+        (0.05, 3, "WebbPSF", 4., 15, 0, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720_x2.txt"),
+        #(0.05, 3, "WebbPSF", 4., 15, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+        #(0.05, 3, "WebbPSF", 4., 15, 0, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+        #(0.05, 3, "WebbPSF", 4., 15, 6e-19, 0.005, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+        #(0.05, 3, "WebbPSF", 2., 15, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+        #(0.05, 3, "WebbPSF", 3., 20, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+        #(0.045, 3.333, "WebbPSF", 3., 20, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
         #(0.075, 2, "WebbPSF", 4, 15, 6e-19, 0.01, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
         #(0.05, 3, "WebbPSF", 2, 10, 6e-19, 0.002, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
         #(0.075, 2, "WebbPSF", 2, 15, 6e-19, 0.01, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
@@ -67,7 +79,7 @@ runs = [#(0.15, 1, "test", 4.0, 0),
 
 print runs
 
-offset_par = 3
+offset_par = 4
 offset_perp = 0.
 
 read_noise = None
@@ -85,7 +97,7 @@ for pixel_scale, slice_in_pixels, PSF_source, read_noise_floor, white_noise, gal
 
     PSFs = initialize_PSFs(pixel_scales = [int(round(pixel_scale/0.005))],
                            slice_scales = [int(round(pixel_scale*slice_in_pixels/0.005))], PSF_source = PSF_source)
-    redshifts = arange(0.15, 1.66, 0.1)
+    redshifts = arange(0.15, 1.66, 0.1)[:len(SN_counts)]
     args = {"gal_flamb": lambda x:gal_flamb, "pixel_scale": pixel_scale, "slice_scale": slice_in_pixels*pixel_scale, "dark_current": dark_current, "mdl": 'hsiao', "PSFs": PSFs, "TTel": 260.,
             "IFURfl": IFURfl, "effareafl": effareafl, "min_wave": 4200., "max_wave": 21000., "read_noise": read_noise, "white_noise": white_noise, "read_noise_floor": read_noise_floor, "offset_par": offset_par, "offset_perp": offset_perp}
 
@@ -123,7 +135,7 @@ for pixel_scale, slice_in_pixels, PSF_source, read_noise_floor, white_noise, gal
         exptimeref = solve_for_exptime(S_to_N = StoNs[3], redshift = redshift, **args)
         
         time_at_this_redshift_per_SN = (
-            (exptime35*live_dithers + slew_time + dither_time*(live_dithers - 1))*4 +
+            (exptime35*live_dithers + slew_time + dither_time*(live_dithers - 1))*0 +
             (exptime6*live_dithers + slew_time + dither_time*(live_dithers - 1))*2 +
             (exptime10*live_dithers + slew_time + dither_time*(live_dithers - 1))*1 +
             (exptimeref*ref_dithers + slew_time + dither_time*(ref_dithers - 1))*1)
