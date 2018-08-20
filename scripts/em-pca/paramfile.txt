@@ -1,0 +1,8 @@
+nflt					8	# Number of filters
+filt_spacing				0.2	# E.g., spaced every 0.2 in log lambda
+
+nsn					10000	# Number of SNe
+
+nlm					11	# Number of wavelength spline nodes for any missing EV's
+nev					2	# Number of eigenvectors
+fit_ev					[0,1]	# E.g., [0,1] => fit the second, but not the first.
