@@ -6,6 +6,9 @@ use("PDF")
 import matplotlib.pyplot as plt
 import time
 import sys
+import cPickle as pickle
+import gzip
+import multiprocessing as mp
 
 
 def file_to_dict(flname):
@@ -25,103 +28,93 @@ def file_to_dict(flname):
 def get_settings():
     settings = file_to_dict(sys.argv[1])
 
-    settings["filt_boundaries"] = 4000.*np.exp(np.arange(settings["nflt"] + 1.)*settings["filt_spacing"])
-    settings["filt_lambs"] = 0.5*(settings["filt_boundaries"][1:] + settings["filt_boundaries"][:-1])
-    settings["filt_names"] = [str(np.around(item))[:3] for item in settings["filt_lambs"]]
-    settings["filt_colors"] = ['m', 'b', 'c', 'g',
-                               'orange', 'r', 'brown', 'k']
+    data = {}
+    parameters = {}
 
-    settings["phases"] = np.arange(-10., 36., 5.)
+    (survey, filter_info, EVs_with_filter, lambsteps, phases) = pickle.load(gzip.open(settings["survey_pickle"]))
+    
+
+    print EVs_with_filter.shape
+    settings["nsn"] = len(survey)
+    settings["phases"] = phases
     settings["nph"] = len(settings["phases"])
+    settings["nev"] = len(EVs_with_filter) - 1 # Doesn't include color law, hence the - 1
 
-    settings["rest_nodes"] = np.exp(np.linspace(np.log(3300.) + settings["filt_spacing"]/2.,
-                                                np.log(3300.) + 1. - settings["filt_spacing"]/2.,
+    settings["rest_nodes"] = np.exp(np.linspace(np.log(lambsteps.min()),
+                                                np.log(lambsteps.max()),
                                                 settings["nlm"])) # Filters have log width filt_spacing
 
-    for i in range(settings["nflt"]):
-        zmin = np.clip(settings["filt_lambs"][i]/settings["rest_nodes"].max() - 1., 0., None)
-        zmax = settings["filt_lambs"][i]/settings["rest_nodes"].min() - 1.
+    settings["ev_treatment"] = np.array(settings["ev_treatment"])
 
-        print "%s from z=%.2f to %.2f" % (settings["filt_names"][i],
-                                          zmin, zmax)
+    parameters["est_EV_splines"] = []
+    for i in range(settings["nev"]):
+        if settings["ev_treatment"][i] == 2:
+            parameters["est_EV_splines"].append(None)
+        else:
+            parameters["est_EV_splines"].append(RectBivariateSpline(lambsteps, settings["phases"], EVs_with_filter[i], kx = 3, ky = 3))
 
-        plot_one_plus_z = np.linspace(1. + zmin, 1. + zmax, 50)
-
-        plt.plot(plot_one_plus_z, settings["filt_lambs"][i]/plot_one_plus_z, color = settings["filt_colors"][i], linewidth = 2)
-        plt.text(plot_one_plus_z[-1], settings["filt_lambs"][i]/plot_one_plus_z[-1], settings["filt_names"][i], ha = 'center', va = 'top', color = settings["filt_colors"][i])
-    plt.xscale('log')
-
-    tmp_xticks = [1., 1.3, 1.6, 2., 2.5, 3, 4., 5]
-    #plt.gca().set_xticks([])
-    plt.xticks(tmp_xticks, ["%.1f" % (item - 1.) for item in tmp_xticks])
-    plt.savefig("filter_redshift.pdf", bbox_inches = 'tight')
-    plt.close()
+    
+    parameters["color_law"] = RectBivariateSpline(lambsteps, settings["phases"], EVs_with_filter[-1], kx = 3, ky = 3)
 
 
+    data["redshifts"] = []
+    data["dates"] = []
+    data["rlambs"] = []
+    data["fluxes"] = []
+    data["invvars"] = []
+
+    for i in range(settings["nsn"]):
+        data["redshifts"].append(survey[i]["z"])
+        
+        unique_filts = list(np.sort(np.unique(survey[i]["lc"]["band"])))
+        data["dates"].append(list(np.sort(np.unique(survey[i]["lc"]["time"]))))
+        data["rlambs"].append([filter_info[item]/(1. + survey[i]["z"]) for item in unique_filts])
+        
+        
+        assert len(survey[i]["lc"]["flux_orig"]) == len(data["dates"][-1])*len(data["rlambs"][-1])
+        
+        flux_grid = np.zeros([len(data["rlambs"][-1]), len(data["dates"][-1])], dtype=np.float64)
+        dflux_grid = np.zeros([len(data["rlambs"][-1]), len(data["dates"][-1])], dtype=np.float64)
+        
+        for j in range(len(survey[i]["lc"]["flux_orig"])):
+            ind_i, ind_j = unique_filts.index(survey[i]["lc"]["band"][j]), data["dates"][-1].index(survey[i]["lc"]["time"][j]),
+
+            flux_grid[ind_i, ind_j] = survey[i]["lc"]["flux"][j]
+            dflux_grid[ind_i, ind_j] = survey[i]["lc"]["flux_err"][j]
+        data["fluxes"].append(flux_grid)
+        data["invvars"].append(dflux_grid**-2.)
 
     print "settings:"
     for key in settings:
         print key, settings[key]
 
 
-    return settings
+    return parameters, data, settings
 
-def get_initial_parameters(settings):
-    parameters = {}
+def get_initial_parameters(parameters, settings):
 
-    parameters["est_EVs"] = np.random.normal(size = [sum(settings["fit_ev"]), settings["nlm"], settings["nph"]])
-    parameters["est_proj"] = np.ones([settings["nsn"], settings["nev"]], dtype=np.float64)
+    parameters["est_EVs"] = np.random.normal(size = [sum(settings["ev_treatment"] == 2), settings["nlm"], settings["nph"]])
+    parameters["est_proj"] = np.zeros([settings["nsn"], settings["nev"] + 1], dtype=np.float64)
+    parameters["est_proj"][:, 1] = 1.
+
     parameters["est_daymax"] = np.zeros(settings["nsn"], dtype=np.float64)
+    parameters["LC_fit_Cmat"] = [None for i in range(settings["nsn"])]
 
-    mean_SN_grid = np.outer(np.ones(settings["nlm"], dtype=np.float64),
-                            ((settings["phases"] - - 20.)/20.)**2. * np.exp(-settings["phases"]/10.))
-
-    parameters["est_EV_splines"] = [RectBivariateSpline(settings["rest_nodes"], settings["phases"], mean_SN_grid, kx = 3, ky = 3), None]
     parameters = get_splines(parameters, settings)
 
     return parameters
 
 def get_splines(parameters, settings):
     ind = 0
-    assert len(parameters["est_EVs"]) == sum(settings["fit_ev"])
+    assert len(parameters["est_EVs"]) == sum(settings["ev_treatment"] == 2)
 
     for i in range(settings["nev"]):
-        if settings["fit_ev"][i]:
+        if settings["ev_treatment"][i] == 2:
             parameters["est_EV_splines"][i] = RectBivariateSpline(settings["rest_nodes"], settings["phases"], parameters["est_EVs"][ind], kx = 3, ky = 3)
             ind += 1
 
     return parameters
 
-def make_test_data(settings):
-    true_pcs = np.random.normal(size = [settings["nsn"], 2])
-    true_pcs[:,0] = 1.
-
-    data = dict(fluxes = [], invvars = [], dates = [], redshifts = np.linspace(np.log(1.02), np.log(2.7), settings["nsn"]), true_pcs = true_pcs)
-
-
-    for i in range(settings["nsn"]):
-        z = data["redshifts"][i]
-
-        dates = np.arange(-15*(1. + z), 40*(1. + z), 5.) + np.random.random()*5.
-        phases = dates/(1. + z)
-        dates = dates[np.where((phases >= -10) & (phases <= 35.))]
-        phases = dates/(1. + z)
-        
-        these_fluxes = np.zeros([settings["nflt"], len(dates)], dtype=np.float64)
-        these_invvars = np.zeros([settings["nflt"], len(dates)], dtype=np.float64)
-
-        for j in range(settings["nflt"]):
-            rlamb = settings["filt_lambs"][j]/(1. + z)
-            if (rlamb >= settings["rest_nodes"][0]) and (rlamb <= settings["rest_nodes"][-1]):
-                these_fluxes[j] = ((phases - - 20.)/20.)**2. * np.exp(-phases/10.)
-                these_invvars[j] = 15**2.
-                these_fluxes[j] += data["true_pcs"][i][1]*0.1*np.exp(-0.03*phases**2.)
-
-        data["dates"].append(dates)
-        data["fluxes"].append(these_fluxes)
-        data["invvars"].append(these_invvars)
-        
-    return data
 
 def modelfn(parameters, settings, sne_to_do = None):
     if sne_to_do == None:
@@ -137,11 +130,12 @@ def modelfn(parameters, settings, sne_to_do = None):
     for i in sne_to_do:
         z = data["redshifts"][i]
         phases = (data["dates"][i] - parameters["est_daymax"][i])/(1. + z)
-        rlambs = settings["filt_lambs"]/(1. + z)
+        rlambs = data["rlambs"][i]
 
-        this_model = 0.
-        for j in range(settings["nev"]):
+        this_model = parameters["est_EV_splines"][0](rlambs, phases, grid=True)
+        for j in range(1, settings["nev"]): # Not including color
             this_model += parameters["est_proj"][i][j]*parameters["est_EV_splines"][j](rlambs, phases, grid=True)
+        this_model *= parameters["est_proj"][i][0]*10.**(-0.4*(parameters["color_law"](rlambs, phases, grid=True) * parameters["est_proj"][i,-1]))
 
         the_model.append(this_model)
     return the_model
@@ -159,23 +153,32 @@ def E_pullfn(P, passdata):
     return pulls.flatten()
 
 
+
 def E_step(parameters, data, settings):
     print "Starting E step..."
 
+    miniscale = 100*np.ones(2 + settings["nev"], dtype=np.float64)
+    for i in range(settings["nev"]):
+        if parameters["EV_treatment"][i] == 1: # Ignore this eigenvector
+            miniscale[i+1] = 0
+
+
     for i in range(settings["nsn"]):
-        P, F, NA = miniLM_new(ministart = np.concatenate(([parameters["est_daymax"][i]], parameters["est_proj"][i])),
-                              miniscale = 100*np.ones(1 + settings["nev"], dtype=np.float64),
-                              residfn = E_pullfn, passdata = [i, parameters, data, settings], verbose = False, maxiter = 10)
-        print i, str(P).replace("[", "").replace("]", ""), data["true_pcs"][i][1]
+        P, F, Cmat = miniLM_new(ministart = np.concatenate(([parameters["est_daymax"][i]], parameters["est_proj"][i])),
+                                miniscale = miniscale,
+                                residfn = E_pullfn, passdata = [i, parameters, data, settings], verbose = False, maxiter = 10)
+        if i % 100 == 0:
+            print i, F, 
         parameters["est_daymax"][i] = P[0]
         parameters["est_proj"][i] = P[1:]
+        parameters["LC_fit_Cmat"][i] = Cmat
         
     return parameters
 
 def M_pullfn(P, passdata):
     [parameters, data, settings] = passdata[0]
 
-    parameters["est_EVs"] = np.reshape(P, [sum(settings["fit_ev"]), settings["nlm"], settings["nph"]])
+    parameters["est_EVs"] = np.reshape(P, [sum(settings["ev_treatment"] == 2), settings["nlm"], settings["nph"]])
     parameters = get_splines(parameters, settings)
 
     the_model = modelfn(parameters, settings, sne_to_do = None)
@@ -187,27 +190,32 @@ def M_pullfn(P, passdata):
     return pulls
 
 
+
 def M_step(parameters, data, settings):
     print "Starting M step..."
 
-    P, F, NA = miniLM_new(ministart = np.reshape(parameters["est_EVs"], sum(settings["fit_ev"])*settings["nlm"]*settings["nph"]),
-                          miniscale = np.ones(sum(settings["fit_ev"])*settings["nlm"]*settings["nph"], dtype=np.float64),
+    P, F, NA = miniLM_new(ministart = np.reshape(parameters["est_EVs"], sum(settings["ev_treatment"] == 2)*settings["nlm"]*settings["nph"]),
+                          miniscale = np.ones(sum(settings["ev_treatment"] == 2)*settings["nlm"]*settings["nph"], dtype=np.float64),
                           residfn = M_pullfn, passdata = [parameters, data, settings], verbose = True, maxiter = 1)
 
-    parameters["est_EVs"] = np.reshape(P, [sum(settings["fit_ev"]), settings["nlm"], settings["nph"]])
+    parameters["est_EVs"] = np.reshape(P, [sum(settings["ev_treatment"] == 2), settings["nlm"], settings["nph"]])
     return parameters, F
 
-settings = get_settings()
-parameters = get_initial_parameters(settings)
-data = make_test_data(settings)
+parameters, data, settings = get_settings()
+parameters = get_initial_parameters(parameters, settings)
 
 last_chi2 = 1e100
 step_chi2 = 1e99
 
-while last_chi2 > step_chi2 + 0.1:
+iter_count = 0
+
+while (last_chi2 > step_chi2 + 0.1) and (iter_count < settings["max_iter"]):
     print "Starting iteration last_chi2, step_chi2", last_chi2, step_chi2, time.asctime()
     last_chi2 = step_chi2
     parameters = E_step(parameters, data, settings)
     parameters, step_chi2 = M_step(parameters, data, settings)
     parameters = get_splines(parameters, settings)
-    
+    iter_count += 1
+
+parameters["est_EV_splines"] = None
+pickle.dump([parameters, data, settings], open("results.pickle", 'wb'))
