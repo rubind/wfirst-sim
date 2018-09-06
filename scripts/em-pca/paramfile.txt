@@ -1,8 +1,9 @@
-nflt					8	# Number of filters
-filt_spacing				0.2	# E.g., spaced every 0.2 in log lambda
+survey_pickle				"snemo_gen/missing_component/simulated_survey_snr12_nodrift.pkl"
+include_noise				0
 
-nsn					10000	# Number of SNe
+nlm					11			# Number of wavelength spline nodes for any missing EV's
+nev					15		  	# Number of eigenvectors, not counting color law, but counting mean.
+ev_treatment				[1]*7+[0]+[1]*7	  	# 0 = Ignore. 1 = Fit projections. 2 = Fit EV surface and projections. Note first element is the mean component.
 
-nlm					11	# Number of wavelength spline nodes for any missing EV's
-nev					2	# Number of eigenvectors
-fit_ev					[0,1]	# E.g., [0,1] => fit the second, but not the first.
+n_cpu					4
+max_iter				4			# Should be at least a few if not recovering EV. Possibly higher if recovering.
