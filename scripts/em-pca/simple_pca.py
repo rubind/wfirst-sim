@@ -155,7 +155,8 @@ def E_pullfn(P, passdata):
     the_model = modelfn(parameters, settings, sne_to_do = i)
     pulls = np.sqrt(data["invvars"][i])*(the_model[0] - data["fluxes"][i])
     
-    return pulls.flatten()
+    return np.concatenate((pulls.flatten(),
+                           P/100.))
 
 
 
@@ -164,7 +165,7 @@ def E_step(parameters, data, settings):
 
     miniscale = 100*np.ones(2 + settings["nev"], dtype=np.float64)
     for i in range(settings["nev"]):
-        if settings["EV_treatment"][i] == 1: # Ignore this eigenvector
+        if settings["EV_treatment"][i] == 0: # Ignore this eigenvector
             miniscale[i+1] = 0
 
 
