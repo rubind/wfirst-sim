@@ -164,7 +164,7 @@ def E_step(parameters, data, settings):
 
     miniscale = 100*np.ones(2 + settings["nev"], dtype=np.float64)
     for i in range(settings["nev"]):
-        if parameters["EV_treatment"][i] == 1: # Ignore this eigenvector
+        if settings["EV_treatment"][i] == 1: # Ignore this eigenvector
             miniscale[i+1] = 0
 
 
