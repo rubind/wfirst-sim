@@ -40,6 +40,9 @@ def get_settings():
 
 
     print EVs_with_filter.shape
+    for i in range(len(EVs_with_filter)):
+        print i, "EVs_with_filter RMS", np.std(EVs_with_filter[i])
+
     settings["nsn"] = len(survey)
     settings["phases"] = phases
     settings["nph"] = len(settings["phases"])
@@ -61,6 +64,9 @@ def get_settings():
     
     parameters["color_law"] = RectBivariateSpline(lambsteps, settings["phases"], EVs_with_filter[-1], kx = 3, ky = 3)
 
+
+    median_flux = np.median([np.median(survey[i]["lc"]["flux"]) for i in range(settings["nsn"])])
+    print "median_flux ", median_flux
 
     data["redshifts"] = []
     data["dates"] = []
@@ -86,8 +92,10 @@ def get_settings():
 
             flux_grid[ind_i, ind_j] = survey[i]["lc"]["flux"][j]
             dflux_grid[ind_i, ind_j] = survey[i]["lc"]["flux_err"][j]
-        data["fluxes"].append(flux_grid)
-        data["invvars"].append(dflux_grid**-2.)
+
+        data["fluxes"].append(flux_grid/median_flux)
+        data["invvars"].append((dflux_grid/median_flux)**-2.)
+
 
     print "settings:"
     for key in settings:
@@ -100,7 +108,7 @@ def get_initial_parameters(parameters, settings):
 
     parameters["est_EVs"] = np.random.normal(size = [sum(settings["EV_treatment"] == 2), settings["nlm"], settings["nph"]])
     parameters["est_proj"] = np.zeros([settings["nsn"], settings["nev"] + 1], dtype=np.float64)
-    parameters["est_proj"][:, 1] = 1.
+    parameters["est_proj"][:, 0] = 1.
 
     parameters["est_daymax"] = np.zeros(settings["nsn"], dtype=np.float64)
     parameters["LC_fit_Cmat"] = [None for i in range(settings["nsn"])]
@@ -168,6 +176,7 @@ def E_step(parameters, data, settings):
         if settings["EV_treatment"][i] == 0: # Ignore this eigenvector
             miniscale[i+1] = 0
 
+    
 
     for i in range(settings["nsn"]):
         P, F, Cmat = miniLM_new(ministart = np.concatenate(([parameters["est_daymax"][i]], parameters["est_proj"][i])),
