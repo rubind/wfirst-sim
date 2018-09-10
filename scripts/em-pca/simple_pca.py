@@ -31,8 +31,13 @@ def get_settings():
     data = {}
     parameters = {}
 
-    (survey, filter_info, EVs_with_filter, lambsteps, phases) = pickle.load(gzip.open(settings["survey_pickle"]))
-    
+    try:
+        print "Trying gzipped file"
+        (survey, filter_info, EVs_with_filter, lambsteps, phases) = pickle.load(gzip.open(settings["survey_pickle"]))
+    except:
+        print "Nope!"
+        (survey, filter_info, EVs_with_filter, lambsteps, phases) = pickle.load(open(settings["survey_pickle"]))
+
 
     print EVs_with_filter.shape
     settings["nsn"] = len(survey)
@@ -44,11 +49,11 @@ def get_settings():
                                                 np.log(lambsteps.max()),
                                                 settings["nlm"])) # Filters have log width filt_spacing
 
-    settings["ev_treatment"] = np.array(settings["ev_treatment"])
+    settings["EV_treatment"] = np.array(settings["EV_treatment"])
 
     parameters["est_EV_splines"] = []
     for i in range(settings["nev"]):
-        if settings["ev_treatment"][i] == 2:
+        if settings["EV_treatment"][i] == 2:
             parameters["est_EV_splines"].append(None)
         else:
             parameters["est_EV_splines"].append(RectBivariateSpline(lambsteps, settings["phases"], EVs_with_filter[i], kx = 3, ky = 3))
@@ -93,7 +98,7 @@ def get_settings():
 
 def get_initial_parameters(parameters, settings):
 
-    parameters["est_EVs"] = np.random.normal(size = [sum(settings["ev_treatment"] == 2), settings["nlm"], settings["nph"]])
+    parameters["est_EVs"] = np.random.normal(size = [sum(settings["EV_treatment"] == 2), settings["nlm"], settings["nph"]])
     parameters["est_proj"] = np.zeros([settings["nsn"], settings["nev"] + 1], dtype=np.float64)
     parameters["est_proj"][:, 1] = 1.
 
@@ -106,10 +111,10 @@ def get_initial_parameters(parameters, settings):
 
 def get_splines(parameters, settings):
     ind = 0
-    assert len(parameters["est_EVs"]) == sum(settings["ev_treatment"] == 2)
+    assert len(parameters["est_EVs"]) == sum(settings["EV_treatment"] == 2)
 
     for i in range(settings["nev"]):
-        if settings["ev_treatment"][i] == 2:
+        if settings["EV_treatment"][i] == 2:
             parameters["est_EV_splines"][i] = RectBivariateSpline(settings["rest_nodes"], settings["phases"], parameters["est_EVs"][ind], kx = 3, ky = 3)
             ind += 1
 
@@ -178,7 +183,7 @@ def E_step(parameters, data, settings):
 def M_pullfn(P, passdata):
     [parameters, data, settings] = passdata[0]
 
-    parameters["est_EVs"] = np.reshape(P, [sum(settings["ev_treatment"] == 2), settings["nlm"], settings["nph"]])
+    parameters["est_EVs"] = np.reshape(P, [sum(settings["EV_treatment"] == 2), settings["nlm"], settings["nph"]])
     parameters = get_splines(parameters, settings)
 
     the_model = modelfn(parameters, settings, sne_to_do = None)
@@ -194,11 +199,11 @@ def M_pullfn(P, passdata):
 def M_step(parameters, data, settings):
     print "Starting M step..."
 
-    P, F, NA = miniLM_new(ministart = np.reshape(parameters["est_EVs"], sum(settings["ev_treatment"] == 2)*settings["nlm"]*settings["nph"]),
-                          miniscale = np.ones(sum(settings["ev_treatment"] == 2)*settings["nlm"]*settings["nph"], dtype=np.float64),
+    P, F, NA = miniLM_new(ministart = np.reshape(parameters["est_EVs"], sum(settings["EV_treatment"] == 2)*settings["nlm"]*settings["nph"]),
+                          miniscale = np.ones(sum(settings["EV_treatment"] == 2)*settings["nlm"]*settings["nph"], dtype=np.float64),
                           residfn = M_pullfn, passdata = [parameters, data, settings], verbose = True, maxiter = 1)
 
-    parameters["est_EVs"] = np.reshape(P, [sum(settings["ev_treatment"] == 2), settings["nlm"], settings["nph"]])
+    parameters["est_EVs"] = np.reshape(P, [sum(settings["EV_treatment"] == 2), settings["nlm"], settings["nph"]])
     return parameters, F
 
 parameters, data, settings = get_settings()
