@@ -3,7 +3,7 @@ include_noise				0
 
 nlm					11			# Number of wavelength spline nodes for any missing EV's
 nev					15		  	# Number of eigenvectors, not counting color law, but counting mean.
-ev_treatment				[1]*7+[0]+[1]*7	  	# 0 = Ignore. 1 = Fit projections. 2 = Fit EV surface and projections. Note first element is the mean component.
+EV_treatment				[1]*7+[0]+[1]*7	  	# 0 = Ignore. 1 = Fit projections. 2 = Fit EV surface and projections. Note first element is the mean component.
 
 n_cpu					4
 max_iter				4			# Should be at least a few if not recovering EV. Possibly higher if recovering.

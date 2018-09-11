@@ -31,10 +31,18 @@ def get_settings():
     data = {}
     parameters = {}
 
-    (survey, filter_info, EVs_with_filter, lambsteps, phases) = pickle.load(gzip.open(settings["survey_pickle"]))
-    
+    try:
+        print "Trying gzipped file"
+        (survey, filter_info, EVs_with_filter, lambsteps, phases) = pickle.load(gzip.open(settings["survey_pickle"]))
+    except:
+        print "Nope!"
+        (survey, filter_info, EVs_with_filter, lambsteps, phases) = pickle.load(open(settings["survey_pickle"]))
+
 
     print EVs_with_filter.shape
+    for i in range(len(EVs_with_filter)):
+        print i, "EVs_with_filter RMS", np.std(EVs_with_filter[i])
+
     settings["nsn"] = len(survey)
     settings["phases"] = phases
     settings["nph"] = len(settings["phases"])
@@ -44,11 +52,11 @@ def get_settings():
                                                 np.log(lambsteps.max()),
                                                 settings["nlm"])) # Filters have log width filt_spacing
 
-    settings["ev_treatment"] = np.array(settings["ev_treatment"])
+    settings["EV_treatment"] = np.array(settings["EV_treatment"])
 
     parameters["est_EV_splines"] = []
     for i in range(settings["nev"]):
-        if settings["ev_treatment"][i] == 2:
+        if settings["EV_treatment"][i] == 2:
             parameters["est_EV_splines"].append(None)
         else:
             parameters["est_EV_splines"].append(RectBivariateSpline(lambsteps, settings["phases"], EVs_with_filter[i], kx = 3, ky = 3))
@@ -56,6 +64,9 @@ def get_settings():
     
     parameters["color_law"] = RectBivariateSpline(lambsteps, settings["phases"], EVs_with_filter[-1], kx = 3, ky = 3)
 
+
+    median_flux = np.median([np.median(survey[i]["lc"]["flux"]) for i in range(settings["nsn"])])
+    print "median_flux ", median_flux
 
     data["redshifts"] = []
     data["dates"] = []
@@ -81,8 +92,10 @@ def get_settings():
 
             flux_grid[ind_i, ind_j] = survey[i]["lc"]["flux"][j]
             dflux_grid[ind_i, ind_j] = survey[i]["lc"]["flux_err"][j]
-        data["fluxes"].append(flux_grid)
-        data["invvars"].append(dflux_grid**-2.)
+
+        data["fluxes"].append(flux_grid/median_flux)
+        data["invvars"].append((dflux_grid/median_flux)**-2.)
+
 
     print "settings:"
     for key in settings:
@@ -93,9 +106,9 @@ def get_settings():
 
 def get_initial_parameters(parameters, settings):
 
-    parameters["est_EVs"] = np.random.normal(size = [sum(settings["ev_treatment"] == 2), settings["nlm"], settings["nph"]])
+    parameters["est_EVs"] = np.random.normal(size = [sum(settings["EV_treatment"] == 2), settings["nlm"], settings["nph"]])
     parameters["est_proj"] = np.zeros([settings["nsn"], settings["nev"] + 1], dtype=np.float64)
-    parameters["est_proj"][:, 1] = 1.
+    parameters["est_proj"][:, 0] = 0.
 
     parameters["est_daymax"] = np.zeros(settings["nsn"], dtype=np.float64)
     parameters["LC_fit_Cmat"] = [None for i in range(settings["nsn"])]
@@ -106,10 +119,10 @@ def get_initial_parameters(parameters, settings):
 
 def get_splines(parameters, settings):
     ind = 0
-    assert len(parameters["est_EVs"]) == sum(settings["ev_treatment"] == 2)
+    assert len(parameters["est_EVs"]) == sum(settings["EV_treatment"] == 2)
 
     for i in range(settings["nev"]):
-        if settings["ev_treatment"][i] == 2:
+        if settings["EV_treatment"][i] == 2:
             parameters["est_EV_splines"][i] = RectBivariateSpline(settings["rest_nodes"], settings["phases"], parameters["est_EVs"][ind], kx = 3, ky = 3)
             ind += 1
 
@@ -135,7 +148,7 @@ def modelfn(parameters, settings, sne_to_do = None):
         this_model = parameters["est_EV_splines"][0](rlambs, phases, grid=True)
         for j in range(1, settings["nev"]): # Not including color
             this_model += parameters["est_proj"][i][j]*parameters["est_EV_splines"][j](rlambs, phases, grid=True)
-        this_model *= parameters["est_proj"][i][0]*10.**(-0.4*(parameters["color_law"](rlambs, phases, grid=True) * parameters["est_proj"][i,-1]))
+        this_model *= 10.**(-0.4*(   parameters["est_proj"][i][0] + parameters["color_law"](rlambs, phases, grid=True) * parameters["est_proj"][i,-1]   ))
 
         the_model.append(this_model)
     return the_model
@@ -150,7 +163,8 @@ def E_pullfn(P, passdata):
     the_model = modelfn(parameters, settings, sne_to_do = i)
     pulls = np.sqrt(data["invvars"][i])*(the_model[0] - data["fluxes"][i])
     
-    return pulls.flatten()
+    return np.concatenate((pulls.flatten(),
+                           P/100.))
 
 
 
@@ -159,9 +173,10 @@ def E_step(parameters, data, settings):
 
     miniscale = 100*np.ones(2 + settings["nev"], dtype=np.float64)
     for i in range(settings["nev"]):
-        if parameters["EV_treatment"][i] == 1: # Ignore this eigenvector
+        if settings["EV_treatment"][i] == 0: # Ignore this eigenvector
             miniscale[i+1] = 0
 
+    
 
     for i in range(settings["nsn"]):
         P, F, Cmat = miniLM_new(ministart = np.concatenate(([parameters["est_daymax"][i]], parameters["est_proj"][i])),
@@ -178,7 +193,7 @@ def E_step(parameters, data, settings):
 def M_pullfn(P, passdata):
     [parameters, data, settings] = passdata[0]
 
-    parameters["est_EVs"] = np.reshape(P, [sum(settings["ev_treatment"] == 2), settings["nlm"], settings["nph"]])
+    parameters["est_EVs"] = np.reshape(P, [sum(settings["EV_treatment"] == 2), settings["nlm"], settings["nph"]])
     parameters = get_splines(parameters, settings)
 
     the_model = modelfn(parameters, settings, sne_to_do = None)
@@ -194,11 +209,11 @@ def M_pullfn(P, passdata):
 def M_step(parameters, data, settings):
     print "Starting M step..."
 
-    P, F, NA = miniLM_new(ministart = np.reshape(parameters["est_EVs"], sum(settings["ev_treatment"] == 2)*settings["nlm"]*settings["nph"]),
-                          miniscale = np.ones(sum(settings["ev_treatment"] == 2)*settings["nlm"]*settings["nph"], dtype=np.float64),
+    P, F, NA = miniLM_new(ministart = np.reshape(parameters["est_EVs"], sum(settings["EV_treatment"] == 2)*settings["nlm"]*settings["nph"]),
+                          miniscale = np.ones(sum(settings["EV_treatment"] == 2)*settings["nlm"]*settings["nph"], dtype=np.float64),
                           residfn = M_pullfn, passdata = [parameters, data, settings], verbose = True, maxiter = 1)
 
-    parameters["est_EVs"] = np.reshape(P, [sum(settings["ev_treatment"] == 2), settings["nlm"], settings["nph"]])
+    parameters["est_EVs"] = np.reshape(P, [sum(settings["EV_treatment"] == 2), settings["nlm"], settings["nph"]])
     return parameters, F
 
 parameters, data, settings = get_settings()
