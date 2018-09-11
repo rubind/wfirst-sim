@@ -108,7 +108,7 @@ def get_initial_parameters(parameters, settings):
 
     parameters["est_EVs"] = np.random.normal(size = [sum(settings["EV_treatment"] == 2), settings["nlm"], settings["nph"]])
     parameters["est_proj"] = np.zeros([settings["nsn"], settings["nev"] + 1], dtype=np.float64)
-    parameters["est_proj"][:, 0] = 1.
+    parameters["est_proj"][:, 0] = 0.
 
     parameters["est_daymax"] = np.zeros(settings["nsn"], dtype=np.float64)
     parameters["LC_fit_Cmat"] = [None for i in range(settings["nsn"])]
@@ -148,7 +148,7 @@ def modelfn(parameters, settings, sne_to_do = None):
         this_model = parameters["est_EV_splines"][0](rlambs, phases, grid=True)
         for j in range(1, settings["nev"]): # Not including color
             this_model += parameters["est_proj"][i][j]*parameters["est_EV_splines"][j](rlambs, phases, grid=True)
-        this_model *= parameters["est_proj"][i][0]*10.**(-0.4*(parameters["color_law"](rlambs, phases, grid=True) * parameters["est_proj"][i,-1]))
+        this_model *= 10.**(-0.4*(   parameters["est_proj"][i][0] + parameters["color_law"](rlambs, phases, grid=True) * parameters["est_proj"][i,-1]   ))
 
         the_model.append(this_model)
     return the_model
