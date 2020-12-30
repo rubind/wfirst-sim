@@ -9,6 +9,7 @@ from extinction import fm07
 import matplotlib.pyplot as plt
 import cPickle as pickle
 import commands
+import argparse
 
 
 stan_model = """
@@ -19,15 +20,17 @@ data {
     int nx0;
     int nspecdim;
     int nspectra;
+    int nredshiftbin;
+    int redshiftbin [nsne];
 
-    matrix [nEV, ndim] EVs;
-    vector [ndim] mean_eval;
+    matrix [nEV, ndim] EVs [nsne];
+    vector [ndim] mean_eval [nsne];
+    vector [nspecdim] dspec_dAV;
     
-    vector [ndim] color_law;
+    vector [ndim] color_law [nsne];
     vector [ndim] obs_fluxes [nsne];
     vector [ndim] obs_dfluxes [nsne];
 
-    vector [nspecdim] dspec_dAV;
     int spec_SN_inds [nspectra];
 
     vector [nspecdim] obs_spectra [nspectra];
@@ -37,12 +40,12 @@ data {
 }
 
 parameters {
-    row_vector [nEV] xstar;
-    vector <lower = 0> [nEV] Rx;
+    row_vector [nEV] xstar [nredshiftbin];
+    vector <lower = 0> [nEV] Rx [nredshiftbin];
     row_vector [nEV] true_x [nsne];
     vector <lower = 0> [nsne] true_AV;
     vector [nsne] dM;
-    real <lower = 0> tau_AV;
+    real <lower = 0> tau_AV [nredshiftbin];
 }
 
 
@@ -51,21 +54,24 @@ model {
 
     for (i in 1:nsne) {
 
-        mod_fluxes[i] <- ((true_x[i] + xstar) * EVs + mean_eval')' .* exp(-0.4*log(10.)*(   color_law*true_AV[i] + dM[i]   ));
+        mod_fluxes[i] <- ((true_x[i] + xstar[redshiftbin[i] + 1]) * EVs[i] + mean_eval[i]')' .* exp(-0.4*log(10.)*(   color_law[i]*true_AV[i] + dM[i]   ));
         obs_fluxes[i] ~ normal(mod_fluxes[i], obs_dfluxes[i]);
-        true_x[i] ~ normal(0, Rx);
+        true_x[i] ~ normal(0, Rx[redshiftbin[i] + 1]);
+        true_AV[i] ~ exponential(1./tau_AV[redshiftbin[i] + 1]);
     }
 
     for (i in 1:nspectra) {
         obs_spectra[i] ~ normal(
-                               ((true_x[spec_SN_inds[i] + 1] + xstar) * comp_spec_evals + mean_spec_eval' )' .* exp(-0.4*log(10.) * (dspec_dAV * true_AV[spec_SN_inds[i] + 1] + dM[spec_SN_inds[i] + 1]))
+                               ((true_x[spec_SN_inds[i] + 1] + xstar[redshiftbin[i] + 1]) * comp_spec_evals + mean_spec_eval' )' .* 
+                               exp(-0.4*log(10.) * (dspec_dAV * true_AV[spec_SN_inds[i] + 1] + dM[spec_SN_inds[i] + 1]))
                                , obs_dspectra[i]);
     }
     
-    //true_AV ~ exponential(1./tau_AV);
-    tau_AV ~ normal(0.3, 0.1);
-    Rx ~ normal(0, 10);
-    xstar ~ normal(0, 10);
+    for (i in 1:nredshiftbin) {
+        tau_AV[i] ~ normal(0.3, 0.1);
+        Rx[i] ~ normal(0, 10);
+        xstar[i] ~ normal(0, 10);
+    }
 }
 """
 
@@ -81,7 +87,7 @@ def initfn():
 
 
 
-meanfn, norms, compfns, projs = synth_functions.get_data()
+meanfn, norms, compfns, projs, smoothed_norms, NA = synth_functions.get_data()
 filtfns, filtwaves, filtnames = synth_functions.get_filts()
 print "projs.shape", projs.shape
 
@@ -97,13 +103,23 @@ filts_to_run = [item for item in filtwaves if filtwaves[item][0]/(1. + z) > 3300
 print "filts_to_run", filts_to_run
 
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--specfrac", type = float, help = "fraction of SNe with spectrscopy")
+parser.add_argument("--maxSNR", type = float, help = "imaging SNR at peak")
+parser.add_argument("--maxspecSNR", type = float, help = "spectroscopic max SNR per 3000 km/s")
+parser.add_argument("--nsne", type = int, help = "number of SNe")
+parser.add_argument("--sigint", type = float, help = "intrinsic dispersion")
+args = parser.parse_args()
+
+
 ndim = len(filts_to_run)*len(dates) # Number of datapoints
 nEV = len(projs[0]) # Number of EVs
-nsne = 500 # Number of SNe
+nsne = args.nsne # Number of SNe
 nx0 = len(projs) # Number of archetypes
-maxSNR = 30.
-spec_frac = 0.2
-maxspecSNR = 9.
+maxSNR = args.maxSNR
+spec_frac = args.specfrac
+maxspecSNR = args.maxspecSNR
+sigint = args.sigint
 
 spec_lambs = exp(arange(log(3300.), log(8600.), 0.01))
 nspecdim = len(spec_lambs)
@@ -177,6 +193,7 @@ obs_dfluxes = []
 true_projs = []
 
 true_AVs = random.exponential(size = nsne)*0.3
+true_dMs = random.normal(size = nsne)*sigint
 
 obs_spectra = []
 obs_dspectra = []
@@ -193,7 +210,8 @@ for i in range(nsne):
     this_flux = []
     for filt in filts_to_run:
         lambs = arange(filtwaves[filt][0]*0.8, filtwaves[filt][1]*1.25, 10)
-        ab_mags = synth_functions.get_AB_mags(true_norm = norms[this_ind], true_proj = this_proj, true_AV = true_AVs[i], z = 1.0, filtfn = filtfns[filt],
+        ab_mags = synth_functions.get_AB_mags(true_norm = smoothed_norms[this_ind]*10.**(-0.4*true_dMs[i]),
+                                              true_proj = this_proj, true_AV = true_AVs[i], z = 1.0, filtfn = filtfns[filt],
                                               phases = dates/(1. + z), cosmo = cosmo, lambs = lambs, ncomp = nEV,
                                               meanfn = meanfn, compfns = compfns)*1e14
         this_flux.extend(ab_mags)
@@ -206,7 +224,9 @@ for i in range(nsne):
     if random.random() < spec_frac or i == 0:
         print "Making spectrum!"
     
-        this_spectrum = synth_functions.get_spectrum(true_norm = norms[this_ind], true_proj = this_proj, true_AV = true_AVs[i], restlambs = spec_lambs, ncomp = nEV, meanfn = meanfn, compfns = compfns)*spec_lambs
+        this_spectrum = synth_functions.get_spectrum(true_norm = smoothed_norms[this_ind]*10.**(-0.4*true_dMs[i]),
+                                                     true_proj = this_proj, true_AV = true_AVs[i], restlambs = spec_lambs,
+                                                     ncomp = nEV, meanfn = meanfn, compfns = compfns)*spec_lambs
         this_err = abs(max(this_spectrum))/ maxspecSNR
 
         obs_spectra.append(this_spectrum + random.normal(size = nspecdim)*this_err)
@@ -233,7 +253,7 @@ stan_data["EVs"] = comp_evals
 stan_data["mean_eval"] = mean_eval
 stan_data["color_law"] = dmag_dAV
 stan_data["projs_0"] = projs
-stan_data["norms_0"] = norms
+stan_data["norms_0"] = smoothed_norms
 
 stan_data["nspecdim"] = nspecdim
 stan_data["obs_spectra"] = obs_spectra
@@ -251,6 +271,6 @@ fit_params = fit.extract(permuted = True)
 
 print fit
 
-pickle.dump([stan_data, fit_params], open("fit_results_NSNe=%i_maxSNR=%.1f_specfrac=%.3f_specSNR=%.1f.pickle" % (nsne, maxSNR, spec_frac, maxspecSNR), 'wb'))
+pickle.dump([stan_data, fit_params], open("fit_results_NSNe=%i_maxSNR=%.1f_specfrac=%.3f_specSNR=%.1f_sigint=%.3f.pickle" % (nsne, maxSNR, spec_frac, maxspecSNR, sigint), 'wb'))
 
 #print commands.getoutput("~/Dropbox/imessage.sh davidrubinlbl@gmail.com 'Done running!'")

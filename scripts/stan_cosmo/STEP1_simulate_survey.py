@@ -15,11 +15,11 @@ from host_generator import make_galaxy_spectrum
 from generator import make_SALT2_params
 from pixel_level_ETC2 import initialize_PSFs, get_imaging_SN, solve_for_exptime, get_spec_with_err
 #from FileRead import readcol
-import commands
+import subprocess
 import argparse
 import glob
 import sncosmo
-import cPickle as pickle
+import pickle as pickle
 import multiprocessing as mp
 from astropy.table import Table, vstack
 import matplotlib.path as MPLpath
@@ -27,7 +27,6 @@ import copy as cp
 import tempfile
 import time
 from scipy.stats import percentileofscore
-from string import lower
 import matplotlib.patches as patches
 
 
@@ -37,7 +36,7 @@ def file_to_fn(fl, col = 1):
     x = vals[:,0]
     y = vals[:,col]
 
-    return interp1d(x, y, kind = 'linear')
+    return interp1d(x, y, kind = 'linear', bounds_error = False, fill_value = 0.)
 
 """
 def eval_file(param):
@@ -92,7 +91,7 @@ def read_csv(csv_file):
                 "IFU_min_wave", "IFU_max_wave", "IFU_effective_area", "IFU_resolution", "IFU_pixel_scale", "IFU_slice_in_pixels", "IFU_dark_current", "IFU_read_noise_floor", "IFU_read_noise_white", "bad_pixel_rate"]:
         survey_parameters[key] = read_from_lines(lines, key)
     for key in ["adjust_each_SN_exp_time", "targeted_parallels"]:
-        survey_parameters[key] = ["true", "t", "yes", "y"].count(lower(read_from_lines(lines, key)))
+        survey_parameters[key] = ["true", "t", "yes", "y"].count(read_from_lines(lines, key).lower())
     for key in ["normalization_wavelength_range", "spectra_depth_and_phase", "grizY_30s_ground_depths"]:
         survey_parameters[key] = read_from_lines(lines, key, islist = True)
     survey_parameters["spectra_depth_and_phase"] = [(item.split(None)[0], float(item.split(None)[1])) for item in survey_parameters["spectra_depth_and_phase"]]
@@ -101,7 +100,7 @@ def read_csv(csv_file):
     n_tiers = 0
     while read_from_lines(lines, "tier_name", item_number = n_tiers + 1) != None:
         n_tiers += 1
-    print "n_tiers ", n_tiers
+    print("n_tiers ", n_tiers)
     
 
     single_keys = ["tier_name", "tier_fraction_time", "square_degrees", "cadence"]
@@ -117,7 +116,7 @@ def read_csv(csv_file):
         for key in list_keys:
             survey_parameters["tier_parameters"][key].append(read_from_lines(lines, key, item_number = i + 1, islist = True))
 
-    print survey_parameters
+    print(survey_parameters)
     return survey_parameters
 
 
@@ -141,7 +140,7 @@ def init_ground(grizY_30s_ground_depths):
                                       Y = grizY_30s_ground_depths[4] + 1.25*log10(3600/30.))
 
     WFI_filt_fns = {}
-    for filt in ["R062", "Z087", "Y106", "J129", "H158", "F184", "K193"]:
+    for filt in ["R062", "Z087", "Y106", "J129", "H158", "F184", "K193", "W146"]:
         WFI_filt_fns[filt] = file_to_fn(wfirst_data_path + "/pixel-level/input/" + filt + ".txt")
 
     return ground_filt_fns, ground_obslambs, ground_five_sigma_one_hour, WFI_filt_fns
@@ -154,10 +153,10 @@ def get_ground_depths(survey_parameters, tier):
     for j in range(len(these_filts)):
         if len(these_filts[j]) == 1:
             # Ground filter found
-            print "Ground filter found ", these_filts[j]
+            print("Ground filter found ", these_filts[j])
             assert survey_parameters["tier_parameters"]["dithers_per_filter"][tier][j] == 1, "It's a waste to model more than one ground dither!"
             ground_depths[these_filts[j]] = ground_five_sigma_one_hour[these_filts[j]] + 1.25*log10(these_exps[j]/3600.)
-    print "ground_depths found ", ground_depths
+    print("ground_depths found ", ground_depths)
     return ground_depths
     
 
@@ -194,7 +193,7 @@ def realize_SN(redshift, daymax, source):
     """
     
     MB, x1, color, mass = make_SALT2_params(size = 1)
-    [MB, x1, color, mass] = [item[0] for item in MB, x1, color, mass]
+    [MB, x1, color, mass] = [item[0] for item in (MB, x1, color, mass)]
 
     MB += random.normal()*0.1 + 0.055*redshift*random.normal() + 5/log(10.)*(0.001/redshift)*random.normal()
 
@@ -287,9 +286,9 @@ def inside_field_old(SN_RAs, SN_decs, WFI_RA, WFI_dec, WFI_orient):
                                   [x4, y4]]
                              ))
     try:
-        return outline.contains_points(zip(SN_RAs, SN_decs))
+        return outline.contains_points(list(zip(SN_RAs, SN_decs)))
     except:
-        print "Couldn't run contains_points ", SN_RAs, SN_decs
+        print("Couldn't run contains_points ", SN_RAs, SN_decs)
         sys.exit(1)
 
 
@@ -341,11 +340,11 @@ def inside_field(SN_RAs, SN_decs, WFI_RA, WFI_dec, WFI_orient):
     inside_mask = 0
     
     for i in range(len(xs)):
-        outline = MPLpath.Path(zip(xs[i], ys[i]))
+        outline = MPLpath.Path(list(zip(xs[i], ys[i])))
         try:
-            inside_mask += outline.contains_points(zip(SN_RAs, SN_decs))
+            inside_mask += outline.contains_points(list(zip(SN_RAs, SN_decs)))
         except:
-            print "Couldn't run contains_points ", SN_RAs, SN_decs
+            print("Couldn't run contains_points ", SN_RAs, SN_decs)
             sys.exit(1)
     return inside_mask
 
@@ -437,8 +436,12 @@ def run_observation_through_ETC(SN_data, row_to_add, current_date):
         # If IFS observation:
         ind = row_to_add["SNind"]
 
-        f_lamb_SN = SN_data["SN_observations"][ind]["sncosmo_model"].flux(current_date, IFS_args["waves"])
-        
+        if phases[ind] < 40:
+            f_lamb_SN = SN_data["SN_observations"][ind]["sncosmo_model"].flux(current_date, IFS_args["waves"])
+        else:
+            f_lamb_SN = ones(len(IFS_args["waves"]), dtype=float64)*1e-22
+        assert all(1 - isnan(f_lamb_SN))
+
         #args = cp.deepcopy(IFS_args)
         IFS_args["mdl"] = f_lamb_SN
 
@@ -450,6 +453,7 @@ def run_observation_through_ETC(SN_data, row_to_add, current_date):
         SN_data["SN_observations"][ind]["IFS_exptimes"].append(row_to_add["exptime"])
 
         noise = ETC_result["f_lamb_SN"]/ETC_result["spec_S/N"]
+        assert all(1 - isnan(noise) - isinf(noise))
         SN_data["SN_observations"][ind]["IFS_fluxes"].append(
             ETC_result["f_lamb_SN"] + random.normal(size = len(ETC_result["f_lamb_SN"]))*noise)
         SN_data["SN_observations"][ind]["IFS_dfluxes"].append(noise)
@@ -508,17 +512,17 @@ def get_single_slew_or_filt_change(RAs, Decs, roll_angles, i, j, filt_inds, NN_f
 def get_slew_time(RAs, Decs, roll_angles, filt_inds = None, NN_filt_change = 120/7., show_solution = False, label_slews = True, label_filts = True,
                   square_degrees = 0, n_filters = 8, filt_names = None):
     if len(RAs) < 2:
-        print "No slew"
+        print("No slew")
         return 0, []
     elif len(RAs) == 2:
-        print "Only one slew"
+        print("Only one slew")
         dist = sqrt((RAs[1] - RAs[0])**2. + (Decs[1] - Decs[0])**2.)
         return quantize_time(slew_fn(dist)), [[RAs[0], Decs[0], RAs[1], Decs[1],
                                               dist,
                                               quantize_time(slew_fn(dist))]]
 
     if len(unique(roll_angles)) > 2:
-        print "Large number of roll angles found!!! ", len(unique(roll_angles))
+        print("Large number of roll angles found!!! ", len(unique(roll_angles)))
 
     #show_solution = (len(RAs) > 20)
     if filt_inds == None:
@@ -531,13 +535,15 @@ def get_slew_time(RAs, Decs, roll_angles, filt_inds = None, NN_filt_change = 120
 
     while not valid_tmp_file:
         try:
-            temp = tempfile.NamedTemporaryFile()
+            temp = open("tmp", 'w') #tempfile.NamedTemporaryFile()
             valid_tmp_file = True
         except:
-            print "Couldn't make temp file!"
+            print("Couldn't make temp file!")
             attempts += 1
             assert attempts < 100
             time.sleep(10)
+
+    print("temp", temp)
 
     temp.write("TYPE: TSP\n")
     temp.write("DIMENSION: %i\n" % (len(RAs) + 1))
@@ -553,15 +559,15 @@ def get_slew_time(RAs, Decs, roll_angles, filt_inds = None, NN_filt_change = 120
 
     temp.flush()
 
-    cmd = "concorde -x " + temp.name # -x deletes tmp files
-    print cmd
-    print commands.getoutput(cmd)
+    cmd = "/Users/rubind/Dropbox/Shared/concorde/TSP/concorde -x tmp "# + temp.name # -x deletes tmp files
+    print(cmd)
+    print(subprocess.getoutput(cmd))
     
     
     f = open(temp.name.split("/")[-1] + ".sol", 'r')
     lines = f.read().split(None)
     f.close()
-    commands.getoutput("rm -f " + temp.name.split("/")[-1] + ".sol")
+    subprocess.getoutput("rm -f " + temp.name.split("/")[-1] + ".sol")
     temp.close()
     
 
@@ -580,7 +586,7 @@ def get_slew_time(RAs, Decs, roll_angles, filt_inds = None, NN_filt_change = 120
         if label_filts:
             for i in range(len(RAs)):
                 plt.plot(RAs[i], Decs[i], '.',
-                         color = {"R087": (1, 0.5, 1), "Z087": 'm', "Y106": 'b', "J129": 'c', "H158": 'g', "F184": 'r', "K193": 'k', "W149": 'gray', "None": 'gray', "Pointings": 'gray'}[filt_names[i]],
+                         color = {"R087": (1, 0.5, 1), "Z087": 'm', "Y106": 'b', "J129": 'c', "H158": 'g', "F184": 'r', "K193": 'k', "W149": 'gray', "W146": 'gray', "None": 'gray', "Pointings": 'gray'}[filt_names[i]],
                          label = filt_names[i]*(labeled.count(filt_names[i]) == 0)*label_filts, zorder = 3)
                 labeled.append(filt_names[i])
         else:
@@ -603,10 +609,10 @@ def get_slew_time(RAs, Decs, roll_angles, filt_inds = None, NN_filt_change = 120
                 plt.plot(xs[j], ys[j], linewidth = 0.25, color = [(0.75, 0.75, 0.75), (0.25, 0.25, 0.25), (0.5,0.5,0.5)][i%3])
             """
             for j in range(len(xs)):
-                poly = Polygon(zip(xs[j],ys[j]),facecolor=[(1, 0.8, 0.8), (0.8, 1, 0.8), (0.8, 0.8, 1.)][i%3],edgecolor='none')
+                poly = Polygon(list(zip(xs[j],ys[j])),facecolor=[(1, 0.8, 0.8), (0.8, 1, 0.8), (0.8, 0.8, 1.)][i%3],edgecolor='none')
                 plt.gca().add_patch(poly)
 
-    print "slew ", 
+    print("slew ", end=' ') 
 
 
     ordered_sol = []
@@ -632,7 +638,7 @@ def get_slew_time(RAs, Decs, roll_angles, filt_inds = None, NN_filt_change = 120
                             sqrt((RAs[sol[i]] - RAs[sol[i+1]])**2. + (Decs[sol[i]] - Decs[sol[i+1]])**2.),
                             slew_time])
 
-        print slew_time, 
+        print(slew_time, end=' ') 
         total_time += slew_time
         
         if show_solution:
@@ -655,7 +661,7 @@ def get_slew_time(RAs, Decs, roll_angles, filt_inds = None, NN_filt_change = 120
         plt.savefig("slew_solution.eps", bbox_inches = 'tight')
         plt.close()
         
-    print "done ", total_time
+    print("done ", total_time)
     
     return total_time, ordered_sol
 
@@ -696,9 +702,9 @@ def add_observations_to_sndata(SN_data, rows_to_add, current_date, ground_depths
         inds = where(
             (rows_to_add["filt"] == filt)*(abs(rows_to_add["date"] - current_date) < 1.)
                      )[0]
-        print filt, inds
+        print(filt, inds)
         inds = sort(inds)[::-1]
-        print inds
+        print(inds)
         if len(inds) > 0 and rows_to_add["instr"][inds[0]] != "ground":
             tmp_slew_time, tmp_ordered_sol = get_slew_time(rows_to_add["RA"][inds], rows_to_add["dec"][inds], rows_to_add["orient"][inds])
             tmp_slew_time += quantize_time(3. * 120./7.) # 51 seconds for changing filters (three changes)
@@ -753,7 +759,7 @@ def get_IFS_exptimes(redshift, sncosmo_model, daymax, IFS_trigger_params, gal_fl
                                                                     IFS_trigger_params["normalization_wavelength_range"][1]*(1 + redshift)), **IFS_args)
                                           )
 
-    print "Found ", redshift, IFS_exptimes
+    print("Found ", redshift, IFS_exptimes)
     return IFS_exptimes
 
 
@@ -794,13 +800,13 @@ def plan_and_add_triggers(SN_data, rows_to_add, current_date, cadence, IFS_trigg
     
     
     # Now, randomly choose SNe to trigger
-    print "current_date, possible_metrics ", current_date, possible_metrics
+    print("current_date, possible_metrics ", current_date, possible_metrics)
 
 
     for i in range(len(possible_metrics)):
         quantile = percentileofscore(possible_metrics, possible_metrics[i])/100.
         select_this_SN = 1 - quantile < trigger_prob_fn(possible_redshifts[i]) # Has to be less than, or else 0 is always triggered on!
-        print possible_redshifts[i], possible_metrics[i], "selected ", select_this_SN
+        print(possible_redshifts[i], possible_metrics[i], "selected ", select_this_SN)
 
         if select_this_SN:
             if IFS_trigger_params["adjust_each_SN_exp_time"]:
@@ -812,7 +818,7 @@ def plan_and_add_triggers(SN_data, rows_to_add, current_date, cadence, IFS_trigg
                 IFS_exptimes = IFS_trigger_params["uniform_IFS_exptimes"][possible_redshifts[i]]
 
             
-            print "IFS_exptimes ", IFS_exptimes
+            print("IFS_exptimes ", IFS_exptimes)
                 
             trigger_dates = []
 
@@ -829,13 +835,13 @@ def plan_and_add_triggers(SN_data, rows_to_add, current_date, cadence, IFS_trigg
             dates_wrt_one_year = linspace(0., 365./2., IFS_trigger_params["number_of_reference_dithers"] + 1.)
             dates_wrt_one_year = dates_wrt_one_year[:-1]
             dates_wrt_one_year -= median(dates_wrt_one_year)
-            print "dates_wrt_one_year", dates_wrt_one_year
+            print("dates_wrt_one_year", dates_wrt_one_year)
 
             for dwrtoy in dates_wrt_one_year:
                 trigger_dates.append(SN_data["SN_table"]["daymaxes"][possible_inds[i]] + 365.*(1. + possible_redshifts[i]) + dwrtoy)
                 
             trigger_dates = round_to_cadence(array(trigger_dates), cadence)
-            print "trigger_dates, trigger_SNRs", trigger_dates, trigger_SNRs
+            print("trigger_dates, trigger_SNRs", trigger_dates, trigger_SNRs)
             
 
             for date, SNR in zip(trigger_dates, trigger_SNRs):
@@ -857,7 +863,7 @@ def plan_and_add_triggers(SN_data, rows_to_add, current_date, cadence, IFS_trigg
                 if phase < 3:
                     if random.random() < 0.2:
                         rows_to_add.add_row((date, "W149", IFS_exptimes[SNR], CC_WFI_RA, CC_WFI_Dec, date_to_roll_angle(date), "WFI", -2))
-                        print "Triggering on CC SN, phase=", phase
+                        print("Triggering on CC SN, phase=", phase)
             
 
 
@@ -869,14 +875,14 @@ def optimize_triggers(rows_to_add, current_date, cadence, parallel_filters):
     #     rows_to_add = Table(names = ["date", "filt", "exptime", "RA", "dec", "orient", "instr", "SNind"],
     inds = where((rows_to_add["date"] == current_date + cadence)*(rows_to_add["filt"] == "W149")) # Plan the next visit
     if len(inds[0]) > 0:
-        print inds
-        print rows_to_add[inds]
+        print(inds)
+        print(rows_to_add[inds])
         RA_need_filt = rows_to_add[inds]["RA"]
         Dec_need_filt = rows_to_add[inds]["dec"]
         exp_need_filt = rows_to_add[inds]["exptime"]
 
-        print RA_need_filt
-        print Dec_need_filt
+        print(RA_need_filt)
+        print(Dec_need_filt)
 
         best_metric = -1
         best_filts = None
@@ -916,7 +922,7 @@ def optimize_triggers(rows_to_add, current_date, cadence, parallel_filters):
             if this_metric > best_metric:
                 best_filts = possible_choice
                 best_metric = this_metric
-                print "New best", best_filts, best_metric
+                print("New best", best_filts, best_metric)
 
         for i, ind in enumerate(inds[0]):
             rows_to_add[ind]["filt"] = best_filts[i]
@@ -974,13 +980,13 @@ def plan_and_add_triggers_old(SN_data, rows_to_add, current_date, cadence, IFS_t
     
     
     # Now, randomly choose SNe to trigger
-    print "current_date, possible_NSNe ", current_date, possible_NSNe
+    print("current_date, possible_NSNe ", current_date, possible_NSNe)
 
 
     for i in range(len(possible_NSNe)):
         quantile = percentileofscore(possible_NSNe, possible_NSNe[i])/100.
         #select_this_SN = 1 - quantile < trigger_prob_fn(possible_redshifts[i]) # Has to be less than, or else 0 is always triggered on!
-        print possible_redshifts[i], possible_NSNe[i], "selected ", select_this_SN
+        print(possible_redshifts[i], possible_NSNe[i], "selected ", select_this_SN)
 
         if select_this_SN:
             if IFS_trigger_params["adjust_each_SN_exp_time"]:
@@ -992,7 +998,7 @@ def plan_and_add_triggers_old(SN_data, rows_to_add, current_date, cadence, IFS_t
                 IFS_exptimes = IFS_trigger_params["uniform_IFS_exptimes"][possible_redshifts[i]]
 
             
-            print "IFS_exptimes ", IFS_exptimes
+            print("IFS_exptimes ", IFS_exptimes)
                 
             trigger_dates = []
 
@@ -1007,7 +1013,7 @@ def plan_and_add_triggers_old(SN_data, rows_to_add, current_date, cadence, IFS_t
             trigger_dates.append(SN_data["SN_table"]["daymaxes"][possible_inds[i]] + 365.)
             
             trigger_dates = round_to_cadence(array(trigger_dates), cadence)
-            print "trigger_dates, trigger_SNRs", trigger_dates, trigger_SNRs
+            print("trigger_dates, trigger_SNRs", trigger_dates, trigger_SNRs)
 
             WFI_RA, WFI_dec = IFS_to_WFI(SN_data["SN_table"]["RAs"][possible_inds[i]], SN_data["SN_table"]["Decs"][possible_inds[i]], trigger_roll_angle)
 
@@ -1026,7 +1032,7 @@ def plan_and_add_triggers_old(SN_data, rows_to_add, current_date, cadence, IFS_t
                 # For every SN Ia triggered on, assume there is one CC SN that is falsely triggered on for two epochs. The assumption of a random place is conservative; we're not doing anything with the parallels.
                 if phase < 0:
                     rows_to_add.add_row((date, random.choice(parallel_filters), IFS_exptimes[SNR], CC_RA, CC_Dec, trigger_roll_angle, "WFI", -2))
-                    print "Triggering on CC SN, phase=", phase
+                    print("Triggering on CC SN, phase=", phase)
             
     
     return rows_to_add
@@ -1240,7 +1246,7 @@ def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, ground_dept
 
     # RA is x, Dec is y
 
-    print observation_table
+    print(observation_table)
     current_date = 0.
     current_trigger_scaling = 1.
 
@@ -1286,7 +1292,7 @@ def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, ground_dept
             
         
         
-        print "\nEnd of day", current_date, "time left", total_time_left, time.asctime(), '\n'
+        print("\nEnd of day", current_date, "time left", total_time_left, time.asctime(), '\n')
 
         current_date += cadence
         SN_data["time_remaining_values"][0].append((current_date, total_time_left, estimated_time_left, current_trigger_scaling))
@@ -1313,10 +1319,10 @@ def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, ground_dept
 
             current_trigger_scaling = min(current_trigger_scaling, 1./min([item for item in IFS_trigger_params["trigger_fraction"] if item > 0]))
 
-        print "date ", current_date, "current_trigger_scaling ", current_trigger_scaling, "total_time_left ", total_time_left
+        print("date ", current_date, "current_trigger_scaling ", current_trigger_scaling, "total_time_left ", total_time_left)
 
 
-    print "Done with tier. Slew time = ", total_slew_time
+    print("Done with tier. Slew time = ", total_slew_time)
     SN_data["total_time_used"] = starting_time - total_time_left
     SN_data["observation_table"] = observation_table
     SN_data["ordered_sol"] = ordered_sol
@@ -1334,18 +1340,18 @@ def make_SNe(square_degrees, cadence, survey_duration, hours_per_visit, rates_fn
     frac_of_sky = (square_degrees)/(4.*pi*(180./pi)**2.)
     
     if verbose:
-        print "frac_of_sky ", frac_of_sky
+        print("frac_of_sky ", frac_of_sky)
         
 
     volume_in_shells = cosmo.comoving_volume(redshift_step/2. + redshift_set).value - cosmo.comoving_volume(redshift_set - redshift_step/2.).value
     SNe_in_survey_field = volume_in_shells*frac_of_sky*rates_fn(redshift_set) * survey_duration/(1. + redshift_set) * 1e-4
 
     if verbose:
-        print SNe_in_survey_field, sum(SNe_in_survey_field)
+        print(SNe_in_survey_field, sum(SNe_in_survey_field))
 
     SNe_actual = [random.poisson(item) for item in SNe_in_survey_field]
     if verbose:
-        print SNe_actual, sum(SNe_actual)
+        print(SNe_actual, sum(SNe_actual))
     redshifts = []
     for i in range(len(redshift_set)):
         redshifts += [redshift_set[i]]*SNe_actual[i]
@@ -1361,7 +1367,7 @@ def make_SNe(square_degrees, cadence, survey_duration, hours_per_visit, rates_fn
     nsne = len(redshifts)
 
     if verbose:
-        print "SNe not near beginning/end: ", nsne
+        print("SNe not near beginning/end: ", nsne)
 
     rs = sqrt(random.random(size = nsne))*sqrt(square_degrees/pi)
     thetas = random.random(size = nsne)*2*pi
@@ -1399,7 +1405,7 @@ def make_SNe(square_degrees, cadence, survey_duration, hours_per_visit, rates_fn
                                  dtype= ("f8", "f8", "f8", "f8", "S20")), "SN_observations": [],
                "test_points": [test_points]}
 
-    print "Getting SNCosmo models..."
+    print("Getting SNCosmo models...")
     # I'm going to put the SN LC information into the per-SN dictionary list, as it needs to contain items like an SNCosmo model
 
     gal_backgrounds = make_galaxy_spectrum(redshifts)
@@ -1407,7 +1413,7 @@ def make_SNe(square_degrees, cadence, survey_duration, hours_per_visit, rates_fn
 
     for i in range(nsne):
         if i % 2000 == 0:
-            print i, nsne
+            print(i, nsne)
         MV, x1, c, host_mass, sncosmo_model = realize_SN(redshifts[i], daymaxes[i], source = source)
         
 
@@ -1437,7 +1443,7 @@ def make_SNe(square_degrees, cadence, survey_duration, hours_per_visit, rates_fn
 
     if salt2_model:
         if verbose:
-            print "Observing ", tier_filters, tier_exptimes
+            print("Observing ", tier_filters, tier_exptimes)
 
 
         SN_data = run_survey(SN_data = SN_data, square_degrees = square_degrees, tier_filters = tier_filters, tier_exptimes = tier_exptimes,
@@ -1452,27 +1458,27 @@ def merge_SN_data(SN_data, this_SN_data):
         return this_SN_data
     else:
 
-        assert SN_data.keys() == this_SN_data.keys(), str(SN_data.keys()) + "_" + str(this_SN_data.keys())
+        assert list(SN_data.keys()) == list(this_SN_data.keys()), str(list(SN_data.keys())) + "_" + str(list(this_SN_data.keys()))
 
-        print "Merging total_time_used"
+        print("Merging total_time_used")
         SN_data["total_time_used"] += this_SN_data["total_time_used"]
 
-        print "Merging nsne"
+        print("Merging nsne")
         SN_data["nsne"] += this_SN_data["nsne"]
 
-        print "Merging SN_observations"
+        print("Merging SN_observations")
         SN_data["SN_observations"].extend(this_SN_data["SN_observations"])
 
-        print "Merging time_remaining_values"
+        print("Merging time_remaining_values")
         SN_data["time_remaining_values"].extend(this_SN_data["time_remaining_values"])
 
-        print "Merging SN_table"
+        print("Merging SN_table")
         SN_data["SN_table"] = vstack([SN_data["SN_table"], this_SN_data["SN_table"]])
 
-        print "Merging observation_table"
+        print("Merging observation_table")
         SN_data["observation_table"] = vstack([SN_data["observation_table"], this_SN_data["observation_table"]])
 
-        print "Merging ordered_sol"
+        print("Merging ordered_sol")
         SN_data["ordered_sol"] = vstack([SN_data["ordered_sol"], this_SN_data["ordered_sol"]])
 
         SN_data["test_points"].extend(this_SN_data["test_points"])
@@ -1486,7 +1492,7 @@ picklefl = sys.argv[2]
 
 survey_parameters = read_csv(sys.argv[1])
 
-print "Reading PSFs..."
+print("Reading PSFs...")
 PSFs = initialize_PSFs(pixel_scales = [10, 15, 22], slice_scales = [30, 30, 22], PSF_source = survey_parameters["PSFs"])
 PSFs_WFC = initialize_PSFs(pixel_scales = [10, 15, 22], slice_scales = [30, 30, 22], PSF_source = "WebbPSF_WFC")
 
@@ -1542,7 +1548,7 @@ IFS_trigger_params = dict(adjust_each_SN_exp_time = survey_parameters["adjust_ea
 IFS_trigger_params["SNRs"] = [IFS_trigger_params["SNR_set"][["shallow", "medium", "deep"].index(item[0])] for item in survey_parameters["spectra_depth_and_phase"]]
 IFS_trigger_params["number_of_reference_dithers"] = survey_parameters["number_of_reference_dithers"]
 
-print "IFS_trigger_params", IFS_trigger_params
+print("IFS_trigger_params", IFS_trigger_params)
 
 redshift_step = 0.05
 redshift_set = arange(0.125, 2.475 + redshift_step/10., redshift_step)
@@ -1551,7 +1557,7 @@ survey_parameters["uniform_IFS_exptimes"] = {}
 source = sncosmo.SALT2Source(modeldir=wfirst_data_path + "/salt2_extended/")
 
 for redshift in redshift_set:
-    print "Getting median..."
+    print("Getting median...")
     mBs, x1s, colors, masses = make_SALT2_params(size = 10000)
 
     if max(IFS_args["waves"]) > IFS_trigger_params["normalization_wavelength_range"][1]*(1 + redshift):
@@ -1600,4 +1606,4 @@ SN_data["IFC_waves"] = IFS_args["waves"]
 
 pickle.dump(SN_data, open(picklefl, 'wb'))
 
-print "Done!"
+print("Done!")

@@ -5,7 +5,7 @@ import time
 from scipy.interpolate import interp1d
 from astro_functions import CCM, get_FoM, FoM_bin_w, FoM_bin_rho, write_Cmat
 import sys
-from string import strip
+#from string import strip
 from FileRead import readcol
 from matplotlib import use
 use("PDF")
@@ -28,7 +28,7 @@ def get_params(the_file, PSFs = None):
     for i, line in enumerate(lines):
         tmp_line = line + " " # This is so that -1 goes all the way to the end of the line
         tmp_line = tmp_line[:tmp_line.find("#")]
-        lines[i] = strip(tmp_line)
+        lines[i] = tmp_line.strip()
     
     lines = [item for item in lines if len(item) > 0]
 
@@ -65,7 +65,7 @@ def get_params(the_file, PSFs = None):
 
     for i, redshift in enumerate(params["z_list"]):
         if i == 0:
-            print "Working on nearby SNe"
+            print("Working on nearby SNe")
             
             obs_waves = exp(arange(log(params["min_ground_wavelength"]), log(params["max_ground_wavelength"]), 0.01))
 
@@ -84,7 +84,7 @@ def get_params(the_file, PSFs = None):
 
         else:
 
-            if params["exp_times"] == None:
+            if params["exp_times"] == None or params["exp_times"] == []:
                 exp_time = solve_for_exptime(10., redshift, PSFs, key1 = "rest_frame_band_S/N", key2 = (5000, 6000),
                                              pixel_scale = 0.05, slice_scale = 0.15,
                                              source_dir = wfirst_data_path + "/pixel-level/input/",
@@ -124,7 +124,7 @@ def get_params(the_file, PSFs = None):
     params["n_restlambs"] = len(params["model_rest_lambs"])
     params["n_dex"] = int(around(ceil(max(   abs(params["log10_elec_per_sec"])   ))))
 
-    print "params read ", params
+    print("params read ", params)
 
     return params
 
@@ -343,19 +343,19 @@ def get_Jacobian_NSNe1(params):
     for spectral_feature_name in params["spectral_feature_names"]:
         ministart[spectral_feature_name] = [0,0,0]
 
-    print ministart
+    print(ministart)
         
 
 
     ministart = array(unparseP(ministart, params), dtype=float64)
-    print ministart
+    print(ministart)
 
 
     orig = residfn(ministart, [params])
     miniscale = 1e-6
 
     jacobian = zeros([len(orig), len(ministart)], dtype=float64)
-    print jacobian.shape
+    print(jacobian.shape)
     
     for i in range(len(ministart)):
         new_pos = deepcopy(ministart)
@@ -388,16 +388,16 @@ def run_FoM(paramfl = None, PSFs = None, jacobian_NSNe1 = None, params = None):
 
     show_plots = 0
 
-    if jacobian_NSNe1 == None:
+    if all(jacobian_NSNe1 == None):
         jacobian_NSNe1 = get_Jacobian_NSNe1(params)
 
     jacobian = get_Jacobian(jacobian_NSNe1, params)
 
-    print time.time()
+    print(time.time())
     Wmat = dot(transpose(jacobian), jacobian)
-    print time.time()
+    print(time.time())
     Cmat = linalg.inv(Wmat)
-    print time.time()
+    print(time.time())
 
     if show_plots:
         save_img(Cmat, "Cmat.fits")
@@ -408,18 +408,19 @@ def run_FoM(paramfl = None, PSFs = None, jacobian_NSNe1 = None, params = None):
 
 
     test_inv = dot(Cmat, linalg.inv(Cmat))
-    print "Inverse Test", abs(test_inv - identity(len(test_inv))).max()
+    print("Inverse Test", abs(test_inv - identity(len(test_inv))).max())
     assert abs(test_inv - identity(len(test_inv))).max() < 1.e-6, "Inversion problem!"
 
     sn_Cmat = Cmat[:len(params["z_list"]), :len(params["z_list"])]
-    
+    #save_img(sn_Cmat, "sn_Cmat.fits")
+
     if params["FoM_type"][0] == "DETF":
         FoM, uncertainties = get_FoM(sn_Cmat, params["z_list"], zp = 0.3)
     elif params["FoM_type"][0] == "Binw":
         FoM, uncertainties = FoM_bin_w(params["z_list"], sn_Cmat, bins = params["FoM_type"][1:])
     elif params["FoM_type"][0] == "Binrho":
         FoM, uncertainties = FoM_bin_rho(params["z_list"], sn_Cmat, bins = params["FoM_type"][1:])
-    print "FoM", FoM
+    print("FoM", FoM)
     return FoM
 
 

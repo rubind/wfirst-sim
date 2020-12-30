@@ -1,14 +1,14 @@
 from numpy import *
-import cPickle as pickle
+import pickle as pickle
 import sys
-import commands
+import subprocess
 import multiprocessing as mp
 from scipy.stats import scoreatpercentile
 
 
 def plot_a_SN(lc_data, daymax, plot_to_make, phase_not_date, redshift, plt, flc = None):
 
-    colors = {"R062": (1, 0.5, 1), "Z087": 'm', "Y106": 'b', "J129": 'g', "H158": 'orange', "F184": 'r', "K193": 'r', "Ground_g": 'm', "Ground_r": 'b', "Ground_i": 'c', "Ground_z": 'g', "Ground_Y": 'orange', "g": 'm', "r": 'b', "i": 'c', "z": 'g', "Y": 'orange'}
+    colors = {"R062": (1, 0.5, 1), "Z087": 'm', "Y106": 'b', "J129": 'g', "H158": 'orange', "F184": 'r', "K193": 'r', "Ground_g": 'm', "Ground_r": 'b', "Ground_i": 'c', "Ground_z": 'g', "Ground_Y": 'orange', "g": 'm', "r": 'b', "i": 'c', "z": 'g', "Y": 'orange', "W146": 'orange'}
 
     
 
@@ -44,7 +44,6 @@ def plot_a_SN(lc_data, daymax, plot_to_make, phase_not_date, redshift, plt, flc 
 
 
 def get_useful_redshifts(z_set, tier_set, redshifts, stacked_SNRs, survey_fields, suffix, working_dir, plt):
-
     useful_redshift_mask = {}
 
     for SNR_thresh, plot_color in zip((0., 20., 40., 80., 120., 160), ['r', "orange", 'g', 'c',  'b', 'm']):
@@ -64,7 +63,10 @@ def get_useful_redshifts(z_set, tier_set, redshifts, stacked_SNRs, survey_fields
 
                     useful_redshifts[(tier, z)] = (thresh_SNe/total_SNe > 0.7)
 
-        useful_redshift_mask[SNR_thresh] = array([useful_redshifts[(survey_fields[i], redshifts[i])] for i in range(len(redshifts))])
+        print("useful_redshifts", useful_redshifts)
+        print("survey_fields", survey_fields)
+        print("HACK!!!!!")
+        useful_redshift_mask[SNR_thresh] = ones(len(redshifts)) #array([useful_redshifts[(survey_fields[i], redshifts[i])] for i in range(len(redshifts))])
 
     plt.savefig(working_dir + "/efficiency_by_redshift_" + suffix + ".pdf", bbox_inches = 'tight')
     plt.close()
@@ -97,7 +99,7 @@ def make_IFS_time_plot(SN_data, working_dir, nsne, outputname, plt):
     plt.savefig(working_dir + "/IFS_exptime_by_c_%s.pdf" % outputname, bbox_inches = 'tight')
     plt.close()
 
-    print "Total IFS time", sum(all_IFS_times), "for N_spectra", len(all_IFS_times)
+    print("Total IFS time", sum(all_IFS_times), "for N_spectra", len(all_IFS_times))
 
 def make_IFS_date_plot(SN_data, working_dir, nsne, outputname, plt):
     all_IFS_dates = []
@@ -178,7 +180,7 @@ def plot_field(SN_data, working_dir, nsne, outputname, plt):
     #survey_fields_set = list(unique(SN_data["SN_table"]["survey_fields"]))
     #print "Survey Fields", survey_fields_set
 
-    print SN_data["observation_table"]
+    print(SN_data["observation_table"])
 
     for i in range(nsne):
         if SN_data["SN_observations"][i]["found_date"] != None:
@@ -203,7 +205,7 @@ def plot_field(SN_data, working_dir, nsne, outputname, plt):
     plt.close()
 
 def plot_time_used(SN_data, working_dir, outputname, plt):
-    colors = {"R062": (1, 0.5, 1), "Z087": 'm', "Y106": 'b', "J129": 'g', "H158": 'orange', "F184": 'r', "K193": 'r', "Ground_g": 'm', "Ground_r": 'b', "Ground_i": 'c', "Ground_z": 'g', "Ground_Y": 'orange', "g": 'm', "r": 'b', "i": 'c', "z": 'g', "Y": 'orange'}
+    colors = {"R062": (1, 0.5, 1), "Z087": 'm', "Y106": 'b', "J129": 'g', "H158": 'orange', "F184": 'r', "K193": 'r', "Ground_g": 'm', "Ground_r": 'b', "Ground_i": 'c', "Ground_z": 'g', "Ground_Y": 'orange', "g": 'm', "r": 'b', "i": 'c', "z": 'g', "Y": 'orange', "W146": 'orange'}
 
 
     dates = sort(unique(SN_data["observation_table"]["date"]))
@@ -275,7 +277,7 @@ def phases_of_discovery(working_dir, SN_data, outputname, plt, phase_not_observe
             
 
 def plot_time_remaining(SN_data, working_dir, outputname, plt):
-    print SN_data["time_remaining_values"]
+    print(SN_data["time_remaining_values"])
 
     """
     plt.figure()
@@ -421,7 +423,7 @@ def make_selection_figure(SN_data, working_dir, nsne, plt):
 
 
 def make_SNR_vs_z(SN_data, working_dir, nsne, plt):
-    print "Making SNR vs z..."
+    print("Making SNR vs z...")
 
     survey_fields = array(SN_data["SN_table"]["survey_fields"])
     n_tiers = len(SN_data["survey_parameters"]["tier_parameters"]["tier_name"])
@@ -434,7 +436,7 @@ def make_SNR_vs_z(SN_data, working_dir, nsne, plt):
 
     for j in range(len(filts)):
         for i, tier_name in enumerate(SN_data["survey_parameters"]["tier_parameters"]["tier_name"] + ["All"]*extra_tier):
-            print tier_name, filts[j]
+            print(tier_name, filts[j])
 
             plt.subplot(len(filts), n_tiers + extra_tier, i+1 + (n_tiers + extra_tier)*j)
             if tier_name != "All":
@@ -442,7 +444,7 @@ def make_SNR_vs_z(SN_data, working_dir, nsne, plt):
             else:
                 inds = where(survey_fields != "AAAAAAAA")[0]
 
-            print "inds", inds
+            print("inds", inds)
 
             plot_zs = []
             plot_SNRs = []
@@ -473,7 +475,7 @@ def make_SNR_vs_z(SN_data, working_dir, nsne, plt):
 
 
 def make_SNR_vs_z(SN_data, working_dir, nsne, plt):
-    print "Making SNR vs host for F184..."
+    print("Making SNR vs host for F184...")
 
     survey_fields = array(SN_data["SN_table"]["survey_fields"])
 
@@ -481,7 +483,7 @@ def make_SNR_vs_z(SN_data, working_dir, nsne, plt):
 
     inds = where(survey_fields == "Deep")[0]
 
-    print "inds", inds
+    print("inds", inds)
 
     plot_gals = []
     plot_SNRs = []
@@ -522,10 +524,10 @@ def get_cadence_stops(SN_data):
             inds = where((survey_fields == i)*(SN_data["observation_table"]["filt"] == filt))
             if len(inds[0]) > 0:
                 dmax = SN_data["observation_table"]["date"][inds].max()
-                print "filt ", filt, "tier ", i, dmax
+                print("filt ", filt, "tier ", i, dmax)
                 last_date = min(last_date, dmax)
         cadence_stops.append(last_date)
-    print "cadence_stops", cadence_stops
+    print("cadence_stops", cadence_stops)
     return cadence_stops
 
 
@@ -570,14 +572,15 @@ def collection_of_plots(pickle_to_read):
 
 
     SN_data = pickle.load(open(pickle_to_read, 'rb'))
+    
     if pickle_to_read.count("/"):
         working_dir = pickle_to_read[:pickle_to_read.rfind("/")] + "/output"
     else:
         working_dir = "output"
 
     outputname = pickle_to_read.split("/")[-1].replace("_pickle", "").replace("pickle", "").replace(".txt", "")
-    print "outputname ", outputname
-    commands.getoutput("mkdir " + working_dir)
+    print("outputname ", outputname)
+    subprocess.getoutput("mkdir " + working_dir)
 
     for i in range(10):
         for j in range(len(SN_data["survey_parameters"]["tier_parameters"]["tier_name"])):
@@ -586,19 +589,26 @@ def collection_of_plots(pickle_to_read):
             SN_data["SN_table"]["survey_fields"][j] = SN_data["SN_table"]["survey_fields"][j].replace(str(i), "")
 
     for key in SN_data:
-        print "SN_data:%s" % key
-    print SN_data["survey_parameters"]
+        print("SN_data:%s" % key)
+    print(SN_data["survey_parameters"])
 
     for key in SN_data:
-        print key
-    print 
+        print(key)
+    print() 
     for key in SN_data["SN_observations"][0]:
-        print key
+        print(key)
 
     #print SN_data["SN_observations"]
-    print SN_data["SN_table"]
+    print(SN_data["SN_table"])
 
     write_pointings(SN_data, working_dir)
+
+    plt.figure()
+    plt.plot(SN_data["SN_table"]["redshifts"] + random.random(size = len(SN_data["SN_table"]["redshifts"]))*0.05 - 0.025, SN_data["SN_table"]["daymaxes"], '.')
+    plt.xlabel("Redshift")
+    plt.ylabel("Date of Maximum")
+    plt.savefig(working_dir + "/" + outputname + "_" + "daymax_vs_redshift.pdf")
+    plt.close()
 
     z_set = list(set(list(SN_data["SN_table"]["redshifts"])))
     z_set.sort()
@@ -632,7 +642,7 @@ def collection_of_plots(pickle_to_read):
 
 
     survey_fields = array(SN_data["SN_table"]["survey_fields"])
-    print survey_fields
+    print(survey_fields)
 
 
     n_tiers = len(SN_data["survey_parameters"]["tier_parameters"]["tier_name"])
@@ -747,7 +757,7 @@ def collection_of_plots(pickle_to_read):
     flc = open(working_dir + "/LC_summary.txt", 'w')
 
     for plot_to_make in ["LC", "dmag"]:
-        print "Plotting LCs"
+        print("Plotting LCs")
         pdf = PdfPages(working_dir + "/LC_samples_" + plot_to_make + "_" + outputname + ".pdf")
 
 
@@ -755,14 +765,24 @@ def collection_of_plots(pickle_to_read):
         for j in range(len(z_set)):
             plt.figure(figsize=(3*n_tiers, 9))
             for i, tier_name in enumerate(SN_data["survey_parameters"]["tier_parameters"]["tier_name"]):
-
-                inds = where((SN_data["SN_table"]["redshifts"] == z_set[j])*(survey_fields == tier_name)*(SN_data["SN_table"]["daymaxes"] < cadence_stops[i] - 20*(1. + z_set[j])))[0]
+                survey_mask = [item.decode('UTF-8') == tier_name for item in survey_fields]
+                print(survey_fields)
+                print(tier_name)
+                print("survey_mask", survey_mask)
+                
+                inds = where((SN_data["SN_table"]["redshifts"] == z_set[j])*(survey_mask)*(SN_data["SN_table"]["daymaxes"] < cadence_stops[i] - 20*(1. + z_set[j])))[0]
+                #print((SN_data["SN_table"]["redshifts"] == z_set[j]))
+                #print((SN_data["SN_table"]["daymaxes"] < cadence_stops[i] - 20*(1. + z_set[j])))
+                #print((SN_data["SN_table"]["redshifts"] == z_set[j])*(survey_mask)*(SN_data["SN_table"]["daymaxes"] < cadence_stops[i] - 20*(1. + z_set[j])))
+                #print(sum((SN_data["SN_table"]["redshifts"] == z_set[j])*(survey_mask)*(SN_data["SN_table"]["daymaxes"] < cadence_stops[i] - 20*(1. + z_set[j]))))
+                
+                
                 try:
                     sne_chosen = random.choice(inds, size = 3, replace = False)
                 except:
                     sne_chosen = inds
 
-                print "sne_chosen", sne_chosen, z_set[j]
+                print("sne_chosen", sne_chosen, z_set[j])
 
                 for k, ind in enumerate(sne_chosen):
                     plt.subplot(3, n_tiers, n_tiers*k+1 + i)
@@ -781,6 +801,7 @@ def collection_of_plots(pickle_to_read):
                     plot_a_SN(SN_data["SN_observations"][ind], SN_data["SN_table"]["daymaxes"][ind], plot_to_make = plot_to_make, phase_not_date = 1, redshift = z_set[j], plt = plt, flc = flc)
                     plt.xticks(fontsize = 6)
                     plt.yticks(fontsize = 6)
+                    plt.ylim(0, plt.ylim()[1])
             #plt.close()
 
             pdf.savefig(plt.gcf())
@@ -798,4 +819,4 @@ if __name__ == "__main__":
     else:
         collection_of_plots(sys.argv[1])
 
-    print "Done!"
+    print("Done!")

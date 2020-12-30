@@ -14,65 +14,65 @@ generate_data = 0
 SN_counts = [100] + [400]*4 + [100]*11
 
 
-SN_counts = [30, 70, 137, 224, 280, 300, 406, 87, 83, 90, 95, 85, 114, 112, 99]
+#SN_counts = [30, 70, 137, 224, 280, 300, 406, 87, 83, 90, 95, 85, 114, 112, 99]
 
 # for pixel_scale, slice_in_pixels, PSF_source, read_noise_floor, white_noise, gal_flamb, dark_current, live_dithers, ref_dithers, effareafl, IFURfl, run_color in runs:
 
 runs = [#(0.15, 1, "test", 4.0, 0),
-        #(0.15, 1, "AiryObstruct", 4.0, 0),
-        #(0.15, 1, "WebbPSF", 4.0, 0),
-        #(0.075, 2, "WebbPSF", 4.0, 0),
-        #(0.075, 2, "WebbPSF", 3, 0),
-        #(0.15, 1, "WebbPSF", 4, 6e-19),
-        #(0.15, 1, "WebbPSF", 4, 6e-19, 0.01, 4),
-        #(0.1, 1.5, "WebbPSF", 4, 6e-19, 0.01, 4),
-        #(0.075, 2, "WebbPSF", 4, 6e-19, 0.01, 4, "IFU_effective_area_150518_blue_lower.txt", "IFU_R_Content.txt"),
-        #(0.075, 2, "WebbPSF", 4, 6e-19, 0.01, 4, "IFU_effective_area_160513.txt", "IFU_R_160121.txt"),
-        #(0.075, 2, "WebbPSF", 4, 6e-19, 0.01, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-        #(0.1, 1.5, "WebbPSF", 4, 6e-19, 0.01, 5, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-        #(0.05, 3, "WebbPSF", 2, 15, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-        #(0.05, 3, "WebbPSF", 4, 15, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-        #(0.05, 3, "WebbPSF", 2, 12, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-        #(0.05, 3, "WebbPSF", 4., 15, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-        #(0.05, 3, "WebbPSF", 4., 15, 0, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_500.txt"),
-        (0.05, 3, "WebbPSF", 4., 15, 0, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-        (0.05, 3, "WebbPSF", 4., 15, 0, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720_x2.txt"),
-        #(0.05, 3, "WebbPSF", 4., 15, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-        #(0.05, 3, "WebbPSF", 4., 15, 0, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-        #(0.05, 3, "WebbPSF", 4., 15, 6e-19, 0.005, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-        #(0.05, 3, "WebbPSF", 2., 15, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-        #(0.05, 3, "WebbPSF", 3., 20, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-        #(0.045, 3.333, "WebbPSF", 3., 20, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-        #(0.075, 2, "WebbPSF", 4, 15, 6e-19, 0.01, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-        #(0.05, 3, "WebbPSF", 2, 10, 6e-19, 0.002, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-        #(0.075, 2, "WebbPSF", 2, 15, 6e-19, 0.01, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-        #(0.075, 2, "WebbPSF", 2, 15, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-        #(0.075, 2, "WebbPSF", 4, 15, 6e-19, 0.001, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-
-        #(0.04, 3.75, "WebbPSF", 0, 30, 6e-19, 0.003, 1, 8, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-        #(0.04, 3.75, "WebbPSF", 0, 30, 6e-19, 0.003, 2, 8, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-
-        #(0.04, 3.75, "WebbPSF", 2, 30, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-        ##(0.04, 3.75, "WebbPSF", 2, 30, 6e-19, 0.003, 1, 8, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-        #(0.04, 3.75, "WebbPSF", 2, 30, 6e-19, 0.003, 2, 8, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-        #(0.05, 3, "WebbPSF", 0, 6e-19, 0.01, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-        #(0.05, 3, "WebbPSF", 0, 6e-19, 0.01, 1, 8, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-        #(0.05, 3, "WebbPSF", 0, 6e-19, 0.01, 2, 8, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-        #(0.075, 2, "WebbPSF", 0, 15, 6e-19, 0.01, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-        #(0.075, 2, "WebbPSF", 0, 15, 6e-19, 0.01, 1, 8, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-        #(0.075, 2, "WebbPSF", 0, 15, 6e-19, 0.01, 2, 8, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
-        #(0.075, 2, "WebbPSF", 2, 6e-19, 0.01, 4),
-        #(0.075, 2, "WebbPSF", 3, 6e-19, 0.01, 4),
-        #(0.075, 2, "WebbPSF", 4, 6e-19, 0.01, 4),
-        #(0.075, 2, "WebbPSF", 5, 6e-19, 0.01, 4),
-        #(0.075, 2, "WebbPSF", 6, 6e-19, 0.01, 4),
-        #(0.075, 2, "WebbPSF", 7, 6e-19, 0.01, 4),
-        
-        #(0.15, 1, "WebbPSF", 3.),
-        #(0.075, 2, "WebbPSF", 3.)
-        #(0.15, 1, "NIC"),
-        #(0.075, 2, "NIC")]:
-    ]
+    #(0.15, 1, "AiryObstruct", 4.0, 0),
+    #(0.15, 1, "WebbPSF", 4.0, 0),
+    #(0.075, 2, "WebbPSF", 4.0, 0),
+    #(0.075, 2, "WebbPSF", 3, 0),
+    #(0.15, 1, "WebbPSF", 4, 6e-19),
+    #(0.15, 1, "WebbPSF", 4, 6e-19, 0.01, 4),
+    #(0.1, 1.5, "WebbPSF", 4, 6e-19, 0.01, 4),
+    #(0.075, 2, "WebbPSF", 4, 6e-19, 0.01, 4, "IFU_effective_area_150518_blue_lower.txt", "IFU_R_Content.txt"),
+    #(0.075, 2, "WebbPSF", 4, 6e-19, 0.01, 4, "IFU_effective_area_160513.txt", "IFU_R_160121.txt"),
+    #(0.075, 2, "WebbPSF", 4, 6e-19, 0.01, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+    #(0.1, 1.5, "WebbPSF", 4, 6e-19, 0.01, 5, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+    #(0.05, 3, "WebbPSF", 2, 15, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+    #(0.05, 3, "WebbPSF", 4, 15, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+    #(0.05, 3, "WebbPSF", 2, 12, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+    #(0.05, 3, "WebbPSF", 4., 15, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+    #(0.05, 3, "WebbPSF", 4., 15, 0, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_500.txt"),
+    (0.05, 3, "WebbPSF", 4., 15, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+    (0.2, 1, "Gauss_PSFs_1.2m", 4., 15, 6e-19, 0.003, 1, 4, "1.2m_area.txt", "IFU_R_160720.txt"),
+    #(0.05, 3, "WebbPSF", 4., 15, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+    #(0.05, 3, "WebbPSF", 4., 15, 0, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+    #(0.05, 3, "WebbPSF", 4., 15, 6e-19, 0.005, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+    #(0.05, 3, "WebbPSF", 2., 15, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+    #(0.05, 3, "WebbPSF", 3., 20, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+    #(0.045, 3.333, "WebbPSF", 3., 20, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+    #(0.075, 2, "WebbPSF", 4, 15, 6e-19, 0.01, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+    #(0.05, 3, "WebbPSF", 2, 10, 6e-19, 0.002, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+    #(0.075, 2, "WebbPSF", 2, 15, 6e-19, 0.01, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+    #(0.075, 2, "WebbPSF", 2, 15, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+    #(0.075, 2, "WebbPSF", 4, 15, 6e-19, 0.001, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+    
+    #(0.04, 3.75, "WebbPSF", 0, 30, 6e-19, 0.003, 1, 8, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+    #(0.04, 3.75, "WebbPSF", 0, 30, 6e-19, 0.003, 2, 8, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+    
+    #(0.04, 3.75, "WebbPSF", 2, 30, 6e-19, 0.003, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+    ##(0.04, 3.75, "WebbPSF", 2, 30, 6e-19, 0.003, 1, 8, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+    #(0.04, 3.75, "WebbPSF", 2, 30, 6e-19, 0.003, 2, 8, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+    #(0.05, 3, "WebbPSF", 0, 6e-19, 0.01, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+    #(0.05, 3, "WebbPSF", 0, 6e-19, 0.01, 1, 8, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+    #(0.05, 3, "WebbPSF", 0, 6e-19, 0.01, 2, 8, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+    #(0.075, 2, "WebbPSF", 0, 15, 6e-19, 0.01, 1, 4, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+    #(0.075, 2, "WebbPSF", 0, 15, 6e-19, 0.01, 1, 8, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+    #(0.075, 2, "WebbPSF", 0, 15, 6e-19, 0.01, 2, 8, "IFU_effective_area_160720.txt", "IFU_R_160720.txt"),
+    #(0.075, 2, "WebbPSF", 2, 6e-19, 0.01, 4),
+    #(0.075, 2, "WebbPSF", 3, 6e-19, 0.01, 4),
+    #(0.075, 2, "WebbPSF", 4, 6e-19, 0.01, 4),
+    #(0.075, 2, "WebbPSF", 5, 6e-19, 0.01, 4),
+    #(0.075, 2, "WebbPSF", 6, 6e-19, 0.01, 4),
+    #(0.075, 2, "WebbPSF", 7, 6e-19, 0.01, 4),
+    
+    #(0.15, 1, "WebbPSF", 3.),
+    #(0.075, 2, "WebbPSF", 3.)
+    #(0.15, 1, "NIC"),
+    #(0.075, 2, "NIC")]:
+]
 
 #for pix_scale in arange(0.05, 0.1501, 0.005):
 #    runs.append((pix_scale, 2, "WebbPSF", 4, 6e-19, 0.01, 4*(pix_scale/0.075)**2., "IFU_effective_area_160720.txt", "IFU_R_160720.txt"))
@@ -109,7 +109,7 @@ for pixel_scale, slice_in_pixels, PSF_source, read_noise_floor, white_noise, gal
         args["key1"] = "rest_frame_mean_S/N"
         args["key2"] = (5000, 6000)
         StoNs = [3.5, 6.0, 10]
-    elif 0:
+    elif 1:
         args["key1"] = "rest_frame_band_S/N"
         args["key2"] = (5000, 6000)
         StoNs = [14, 24, 40, 46.6/sqrt(ref_dithers)]
@@ -117,11 +117,14 @@ for pixel_scale, slice_in_pixels, PSF_source, read_noise_floor, white_noise, gal
         args["key1"] = "rest_frame_band_S/N"
         args["key2"] = (6000, 7000)
         StoNs = [3.5*25/sqrt(136.*live_dithers), 25*6/sqrt(136.*live_dithers), 25*10/sqrt(136.*live_dithers), 25./sqrt(ref_dithers)]
+    elif 0:
+        args["key1"] = "rest_frame_band_S/N"
+        args["key2"] = (5000, 6000)
+        StoNs = [3.5*45/sqrt(136.*live_dithers), 45*6/sqrt(136.*live_dithers), 45*10/sqrt(136.*live_dithers), 45./sqrt(ref_dithers)]
     else:
         args["key1"] = "rest_frame_band_S/N"
         args["key2"] = (5000, 6000)
-        #StoNs = [3.5*40/sqrt(136.*live_dithers), 40*6/sqrt(136.*live_dithers), 40*10/sqrt(136.*live_dithers), 40./sqrt(ref_dithers)]
-        StoNs = [3.5*45/sqrt(136.*live_dithers), 45*6/sqrt(136.*live_dithers), 45*10/sqrt(136.*live_dithers), 45./sqrt(ref_dithers)]
+        StoNs = [3.5*45/sqrt(136.*live_dithers), sqrt(68.)*sqrt(15.)/sqrt(live_dithers), sqrt(68.)*sqrt(15.)/sqrt(live_dithers), 45./sqrt(ref_dithers)]
 
     args["restframe_bins"] = args["key2"]
 
@@ -131,13 +134,13 @@ for pixel_scale, slice_in_pixels, PSF_source, read_noise_floor, white_noise, gal
         # eight at S/N 3.5 + three at S/N 6 + one at S/N 10 = 8 + 3*2 + 4 = 18
         exptime35 = solve_for_exptime(S_to_N = StoNs[0], redshift = redshift, **args)
         exptime6 = solve_for_exptime(S_to_N = StoNs[1], redshift = redshift, **args)
-        exptime10 = solve_for_exptime(S_to_N = StoNs[2], redshift = redshift, **args)
+        exptime10 = solve_for_exptime(S_to_N = StoNs[2], redshift = redshift, **args)#StoNs[2], redshift = redshift, **args)
         exptimeref = solve_for_exptime(S_to_N = StoNs[3], redshift = redshift, **args)
         
         time_at_this_redshift_per_SN = (
             (exptime35*live_dithers + slew_time + dither_time*(live_dithers - 1))*0 +
-            (exptime6*live_dithers + slew_time + dither_time*(live_dithers - 1))*2 +
-            (exptime10*live_dithers + slew_time + dither_time*(live_dithers - 1))*1 +
+            (exptime6*live_dithers + slew_time + dither_time*(live_dithers - 1))*1.25 +
+            (exptime10*live_dithers + slew_time + dither_time*(live_dithers - 1))*1.25 +
             (exptimeref*ref_dithers + slew_time + dither_time*(ref_dithers - 1))*1)
 
         total_time += time_at_this_redshift_per_SN*SN_count
@@ -149,12 +152,12 @@ for pixel_scale, slice_in_pixels, PSF_source, read_noise_floor, white_noise, gal
 
         toprint = [str(item) for item in toprint]
 
-        print '\t'.join(toprint) + " Total"*(redshift == redshifts[-1])
+        print '\t'.join(toprint) + " Total"*int(redshift == redshifts[-1])
 
         label = ["Resolution:" + IFURfl, "Eff Area: " + effareafl, "Ref Dithers: %.1f" % ref_dithers, "PSF: " + PSF_source, str(pixel_scale) + '" pixels', str(slice_in_pixels) + " pixel/slice", "Read Noise Floor: " + str(read_noise_floor), "Dark: " + str(dark_current)]
         label = [str(item) for item in label]
 
-        plt.plot(redshift, time_at_this_redshift_per_SN*SN_count/86400., 'o', color = run_color, label = (redshift == redshifts[0])*(', '.join(label)))
+        plt.plot(redshift, time_at_this_redshift_per_SN*SN_count/86400., 'o', color = run_color, label = int(redshift == redshifts[0])*(', '.join(label)))
 
     
     print

@@ -24,7 +24,7 @@ def make_galaxy_spectrum(redshifts, median_not_random = False, show_plots = Fals
     f160w_ST_mag_per_arcsec = 24.69330219319535 + random.normal(size = len(redshifts))*2.1544518737582403*(1 - median_not_random)
     f160w_flamb_per_arcsec = 10.**(-0.4*(21.1 + f160w_ST_mag_per_arcsec))
 
-    obswaves = exp(arange(log(3900.), log(24000.), 0.0005))
+    obswaves = exp(arange(log(3900.), log(25500.), 0.0005))
     
 
     templs = []
@@ -38,7 +38,7 @@ def make_galaxy_spectrum(redshifts, median_not_random = False, show_plots = Fals
         temptempl *= f160w_flamb_per_arcsec[i]/temptempl[ind]
 
         if show_plots:
-            inds = where((obswaves >= 4200.)*(obswaves <= 20000.))
+            inds = where((obswaves >= 4200.)*(obswaves <= 25000.))
             plt.plot(obswaves[inds], temptempl[inds], color = ['b','g','c','r','m','y'][i % 6])
         templs.append(interp1d(obswaves[::4], temptempl[::4], kind = 'linear'))
             

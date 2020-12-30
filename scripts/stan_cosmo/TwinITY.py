@@ -1,6 +1,6 @@
 from numpy import *
 import pystan
-from DavidsNM import save_img
+from DavidsNM import save_img, miniLM_new
 import sys
 import os
 wfirst_path = os.environ["WFIRST"]
@@ -352,6 +352,9 @@ for i in range(SN_data["nsne"]):
                 plt.close()
 
 pdf.close()
+
+
+
 
 print "nobs ", stan_data["nobs"]
 print "nsne ", stan_data["nsne"]

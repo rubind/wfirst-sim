@@ -3,7 +3,7 @@ from astropy.io import fits as pyfits
 from scipy.interpolate import interp1d
 from scipy.ndimage.filters import gaussian_filter1d
 import glob
-import commands
+import subprocess
 import sys
 from astropy import cosmology
 import sncosmo
@@ -24,7 +24,7 @@ wfirst_path = os.environ["WFIRST_SIM_DATA"]
 ######################################### Helper FNs #########################################
 def save_img(dat, imname, waves = None):
 
-    commands.getoutput("rm -f " + imname)
+    subprocess.getoutput("rm -f " + imname)
     fitsobj = pyfits.HDUList()
     hdu = pyfits.PrimaryHDU()
     hdu.data = dat
@@ -207,13 +207,14 @@ def initialize_PSFs(pixel_scales = [15], slice_scales = [20], PSF_source = "Webb
         
             f = pyfits.open(fl)
             TTPSF = f[0].data
-            assert isclose(TTPSF[len(TTPSF)/2, len(TTPSF[0])/2], TTPSF.max(), rtol = 1e-2), "Max isn't in the middle! " + str(TTPSF.shape)
+            #print(TTPSF,fl)
+            assert isclose(TTPSF[int(around(len(TTPSF)/2.)), int(around(len(TTPSF[0])/2.))], TTPSF.max(), rtol = 1e-2), "Max isn't in the middle! " + str(TTPSF.shape)
             f.close()
 
             TTPSF = fft.fft2(TTPSF)
 
             for slice_scale, pixel_scale in zip(slice_scales, pixel_scales):
-                if not pixels.has_key((pixel_scale, slice_scale)):
+                if (pixel_scale, slice_scale) not in pixels:
                     pixels[(pixel_scale, slice_scale)] = zeros(TTPSF.shape, dtype=float64)
                     pixels[(pixel_scale, slice_scale)][:int(ceil(pixel_scale/2.)), :int(ceil(slice_scale/2.))] += 1
                     pixels[(pixel_scale, slice_scale)][-int(floor(pixel_scale/2.)):, :int(ceil(slice_scale/2.))] += 1
@@ -320,7 +321,7 @@ def get_1D_pixelized_sliced_PSFs(PSFs, pixel_scale, slice_scale, waves, IPC, off
     """Simulates a small IFU; for a S/N calculation, that's good enough. i = parallel j = perpendicular to slice"""
 
 
-    if PSFs.has_key((pixel_scale, slice_scale, waves.min(), waves.max(), IPC, offset_par, offset_perp)):
+    if (pixel_scale, slice_scale, waves.min(), waves.max(), IPC, offset_par, offset_perp) in PSFs:
         return PSFs[(pixel_scale, slice_scale, waves.min(), waves.max(), IPC, offset_par, offset_perp)], PSFs
 
 
@@ -418,7 +419,7 @@ def get_sncosmo(mdl, redshift, waves, fine_waves, phase, absmag = - 19.08):
             sncosmo_model.set(z=ten_pc_z, t0=0., x0=ampl)
 
         mag = sncosmo_model.bandmag('bessellv', 'ab', 0.)
-        print "mag, ampl ", mag, ampl
+        print("mag, ampl ", mag, ampl)
         ampl *= 10.**(0.4*(mag - absmag))
         
 
@@ -429,7 +430,7 @@ def get_sncosmo(mdl, redshift, waves, fine_waves, phase, absmag = - 19.08):
 
 
     mu = cosmo.distmod(redshift).value
-    print "mu ", mu
+    print("mu ", mu)
 
     f_lamb_SN = sncosmo_model.flux(phase*(1. + redshift), waves)*10.**(-0.4*mu)
     f_lamb_SN_fine = sncosmo_model.flux(phase*(1. + redshift), fine_waves)*10.**(-0.4*mu)
@@ -452,7 +453,7 @@ def get_spec_with_err(redshift, exp_time, phase = 0, gal_flamb = lambda x:0., pi
                       zodifl = "aldering.txt", effareafl = "IFU_effective_area_160513.txt", thermalfl = None,
                       source_dir = "input/", read_noise = None, white_noise = 15., read_noise_floor = 4., aper_rad_fn = None, waves = None, fine_waves = None,
                       restframe_bins = [3000., 4000., 5000., 6000., 8000., 10000., 12000.],
-                      bad_pixel_rate = 0,
+                      bad_pixel_rate = 0, frame_time = 2.825,
                       obsframe_bins = [7000, 8000., 10200, 12850, 16050, 20000.], TTel = 282., IPC = 0.02, nframe = None, use_R07_noise = False, psfsize = 7):
 
     if hasattr(effareafl, '__call__'):
@@ -473,16 +474,16 @@ def get_spec_with_err(redshift, exp_time, phase = 0, gal_flamb = lambda x:0., pi
     
     if read_noise == None:
         read_noise = (read_noise_floor, sqrt(
-            12.* white_noise**2. * (exp_time/0.65 - 1.)/ (exp_time/0.65) / (exp_time/0.65  + 1.)
+            12.* white_noise**2. * (exp_time/frame_time - 1.)/ (exp_time/frame_time) / (exp_time/frame_time  + 1.)
         ))
 
     # Starting model:
     
     waves, dwaves = resolution_to_wavelengths(source_dir, IFURfl, min_wave, max_wave, waves)
 
-    print "waves ", waves.min(), waves.max(), len(waves)
+    print("waves ", waves.min(), waves.max(), len(waves))
     if show_plots:
-        savetxt("output/wavelengths.txt", zip(arange(1, len(waves + 1)), waves), fmt = ["%i", "%f"])
+        savetxt("output/wavelengths.txt", list(zip(arange(1, len(waves + 1)), waves)), fmt = ["%i", "%f"])
     if fine_waves == None:
         fine_waves = arange(3000., 22001., 10.)
 
@@ -537,7 +538,7 @@ def get_spec_with_err(redshift, exp_time, phase = 0, gal_flamb = lambda x:0., pi
         for waverange in photon_count_rates:
             inds = where((waves >= waverange[0])*(waves < waverange[1]))
             norm_factor = photon_count_rates[waverange]/sum(photons_SN_per_sec[inds])
-            print waverange, "norm_factor", norm_factor
+            print(waverange, "norm_factor", norm_factor)
             f_lamb_SN[inds] *= norm_factor
             f_lamb_SN_at_max[inds] *= norm_factor
             photons_SN_per_sec[inds] *= norm_factor
@@ -584,7 +585,7 @@ def get_spec_with_err(redshift, exp_time, phase = 0, gal_flamb = lambda x:0., pi
     #assert all(total_image < 6.e4), "Saturated pixels found!"
 
     if not use_R07_noise:
-        total_noise = sqrt(total_image + read_noise[0]**2. + read_noise[1]**2.)
+        total_noise = sqrt(clip(total_image, 0, 1e100) + read_noise[0]**2. + read_noise[1]**2.)
     else:
         total_noise = get_R07_noise(electron_count_rate = total_image/exp_time, t_int = exp_time, nframe = nframe)
 
@@ -721,7 +722,7 @@ def get_spec_with_err(redshift, exp_time, phase = 0, gal_flamb = lambda x:0., pi
 
         nresl = 0.5*float(len(inds[0]))
 
-        print "MeanS/N", obsframe_bins[i], obsframe_bins[i+1], this_photons/this_errs, this_photons/this_errs/sqrt(nresl)
+        print("MeanS/N", obsframe_bins[i], obsframe_bins[i+1], this_photons/this_errs, this_photons/this_errs/sqrt(nresl))
         signal_to_noises["obs_frame"][obskey] = this_photons/this_errs/sqrt(nresl)
         signal_to_noises["obs_frame_band"][obskey] = this_photons/this_errs
         signal_to_noises["photons/s_obs"][obskey] = sum(photons_SN_per_sec[inds])
@@ -818,12 +819,12 @@ def solve_for_exptime(S_to_N, redshift, PSFs, key1 = "obs_frame", key2 = (10200,
         # While guesses are more than 0.1% apart:
         last_guess = guess
         guess = interp1d(SNs, times)(S_to_N)
-        print "guess ", guess
+        print("guess ", guess)
         times.append(guess)
         SNs.append(get_spec_with_err(redshift, exp_time = times[-1], PSFs = PSFs, show_plots = 0, **kwargs)[key1][key2]
         )
     guess = interp1d(SNs, times)(S_to_N)
-    print "Returning ", guess
+    print("Returning ", guess)
     
     return guess
 
@@ -831,7 +832,11 @@ def solve_for_exptime(S_to_N, redshift, PSFs, key1 = "obs_frame", key2 = (10200,
 ######################################### Signal-to-Noise Imaging Calculation #########################################
 
 
-def get_imaging_SN(PSFs, exp_time, effective_meters2_fl, wavemin = 4000, wavemax = 25000, waves = None, redshift=0, phase=0, gal_flamb = lambda x:0., pixel_scale = 0.11, IPC = 0.02, offset_par = 5, offset_perp = 5, source_dir = "input", zodi_fl = "aldering.txt", mdl = "hsiao", dark_current = 0.015, TTel = 282., verbose = False, approximate_PSF = True, bad_pixel_rate = 0, read_noise_floor = 5., read_noise_white = 20.):
+def get_imaging_SN(PSFs, exp_time, effective_meters2_fl, wavemin = 4000, wavemax = 25000,
+                   waves = None, redshift=0, phase=0, gal_flamb = lambda x:0., pixel_scale = 0.11,
+                   IPC = 0.02, offset_par = 5, offset_perp = 5, source_dir = "input", zodi_fl = "aldering.txt", mdl = "hsiao",
+                   dark_current = 0.015, TTel = 282., verbose = False, approximate_PSF = True, bad_pixel_rate = 0, read_noise_floor = 5., read_noise_white = 20.):
+
     scale = int(round(pixel_scale/0.005))
     if any(waves == None):
         waves = arange(wavemin, wavemax, 50.) # These should span (and perhaps slightly overfill) the filter
@@ -863,7 +868,7 @@ def get_imaging_SN(PSFs, exp_time, effective_meters2_fl, wavemin = 4000, wavemax
 
 
     if verbose:
-        print "read_noise", read_noise
+        print("read_noise", read_noise)
 
     try:
         model_len = len(mdl)
@@ -886,14 +891,14 @@ def get_imaging_SN(PSFs, exp_time, effective_meters2_fl, wavemin = 4000, wavemax
             
             mag = model.bandmag('bessellv', 'ab', 0.)
             if verbose:
-                print "mag, ampl ", mag, ampl
+                print("mag, ampl ", mag, ampl)
             ampl *= 10.**(0.4*(mag -- 19.08))
 
         model.set(z=redshift, t0=0., amplitude=ampl)
 
         mu = cosmo.distmod(redshift).value
         if verbose:
-            print "mu ", mu
+            print("mu ", mu)
         
         f_lamb_SN = model.flux(phase*(1. + redshift), waves)*10.**(-0.4*mu)
         f_lamb_SN_at_max = model.flux(0., waves)*10.**(-0.4*mu)
@@ -920,14 +925,14 @@ def get_imaging_SN(PSFs, exp_time, effective_meters2_fl, wavemin = 4000, wavemax
 
     zodi_photons_per_pixsec = sum(flamb_to_photons_per_wave(10.**(zodi_flamb(waves)), effective_meters2(waves), waves, dwaves))*pixel_scale**2.
     if verbose:
-        print "zodi_photons_per_pixsec ", effective_meters2_fl, zodi_photons_per_pixsec
+        print("zodi_photons_per_pixsec ", effective_meters2_fl, zodi_photons_per_pixsec)
     galaxy_photons_per_pixsec = sum(flamb_to_photons_per_wave(gal_flamb(waves), effective_meters2(waves), waves, dwaves))*pixel_scale**2.
     thermal_photons_per_pixsec = sum(get_thermal_background_per_pix_per_sec(waves, dwaves, pixel_scale = pixel_scale,
                                                                             TTel = TTel, throughput = effective_meters2(waves)/(pi*1.2**2.))
                                      )
 
     if verbose:
-        print "thermal_photons_per_pixsec ", effective_meters2_fl, thermal_photons_per_pixsec
+        print("thermal_photons_per_pixsec ", effective_meters2_fl, thermal_photons_per_pixsec)
 
     if PSFs == None:
         PSFs = initialize_PSFs(pixel_scales = [int(round(pixel_scale/0.005))], slice_scales = [int(round(pixel_scale/0.005))])
@@ -938,15 +943,18 @@ def get_imaging_SN(PSFs, exp_time, effective_meters2_fl, wavemin = 4000, wavemax
         
 
     SN_photon_image = the_PSF*sum(photons_SN_per_secwave)*exp_time
+    
     if verbose:
-        print "SN photons/sec ", redshift, sum(photons_SN_per_secwave)
+        print("SN photons/sec ", redshift, sum(photons_SN_per_secwave))
     zodi_image = ones(the_PSF.shape, dtype=float64)*zodi_photons_per_pixsec*exp_time
     gal_image = ones(the_PSF.shape, dtype=float64)*galaxy_photons_per_pixsec*exp_time
     thermal_image = ones(the_PSF.shape, dtype=float64)*thermal_photons_per_pixsec*exp_time
     dark_current_image = ones(the_PSF.shape, dtype=float64)*dark_current*exp_time
 
+    
     total_image = SN_photon_image + zodi_image + gal_image + thermal_image + dark_current_image
-    total_noise = sqrt(total_image + read_noise**2.)
+    total_noise = sqrt(clip(total_image, 0, 1e100) + read_noise**2.)
+    
 
     if bad_pixel_rate > 0:
         total_noise += (random.random(size = total_noise.shape) < bad_pixel_rate)*total_noise[0,0]*100.
@@ -961,9 +969,13 @@ def get_imaging_SN(PSFs, exp_time, effective_meters2_fl, wavemin = 4000, wavemax
 
 
     signal_to_noise = sum(SN_photon_image*the_PSF*sim_weight)/sqrt(sum(the_PSF**2. * sim_weight))
+    
     ETC_results = {}
     ETC_results["PSF_phot_S/N"] = signal_to_noise
     ETC_results["SN_photons/s"] = sum(photons_SN_per_secwave)
+    total_image_per_sec = total_image/exp_time
+
+    ETC_results["PSF-weighted total/s"] = sum(the_PSF*total_image_per_sec)/sum(the_PSF)
     AB_0 = sum(flamb_to_photons_per_wave(0.10884806248/waves**2., effective_meters2(waves), waves, dwaves))
     ETC_results["AB_mag"] = -2.5*log10(ETC_results["SN_photons/s"]/AB_0)
     ETC_results["zodi/s"] = zodi_photons_per_pixsec
@@ -972,6 +984,18 @@ def get_imaging_SN(PSFs, exp_time, effective_meters2_fl, wavemin = 4000, wavemax
 
     return ETC_results
 
+######################################### Signal-to-Noise Grism Calculation #########################################
+
+
+def get_prism_SN(PSFs, exp_time, effective_meters2_fl, prismRfl, wavemin = 6000, wavemax = 18000,
+                 pixel_scale = 0.11, IPC = 0.02, offset_perp = 7,
+                 source_dir = "input", zodi_fl = "aldering.txt", dark_current = 0.015, TTel = 264.,
+                 bad_pixel_rate = 0.01, read_noise_floor = 5., read_noise_white = 20.):
+    
+    background_per_pixel = 1.4
+    
+    
+    
     
 def emulate_ETC(**kwargs):
     sample_result = get_spec_with_err(**kwargs)
@@ -984,7 +1008,7 @@ def emulate_ETC(**kwargs):
 
 
 if __name__ == "__main__":
-    print "Running as a demo!"
+    print("Running as a demo!")
 
     """
     print "Reading PSFs..."
@@ -1010,11 +1034,11 @@ if __name__ == "__main__":
 
     for redshift in [0.5, 1.0, 1.5]:
         exptime = solve_for_exptime(S_to_N = 3.5*sqrt(15.), redshift = redshift, key1 = "rest_frame_band_S/N", key2 = (5000, 6000), phase = 0, **args)
-        print "# redshift/ exposure time ", redshift, exptime
+        print("# redshift/ exposure time ", redshift, exptime)
 
         for phase in [-8, -6, 6, 8, 10, 12]:
             ETC_result = get_spec_with_err(redshift = redshift, exp_time = exptime, phase = phase, show_plots = 0, **args)
-            print "#  ", redshift, exptime, phase, ETC_result["rest_frame_band_S/N"][(5000, 6000)]
+            print("#  ", redshift, exptime, phase, ETC_result["rest_frame_band_S/N"][(5000, 6000)])
 
 
     stop_here_now
@@ -1053,7 +1077,7 @@ if __name__ == "__main__":
 
     for redshift in [0.05, 0.5, 1.0, 1.5]:
         exptime = solve_for_exptime(S_to_N = 10., redshift = redshift, key1 = "obs_frame", key2 = (10200, 12850), phase = 0, **args)
-        print "redshift/ exposure time ", redshift, exptime
+        print("redshift/ exposure time ", redshift, exptime)
 
         get_spec_with_err(redshift = redshift, exp_time = exptime, show_plots = 1, phase = 0, **args)
 
@@ -1072,13 +1096,13 @@ if __name__ == "__main__":
         
         t = time.time()
         ETC_result = get_imaging_SN(PSFs, exp_time = 100., redshift = 1.0, effective_meters2_fl = "F184.txt", waves = arange(4000., 25000., 20.), approximate_PSF = False)
-        print time.time() - t
-        print ETC_result
+        print(time.time() - t)
+        print(ETC_result)
 
         t = time.time()
         ETC_result = get_imaging_SN(PSFs, exp_time = 100., redshift = 1.0, effective_meters2_fl = "F184.txt", waves = arange(4000., 25000., 20.), approximate_PSF = True)
-        print time.time() - t
-        print ETC_result
+        print(time.time() - t)
+        print(ETC_result)
 
         
         #pr.disable()
@@ -1099,15 +1123,15 @@ if __name__ == "__main__":
 
     args["zodifl"] = "zodi_medium.txt"
     exptime = solve_for_exptime(S_to_N = 10., redshift = 1.4, key1 = "rest_frame_band_S/N", key2 = (5000, 6000), phase = 0, **args)
-    print "exp time", exptime
+    print("exp time", exptime)
 
     args["zodifl"] = "aldering.txt"
     exptime = solve_for_exptime(S_to_N = 10., redshift = 1.4, key1 = "rest_frame_band_S/N", key2 = (5000, 6000), phase = 0, **args)
-    print "exp time", exptime
+    print("exp time", exptime)
 
 
 
-    print "GRISM!!!!"
+    print("GRISM!!!!")
     args = {"gal_flamb": lambda x:0., "pixel_scale": 0.11, "slice_in_pixels": 1, "dark_current": 1.0, "mdl": 'hsiao', "PSFs": PSFs, "IFURfl": "IFU_R_Content.txt", "min_wave": 4000.}
     #PSFs = initialize_PSFs(scales = [15, 22, 30], PSF_source = "WebbPSF") # Native is in units of 5 mas, so this is 0".075, 0".11, and 0".15
 

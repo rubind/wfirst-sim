@@ -6,7 +6,7 @@ from scipy.interpolate import interp1d
 from pixel_level_ETC2 import initialize_PSFs, get_imaging_SN, solve_for_exptime, get_spec_with_err
 import sys
 from FileRead import readcol, writecol, format_file
-import commands
+import subprocess
 import argparse
 import glob
 import sncosmo
@@ -22,6 +22,7 @@ from generator import make_SALT2_params
 from scipy.stats import scoreatpercentile
 from DavidsNM import miniNM_new
 import argparse
+import tqdm
 
 def file_to_fn(fl, col = 1):
     vals = loadtxt(fl)
@@ -64,7 +65,7 @@ def realize_SN(redshift, daymax, source):
     """
     
     MB, x1, color, mass = make_SALT2_params(size = 1)
-    [MB, x1, color, mass] = [item[0] for item in MB, x1, color, mass]
+    [MB, x1, color, mass] = [item[0] for item in [MB, x1, color, mass]]
 
     MB += random.normal()*0.1 + 0.055*redshift*random.normal() + 5/log(10.)*(0.001/redshift)*random.normal()
 
@@ -137,19 +138,22 @@ def SNR_label(exp_times, curve, SNRtargets):
 parser = argparse.ArgumentParser()
 
 parser.add_argument("--filt", help="Filter to Run", type=str)
-parser.add_argument("--ttel", help="Telescope Temperature", type=float, default = 260)
+parser.add_argument("--ttel", help="Telescope Temperature", type=float, default = 264)
 parser.add_argument("--wfcdark", help="WFC dark current", type=float, default = 0.015)
 parser.add_argument("--wfcrnf", help="WFC read-noise floor", type=float, default = 5.)
 parser.add_argument("--wfcrnw", help="WFC white read noise", type=float, default = 20.)
 parser.add_argument("--zodi", help="Zodi File", type=str, default = "aldering")
 parser.add_argument("--zlots", help="Lots of Redshifts", type=int, default = 0)
+parser.add_argument("--nsne", help="Number of SNe", type=int, default = 400)
+parser.add_argument("--SNRpeaktarg", help="S/N per point at peak", type=float, default = 10)
+parser.add_argument("--SNRpeakred", help="S/N per point at this redshift", type=float, default = 1)
 
 
 opts = parser.parse_args()
 
-print opts
+print(opts)
 
-print "Reading PSFs..."
+print("Reading PSFs...")
 psfnm = "WebbPSF_WFC"
 
 PSFs = initialize_PSFs(pixel_scales = [22], slice_scales = [22], PSF_source = psfnm)
@@ -159,33 +163,34 @@ WFI_args = {"PSFs": PSFs, "source_dir": wfirst_data_path + "/pixel-level/input/"
             "TTel": opts.ttel,
             "zodi_fl": file_to_fn(wfirst_data_path + "/pixel-level/input/" + opts.zodi + ".txt"),
             "bad_pixel_rate": 0.01,
-            "waves": arange(4500., 23000.1, 25.)}
+            "waves": arange(4500., 25000.1, 25.)}
 
-nsne = 400
+nsne = opts.nsne
 
 if 1:
     if opts.zlots:
-        redshifts = arange(0.2, 2.51, 0.1)
+        redshifts = arange(0.2, 3.51, 0.1)
         phases = [0]
     else:
         redshifts = [0.4, 0.8, 1.0, 1.2, 1.7, 2.0]
         phases = [-10, -8, -6, 0]
 
-    exp_times = 10**arange(0.5, 4.21, 0.05)
+    exp_times = 10**arange(0.5, 4.31, 0.05)
     source = sncosmo.SALT2Source(modeldir=wfirst_data_path + "/salt2_extended/")
     effective_meters2_fl = file_to_fn(wfirst_data_path + "/pixel-level/input/" + opts.filt + ".txt")
 
     for sqrtt in [0]:
         plt.figure(figsize = (6*len(redshifts), 4*len(phases)))
-        pltname = "StoN_vs_exptime_%s_TTel_%.1f_%s%s_%s_dark=%.3f_rnf=%.1f_rnw=%.1f" % (opts.filt, opts.ttel, psfnm, "_sqrtt"*sqrtt, opts.zodi, opts.wfcdark, opts.wfcrnf, opts.wfcrnw)
+        pltname = "StoN_vs_exptime_%s_TTel_%.1f_%s%s_%s_dark=%.3f_rnf=%.1f_rnw=%.1f_SNRtarg=%.2f@%.2f" % (opts.filt, opts.ttel, psfnm, "_sqrtt"*sqrtt, opts.zodi, opts.wfcdark, opts.wfcrnf, opts.wfcrnw, opts.SNRpeaktarg, opts.SNRpeakred)
 
         if not sqrtt:
             fres = open(pltname + ".txt", 'w')
 
-        for i in range(len(phases)):
-            for j in range(len(redshifts)):
+        for i in tqdm.trange(len(phases)):
+            for j in tqdm.trange(len(redshifts)):
                 plt.subplot(len(phases),len(redshifts),i*len(redshifts) + j + 1)
 
+                SNR5s = []
                 SNR10s = []
                 SNR20s = []
                 SNR50s = []
@@ -196,13 +201,15 @@ if 1:
 
                     SNRs = run_ETC(redshift = redshifts[j], phase = phases[i], source = source, exp_time = exp_time, gal_flambs = gal_flambs)
 
+                    SNR5 = scoreatpercentile(SNRs, 5.)
                     SNR50 = scoreatpercentile(SNRs, 50.)
                     SNR20 = scoreatpercentile(SNRs, 20.)
                     SNR10 = scoreatpercentile(SNRs, 10.)
                     SNR90 = scoreatpercentile(SNRs, 90.)
 
-                    print exp_time, SNR50
+                    print(exp_time, SNR50)
 
+                    SNR5s.append(SNR5)
                     SNR10s.append(SNR10)
                     SNR20s.append(SNR20)
                     SNR50s.append(SNR50)
@@ -214,37 +221,43 @@ if 1:
                     plt.plot(exp_times, SNR50s/sqrt(exp_times), '.', color = 'k')
                     plt.plot(exp_times, SNR90s/sqrt(exp_times), '.', color = 'b')
                     plt.plot(exp_times, SNR10s/sqrt(exp_times), '.', color = 'r')
+                    plt.plot(exp_times, SNR5s/sqrt(exp_times), '.', color = 'm')
                 else:
                     plt.plot(exp_times, SNR50s, '.', color = 'k')
                     plt.plot(exp_times, SNR90s, '.', color = 'b')
                     plt.plot(exp_times, SNR10s, '.', color = 'r')
+                    plt.plot(exp_times, SNR5s, '.', color = 'm')
 
 
 
                 curve50 = fit_curve(exp_times, SNR50s)
                 curve90 = fit_curve(exp_times, SNR90s)
+                curve5 = fit_curve(exp_times, SNR5s)
                 curve10 = fit_curve(exp_times, SNR10s)
                 curve20 = fit_curve(exp_times, SNR20s)
 
-                SNRtargets = [10.*(phases[i] == 0)*sqrt(2./(redshifts[j] + 1.)) + 4.*(phases[i] != 0)*sqrt(2./(redshifts[j] + 1.))]
+                SNRtargets = [opts.SNRpeaktarg*(phases[i] == 0)*sqrt((1. + opts.SNRpeakred)/(redshifts[j] + 1.)) +
+                              4.*(phases[i] != 0)*sqrt((1. + opts.SNRpeakred)/(redshifts[j] + 1.))]
                 SNRtargets = [SNRtargets[0]/sqrt(2.)] + SNRtargets # Only considering two dithers below, so don't change this
 
                 if sqrtt:
                     plt.plot(exp_times, curve90/sqrt(exp_times), color = 'b', label = "90th: " + SNR_label(exp_times, curve90, SNRtargets = SNRtargets)[0])
                     plt.plot(exp_times, curve50/sqrt(exp_times), color = 'k', label = "50th: " + SNR_label(exp_times, curve50, SNRtargets = SNRtargets)[0])
                     plt.plot(exp_times, curve10/sqrt(exp_times), color = 'r', label = "10th: " + SNR_label(exp_times, curve10, SNRtargets = SNRtargets)[0])
+                    plt.plot(exp_times, curve5/sqrt(exp_times), color = 'm', label = "5th: " + SNR_label(exp_times, curve5, SNRtargets = SNRtargets)[0])
                 else:
                     plt.plot(exp_times, curve90, color = 'b', label = "90th: " + SNR_label(exp_times, curve90, SNRtargets = SNRtargets)[0])
                     plt.plot(exp_times, curve50, color = 'k', label = "50th: " + SNR_label(exp_times, curve50, SNRtargets = SNRtargets)[0])
                     plt.plot(exp_times, curve10, color = 'r', label = "10th: " + SNR_label(exp_times, curve10, SNRtargets = SNRtargets)[0])
+                    plt.plot(exp_times, curve5, color = 'm', label = "5th: " + SNR_label(exp_times, curve5, SNRtargets = SNRtargets)[0])
 
                 plt.legend(fontsize = 8, loc = 'best')
 
                 if not sqrtt:
 
-                    for thecurve, percentile in ((curve50, 50), (curve20, 20), (curve10, 10)):
+                    for thecurve, percentile in ((curve50, 50), (curve20, 20), (curve10, 10), (curve5, 5)):
                         these_results = SNR_label(exp_times, thecurve, SNRtargets = SNRtargets)[1]
-                        print "these_results ", these_results
+                        print("these_results ", these_results)
 
                         for SNRkey in these_results:
                             isminexptime = int(SNRkey == min(these_results.keys()))
@@ -286,7 +299,7 @@ else:
             SNR90s = []
 
             for i in range(len(phases)):
-                print "Redshift", redshifts[j], phases[i]
+                print("Redshift", redshifts[j], phases[i])
 
                 gal_flambs = make_galaxy_spectrum(redshifts = [redshifts[j]]*nsne)
 

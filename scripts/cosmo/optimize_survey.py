@@ -46,14 +46,41 @@ def get_sne_in_sqdeg_per_twoobsyear(dz = 0.1, margin = 20./365.24): # Margin is 
 
 def search_time(z):
 
+
+    #This is for a two-band imaging survey. Five bands, including F184, requires 3x the time.
     return interp1d([0, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0],
                     [(21.6 + 2.*opts.slew), (21.6 + 2.*opts.slew), (37.5 + 2.*opts.slew), (52.9 + 2.*opts.slew), (65.5 + 2.*opts.slew),
                      (81.2 + 2.*opts.slew), (94.1 + 2.*opts.slew), (112.5 + 2.*opts.slew), 129.6 + 2.*opts.slew, 148.9 + 2.*opts.slew,
                      172.5 + 2.*opts.slew, 205.6 + 2.*opts.slew, 236.1 + 2.*opts.slew, 277.4 + 2.*opts.slew, 307.2 + 2.*opts.slew,
-                     347.6 + 2.*opts.slew, 401.8 + 2.*opts.slew, 454.8 + 2.*opts.slew, 535.0 + 2.*opts.slew, 629.3 + 2.*opts.slew], kind = 'linear')(z + 0.05)
+                     347.6 + 2.*opts.slew, 401.8 + 2.*opts.slew, 454.8 + 2.*opts.slew, 535.0 + 2.*opts.slew, 629.3 + 2.*opts.slew], kind = 'linear')(z + 0.05)*3.
+    """
+    #This is for a prism-only imaging survey:
+    return interp1d([0, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0],
+                    [10. + opts.slew, 10. + opts.slew, 25. + opts.slew, 70. + opts.slew, # 0, 0.2, 0.3, 0.4
+                     135. + opts.slew, 290. + opts.slew, 465. + opts.slew, 780. + opts.slew, #  0.5, 0.6, 0.7, 0.8
+                     1250. + opts.slew, 1900. + opts.slew, 2500. + opts.slew, 3600. + opts.slew, # 0.9, 1.0, 1.1, 1.2
+                     5150. + opts.slew, 7100. + opts.slew, 9000. + opts.slew, 12100. + opts.slew, # 1.3, 1.4, 1.5, 1.6
+                     16200. + opts.slew, 21600. + opts.slew, 26500. + opts.slew, 33000. + opts.slew
+                    ], kind = 'linear')(z + 0.05)
+    # This is for three bands plus prism
+    return interp1d([0, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0],
+                    [10. + opts.slew, 10. + opts.slew, 25. + opts.slew, 70. + opts.slew, # 0, 0.2, 0.3, 0.4
+                     135. + opts.slew, 290. + opts.slew, 465. + opts.slew, 780. + opts.slew, #  0.5, 0.6, 0.7, 0.8
+                     1250. + opts.slew, 1900. + opts.slew, 2500. + opts.slew, 3600. + opts.slew, # 0.9, 1.0, 1.1, 1.2
+                     5150. + opts.slew, 7100. + opts.slew, 9000. + opts.slew, 12100. + opts.slew, # 1.3, 1.4, 1.5, 1.6
+                     16200. + opts.slew, 21600. + opts.slew, 26500. + opts.slew, 33000. + opts.slew
+                    ], kind = 'linear')(z + 0.05) + interp1d([0, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0],
+                    [(21.6 + 2.*opts.slew), (21.6 + 2.*opts.slew), (37.5 + 2.*opts.slew), (52.9 + 2.*opts.slew), (65.5 + 2.*opts.slew),
+                     (81.2 + 2.*opts.slew), (94.1 + 2.*opts.slew), (112.5 + 2.*opts.slew), 129.6 + 2.*opts.slew, 148.9 + 2.*opts.slew,
+                     172.5 + 2.*opts.slew, 205.6 + 2.*opts.slew, 236.1 + 2.*opts.slew, 277.4 + 2.*opts.slew, 307.2 + 2.*opts.slew,
+                     347.6 + 2.*opts.slew, 401.8 + 2.*opts.slew, 454.8 + 2.*opts.slew, 535.0 + 2.*opts.slew, 629.3 + 2.*opts.slew], kind = 'linear')(z + 0.05)*1.5
+    """
+    
+    if opts.search == 0:
+        return 0.
 
 
-def supernova_survey_time(redshifts, sn_counts, verbose = False):
+def supernova_survey_time(redshifts, sn_counts, verbose = False, FoM_label = ""):
     sne_found = zeros(len(redshifts), dtype=float64)
     for i in range(len(redshifts)):
         if redshifts[i] < 0.8:
@@ -78,18 +105,22 @@ def supernova_survey_time(redshifts, sn_counts, verbose = False):
             sne_found[i] += sne_in_sqdeg_per_twoobsyear(redshifts[i])*sqdeg
 
             if verbose:
-                print "Surveying at z=" + str(redshifts[i]) + " sqdeg=" + str(sqdeg)
+                print("Surveying at z=" + str(redshifts[i]) + " sqdeg=" + str(sqdeg))
 
             for j in range(0,i):
                 sne_found[j] += sne_in_sqdeg_per_twoobsyear(redshifts[j])*sqdeg
             
             if verbose:
-                plt.plot(redshifts, sne_found, label = "%.2f  so far: %.2g s %.2g d" % (redshifts[i], exp_time, exp_time/86400.))
+                the_label = "%.2f  so far: sqdeg=%.1f search=%.2g s total=%.2g d" % (redshifts[i], sqdeg, search_time(redshifts[i]), exp_time/86400.)
+                plt.plot(redshifts, sne_found, label = the_label*int(sqdeg > 0.1))
 
     if verbose:
+        plt.title("NSNe = %.0f %s" % (sum(sn_counts), FoM_label))
         plt.legend(loc = 'best', fontsize = 8)
         plt.ylim(plt.ylim(0, plt.ylim()[-1]))
-        plt.savefig("sn_survey.pdf")
+        plt.xlabel("Redshift")
+        plt.ylabel("Number of SNe per 0.1")
+        plt.savefig("sn_survey_totyears=%.2f_tides=%i.pdf" % (opts.total, opts.tides))
         plt.close()
    
     return exp_time
@@ -110,9 +141,9 @@ def make_paramfile(scaled_guess):
     f = open("paramfile_wrap.txt")
     orig_lines = f.read()
     f.close()
-
+    
     lines = orig_lines.replace("NNNNN", str([800.] + list(scaled_guess)))
-    lines = lines.replace("ZZZZZ", str(  range(5, 6 + 10*len(at_max_exp_times), 10)  ))
+    lines = lines.replace("ZZZZZ", str(  list(range(5, 6 + 10*len(at_max_exp_times), 10))  ))
     lines = lines.replace("HHHHH", str( [0.1]*(len(at_max_exp_times) + 1)  ))
     lines = lines.replace("FFFFF", str([opts.FoM] + opts.bins))
     lines = lines.replace("EEEEE", str(at_max_exp_times))
@@ -127,9 +158,9 @@ def normalize_guess(new_guess):
 
     scale_to_try = 50.
 
-    print time.time()
+    print(time.time())
     while min(abs(found_times - total_time)) > 0.1: # Precise to 0.1 s!
-        print "Guessing ", scale_to_try
+        print("Guessing ", scale_to_try)
         eval_time = dot(exp_times, array(new_guess)*scale_to_try)
         survey_time = supernova_survey_time(redshifts, array(new_guess)*scale_to_try)
         eval_time += survey_time
@@ -156,14 +187,19 @@ def normalize_guess(new_guess):
 def chi2fn(new_guess, NA):
     scaled_guess = normalize_guess(new_guess)
 
-    print "scaled ", list(scaled_guess)
+    print("scaled ", list(scaled_guess))
     survey_time = supernova_survey_time(redshifts, scaled_guess)
 
     these_params = deepcopy(params)
-    these_params["NSNe"] = concatenate(([800.], scaled_guess))
+
+    some_more_SNe = zeros(len(scaled_guess), dtype=float64)
+    if opts.tides:
+        some_more_SNe[:3] += 1000.
+    
+    these_params["NSNe"] = concatenate(([800.], scaled_guess + some_more_SNe))
 
     FoM = run_FoM(jacobian_NSNe1 = jacobian_NSNe1, PSFs = PSFs, params = these_params)
-    print "FoM resulting from scaled: ", FoM
+    print("FoM resulting from scaled: ", FoM)
 
     return -FoM
 
@@ -171,9 +207,13 @@ def chi2fn(new_guess, NA):
 parser = argparse.ArgumentParser()
 parser.add_argument('-slew', help='Slew time (s)', type = float)
 parser.add_argument('-FoM', help='FoM type', type = str)
-parser.add_argument('-maxz', help='Maximum Redshift', type = float, default = 1.8)
-parser.add_argument('-bins', help='Redshift bins, starts with 0', type = float, default = [], nargs = '*')
+parser.add_argument('-total', help='Survey time (years)', type = float)
+parser.add_argument('-maxz', help='Maximum Redshift', type = float, default = 2.0)
+parser.add_argument('-bins', help='Redshift bins, starts with 0', type = float, default = [], nargs = '*') # For w or rho binned
 parser.add_argument('-LSST', help='Use this many LSST fields for z<0.8 discovery', type = float, default = 0)
+parser.add_argument('-tides', help='Add 3000 SNe to z=0.4', type = int, default = 0)
+parser.add_argument('-followup', help='Have followup time: IFC, 6.5, or None', type = str, default = "IFC")
+parser.add_argument('-search', help='Have search time', type = int, default = 1)
 opts = parser.parse_args()
 
 
@@ -185,18 +225,30 @@ exp_times = []
 at_max_exp_times = []
 
 for redshift in redshifts:
-    exp_time = solve_for_exptime(10.*sqrt(15.), redshift, PSFs, key1 = "rest_frame_band_S/N", key2 = (5000, 6000),
-                                 pixel_scale = 0.05, slice_scale = 0.15,
-                                 source_dir = os.environ["WFIRST_SIM_DATA"] + "/pixel-level/input/",
-                                 IFURfl = "IFU_R_160720.txt", min_wave = 4200.)*3
-    at_max_exp_times.append(exp_time/3.)
+    if opts.followup == "IFC" or opts.followup == "None":
+        exp_time = solve_for_exptime(10.*sqrt(15.), redshift, PSFs, key1 = "rest_frame_band_S/N", key2 = (5000, 6000),
+                                     pixel_scale = 0.05, slice_scale = 0.15,
+                                     source_dir = os.environ["WFIRST_SIM_DATA"] + "/pixel-level/input/",
+                                     IFURfl = "IFU_R_160720.txt", min_wave = 4200.)*3
+        at_max_exp_times.append(exp_time/3.)
+        exp_time += opts.slew*6. # 6 visits; 1+1 + 4-point ref
+        exp_times.append(exp_time)
 
-    exp_time += opts.slew*6. # 6 visits; 1+1 + 4-point ref
-    exp_times.append(exp_time)
-  
+    if opts.followup == "6.5":
+          exp_time = solve_for_exptime(10.*sqrt(15.), redshift, PSFs, key1 = "rest_frame_band_S/N", key2 = (5000, 6000),
+                                     pixel_scale = 0.05, slice_scale = 0.15,
+                                     source_dir = os.environ["WFIRST_SIM_DATA"] + "/pixel-level/input/",
+                                     IFURfl = "IFU_R_160720.txt", min_wave = 4200.)*3
+          at_max_exp_times.append(exp_time/3.)
+
+          exp_time += opts.slew*2. # 2 visits; 1+1 + 4-point ref
+          exp_times.append(exp_time)
+
+if opts.followup == "None":
+    exp_times = [1.]*len(redshifts)
 
 exp_times = array(exp_times)
-print "exp_times ", exp_times
+print("exp_times ", exp_times)
 
 plt.plot(redshifts, exp_times)
 
@@ -210,16 +262,16 @@ jacobian_NSNe1 = get_Jacobian_NSNe1(params)
 
 initial_guess = exp(-redshifts/2.)*10. * (1 + random.random(size = len(redshifts))) * (redshifts/2.)
 
-total_time = 15778463.04
+total_time = 15778463.04*2. * opts.total
 
 
 P, F, NA = miniNM_new(ministart = initial_guess, miniscale = initial_guess/3., chi2fn = chi2fn, passdata = None, verbose = True, inlimit = lambda x: all(x >= 0), maxruncount = 100, maxiter = 500, compute_Cmat = False)
 
-print "best P", P
+print("best P", P)
 chi2fn(P, None)
 
 scaled_P = normalize_guess(P)
-print scaled_P
-supernova_survey_time(redshifts, sn_counts = scaled_P, verbose = True)
+print(scaled_P)
+supernova_survey_time(redshifts, sn_counts = scaled_P, verbose = True, FoM_label = "FoM: %.1f" % (-1.*F))
 
-print "Done!"
+print("Done!")

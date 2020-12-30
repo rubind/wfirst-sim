@@ -95,6 +95,7 @@ def binned_w_rho(z, zbins, wbins):
     rho = 0.
     last_rho = 1.
 
+
     for i in range(len(zbins) - 1):
         rho += (z >= zbins[i])*(z < zbins[i+1])*last_rho*((1. + z)/(1. + zbins[i]))**(3.*(1 + wbins[i]))
         last_rho *= ((1. + zbins[i+1])/(1. + zbins[i]))**(3.*(1 + wbins[i]))
@@ -121,8 +122,8 @@ def H_inv_binw(z, cparams):
     Om = cparams[0]
     zbinswbins = cparams[1:]
     
-    zbins = zbinswbins[:len(zbinswbins)/2]
-    wbins = zbinswbins[len(zbinswbins)/2:]
+    zbins = zbinswbins[:int(around(len(zbinswbins)/2.))]
+    wbins = zbinswbins[int(around(len(zbinswbins)/2.)):]
 
     rho = binned_w_rho(z, zbins, wbins)
     return 1./sqrt(Om*(1. + z)**3. + (1 - Om)*rho)
@@ -188,7 +189,7 @@ def FoM_bin_w(z_list, muCmat, bins = [0., 0.5, 1.0], shift_param_constraint = 0.
     FoM = FoM**(2./nvar)
 
 
-    print sqrt(diag(paramcmat)), "%.2g " % FoM
+    print(sqrt(diag(paramcmat)), "%.2g " % FoM)
 
     return FoM, sqrt(diag(paramcmat))
 
@@ -209,8 +210,8 @@ def binned_rho_rho(z, zbins, rhobins):
 
 def H_inv_binrho(z, cparams):
     zbinsrhobins = cparams
-    
-    zbins = zbinsrhobins[:len(zbinsrhobins)/2]
+                       
+    zbins = zbinsrhobins[:int(around(len(zbinsrhobins)/2))]
     rhobins = zbinsrhobins[len(zbinsrhobins)/2:]
 
     rho = binned_rho_rho(z, zbins, rhobins)
@@ -226,8 +227,8 @@ def get_mu_binrho(z_list, cparams):
 def get_shiftparam_binrho(cparams):
     zbinsrhobins = cparams
 
-    zbins = zbinsrhobins[:len(zbinsrhobins)/2]
-    rhobins = zbinsrhobins[len(zbinsrhobins)/2:]
+    zbins = zbinsrhobins[:int(around(len(zbinswbins)/2.))]
+    rhobins = zbinsrhobins[int(around(len(zbinswbins)/2.)):]
     
     return sqrt(1. - rhobins[0])*n_integrate(log(1. + 1089.), lambda l1z, c: H_inv_binrho(exp(l1z) - 1., c)*exp(l1z), cparams, pad_list = arange(0., 7., 0.01))[0]
 
@@ -251,7 +252,7 @@ def FoM_bin_rho(z_list, muCmat, bins = [0., 0.5, 1.0], shift_param_constraint = 
     
     #print shift_param0
     shift_param0 = get_shiftparam_binrho(cparams = concatenate((bins, [0.7]*nbins)))
-    print shift_param0
+    print(shift_param0)
 
     wmat = zeros([len(muCmat) + 1]*2, dtype=float64)
     wmat[:-1,:-1] = linalg.inv(muCmat)
@@ -266,7 +267,7 @@ def FoM_bin_rho(z_list, muCmat, bins = [0., 0.5, 1.0], shift_param_constraint = 
     nvar = float(len(paramcmat[1:, 1:]))
     FoM = FoM**(2./nvar)
     
-    print sqrt(diag(paramcmat)), "%.2g " % FoM
+    print(sqrt(diag(paramcmat)), "%.2g " % FoM)
 
     return FoM, sqrt(diag(paramcmat))
 
@@ -388,7 +389,7 @@ def get_Jacobian(z_list, zp):
 
 
 
-def get_FoM(SN_Cmat, z_list, zp = 0.3, addcmb = 1, adddesi = 0, verbose = True, shift_constraint = 0.002):
+def get_FoM(SN_Cmat, z_list, zp = 0.3, addcmb = 1, adddesi = 0, verbose = True, shift_constraint = 0.002, return_paramC = False):
     SNe_W = linalg.inv(SN_Cmat)
 
     jacobian = get_Jacobian(z_list, zp)
@@ -417,13 +418,13 @@ def get_FoM(SN_Cmat, z_list, zp = 0.3, addcmb = 1, adddesi = 0, verbose = True, 
 
         #param_W[1:,1:] += DESI_Wmat(zp)
 
-
     param_C = linalg.inv(param_W)
+    #print("param_W", param_W, param_C)
     uncertainties = sqrt(diag(param_C))
     if verbose:
-        print "Uncertainties ", uncertainties
+        print("Uncertainties ", uncertainties)
 
-    return 1./sqrt(linalg.det(param_C[2:4,2:4])), uncertainties
+    return (1./sqrt(linalg.det(param_C[2:4,2:4])), uncertainties) + (param_C,)*return_paramC
 
 #################################################### End of FoM ###############################################
 

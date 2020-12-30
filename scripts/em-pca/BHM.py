@@ -21,7 +21,7 @@ print parameters["LC_fit_Cmat"][0].shape
 print len(parameters["est_proj"])
 print len(parameters["est_proj"][0])
 
-stan_data = dict(nsne = 0, nbins = nbins, npar = 15, obs_par = [], obs_Cmat = [], zbins = [])
+stan_data = dict(nsne = 0, nbins = nbins, npred = 15, obs_par = [], obs_Cmat = [], zbins = [])
 
 bin_boundaries = np.exp(np.linspace(np.log(np.amin(data["redshifts"]) - 1e-6 + 1.),
                                     np.log(np.amax(data["redshifts"]) + 1e-6 + 1.),

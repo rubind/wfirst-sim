@@ -94,8 +94,8 @@ for sntype in set(sntypes):
 #[spectra, types] = readcol("selected_spectra.txt", 'aa')
 PSFs = initialize_PSFs(pixel_scales = [15, 30], slice_scales = [30, 30], PSF_source = "WebbPSF", path = wfirst_data_path + "/pixel-level/")
 
-args = {"pixel_scale": 0.075, "slice_scale": 0.15, "source_dir": wfirst_data_path + "/pixel-level/input/", "IFURfl": "IFU_R_160720.txt", "min_wave": 4200.,
-        "max_wave": 20000., "PSFs": PSFs, "phase": 0, "redshift": 1.0}
+args = {"pixel_scale": 0.05, "slice_scale": 0.15, "source_dir": wfirst_data_path + "/pixel-level/input/", "IFURfl": "IFU_R_160720.txt", "min_wave": 4200.,
+        "max_wave": 21000., "PSFs": PSFs, "phase": 0, "redshift": 1.0}
 
 
 first_ETC_run = get_spec_with_err(exp_time = 100., **args)
