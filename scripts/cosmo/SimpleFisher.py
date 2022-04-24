@@ -47,8 +47,9 @@ def get_params(the_file, PSFs = None):
     max_log_restlamb = -1.e10
     
     if PSFs == None:
-        PSFs = initialize_PSFs(pixel_scales = [10], slice_scales = [30], PSF_source = "WebbPSF", path = wfirst_data_path + "/pixel-level/")
-
+        PSFs = initialize_PSFs(pixel_scales = [int(around(params["pixel_scale"]/0.005))],
+                               slice_scales = [int(around(params["slice_scale"]/0.005))], PSF_source = params["PSF_source"], path = wfirst_data_path + "/pixel-level/")
+        
     params["weight_in_mags_perSN"] = array([], dtype=float64)
     params["redshift_vect"] = array([], dtype=float64)
     params["obs_lambs"] = array([], dtype=float64)
@@ -78,22 +79,22 @@ def get_params(the_file, PSFs = None):
             params["rest_lambs"] = concatenate((params["rest_lambs"], obs_waves[good_inds]/(1. + redshift)))
             params["indices"] = concatenate((params["indices"], zeros(nwave, dtype=int32)))
 
-            nearby_SN_e_per_sec = get_spec_with_err(redshift, 1., phase = 0, gal_flamb = lambda x:0., pixel_scale = 0.05, slice_scale = 0.15,
-                                                    show_plots = 0, IFURfl = "IFU_R_Content.txt", min_wave = params["min_wavelength"], max_wave = params["max_wavelength"], PSFs = PSFs,
+            nearby_SN_e_per_sec = get_spec_with_err(redshift, exp_time = 1., phase = 0, gal_flamb = lambda x:0., pixel_scale = params["pixel_scale"], slice_scale = params["slice_scale"],
+                                                    show_plots = 0, IFURfl = params["IFURfl"], min_wave = params["min_wavelength"], max_wave = params["max_wavelength"], PSFs = PSFs,
                                                     source_dir = wfirst_data_path + "/pixel-level/input/")["PSF_wghtd_e_SN"]
 
         else:
 
             if params["exp_times"] == None or params["exp_times"] == []:
                 exp_time = solve_for_exptime(10., redshift, PSFs, key1 = "rest_frame_band_S/N", key2 = (5000, 6000),
-                                             pixel_scale = 0.05, slice_scale = 0.15,
+                                             pixel_scale = params["pixel_scale"], slice_scale = params["slice_scale"],
                                              source_dir = wfirst_data_path + "/pixel-level/input/",
-                                             IFURfl = "IFU_R_160720.txt", min_wave = params["min_wavelength"], max_wave = params["max_wavelength"])
+                                             IFURfl = params["IFURfl"], min_wave = params["min_wavelength"], max_wave = params["max_wavelength"])
             else:
                 exp_time = params["exp_times"][i-1]
             
-            signal_to_noises = get_spec_with_err(redshift, exp_time, phase = 0, gal_flamb = lambda x:0., pixel_scale = 0.05, slice_scale = 0.15,
-                                                 show_plots = 0, IFURfl = "IFU_R_Content.txt", min_wave = params["min_wavelength"], max_wave = params["max_wavelength"], PSFs = PSFs,
+            signal_to_noises = get_spec_with_err(redshift, exp_time, phase = 0, gal_flamb = lambda x:0., pixel_scale = params["pixel_scale"], slice_scale = params["slice_scale"],
+                                                 show_plots = 0, IFURfl = params["IFURfl"], min_wave = params["min_wavelength"], max_wave = params["max_wavelength"], PSFs = PSFs,
                                                  source_dir = wfirst_data_path + "/pixel-level/input/")
             
             

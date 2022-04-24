@@ -19,6 +19,7 @@ import types
 import time
 import os
 wfirst_path = os.environ["WFIRST_SIM_DATA"]
+wfirst_data_path = os.environ["WFIRST_SIM_DATA"]
 
 
 ######################################### Helper FNs #########################################
@@ -187,10 +188,20 @@ spectrum_to_matched_resolution(specx, specy, min_wave = 4200., max_wave = 20000.
 stop_here
 """
 
+def get_zodi(eff_area_fl, pixel_scale = 0.11):
+    dwaves = 1.
+    waves = arange(4000., 25000. + dwaves, dwaves)
+
+    log10zodi_fn = interpfile(wfirst_data_path + "/pixel-level/input/aldering.txt")
+    m2fn = interpfile(eff_area_fl)
+    zodi_fn = lambda x: 10.**(log10zodi_fn(x))
+
+    return sum(flamb_to_photons_per_wave(zodi_fn(waves), m2fn(waves), waves, dwaves))*pixel_scale**2.
+
 
 ######################################### Image Simulation #########################################
 
-def initialize_PSFs(pixel_scales = [15], slice_scales = [20], PSF_source = "WebbPSF", path = wfirst_path + "/pixel-level/", min_wave = -1, max_wave = 1e20):
+def initialize_PSFs(pixel_scales, slice_scales, PSF_source = "WebbPSF", path = wfirst_path + "/pixel-level/", min_wave = -1, max_wave = 1e20):
     PSFs = {"waves": []}
 
     pixels = {}
@@ -254,12 +265,13 @@ def aint(val):
 def get_pixelized_PSF_noIPC(PSFs, pixel_scale, slice_scale, wave, offset_par, offset_perp, psfsize = 7):
     """Interpolates monochromatic, pixel-convolved PSFs to a given wavelength and takes a sample for every pixel. No IPC."""
     assert (psfsize % 2) == 1
+    assert float(wave) == wave, str(wave)
 
     inds = argsort(abs(PSFs["waves"] - wave))
     nearest_waves = PSFs["waves"][inds[:2]]
     nearest_waves = sort(nearest_waves)
     nearest_weights = [(nearest_waves[1] - wave)/(nearest_waves[1] - nearest_waves[0]), (wave - nearest_waves[0])/(nearest_waves[1] - nearest_waves[0])]    
-    assert abs(dot(nearest_weights, nearest_waves) - wave) < 1, "Bad interpolation!"
+    assert abs(dot(nearest_weights, nearest_waves) - wave) < 1, "Bad interpolation! " + str(nearest_waves) + " " + str(PSFs["waves"]) + " " + str(nearest_waves) + " " + str(inds) + " " + str(wave)
 
     len_PSF_over_two = aint(len(PSFs[nearest_waves[0], pixel_scale, slice_scale])/2)
 
@@ -447,7 +459,7 @@ def get_R07_noise(electron_count_rate, t_int, nframe, frame_time = 10.63, read_n
 
 
 def get_spec_with_err(redshift, exp_time, phase = 0, gal_flamb = lambda x:0., pixel_scale = 0.075, slice_scale = 0.15, show_plots = 0,
-                      dark_current = 0.01, offset_par = 0, offset_perp = 0,
+                      dark_current = 0.01, SN_absmag = -19.08, offset_par = 0, offset_perp = 0,
                       mdl = 'hsiao', PSFs = None, photon_count_rates = None, output_dir = "output", othername = "",
                       IFURfl = "IFU_R_Content.txt", min_wave = 6000., max_wave = 20000.,
                       zodifl = "aldering.txt", effareafl = "IFU_effective_area_160513.txt", thermalfl = None,
@@ -481,8 +493,8 @@ def get_spec_with_err(redshift, exp_time, phase = 0, gal_flamb = lambda x:0., pi
     
     waves, dwaves = resolution_to_wavelengths(source_dir, IFURfl, min_wave, max_wave, waves)
 
-    print("waves ", waves.min(), waves.max(), len(waves))
     if show_plots:
+        print("waves ", waves.min(), waves.max(), len(waves))
         savetxt("output/wavelengths.txt", list(zip(arange(1, len(waves + 1)), waves)), fmt = ["%i", "%f"])
     if fine_waves == None:
         fine_waves = arange(3000., 22001., 10.)
@@ -499,7 +511,7 @@ def get_spec_with_err(redshift, exp_time, phase = 0, gal_flamb = lambda x:0., pi
         sntype = "Unknown"
         mdl = "Unknown"
     elif glob.glob(source_dir + "/" + mdl) == []:
-        f_lamb_SN, f_lamb_SN_fine, sntype, NA = get_sncosmo(mdl, redshift, waves, fine_waves, phase)
+        f_lamb_SN, f_lamb_SN_fine, sntype, NA = get_sncosmo(mdl, redshift, waves, fine_waves, phase, absmag = SN_absmag)
 
     else:
         # Okay. Reading from file.
@@ -522,9 +534,10 @@ def get_spec_with_err(redshift, exp_time, phase = 0, gal_flamb = lambda x:0., pi
     #print "f_lamb_SN ", f_lamb_SN
 
     try:
-        plt_root = "%s_z=%.2f_exp=%.1f_ph=%.1f_gal=%.1g_PSF=%s_pxsl=%.3f_ssl=%i_mdl=%s_type=%s_%s_zodi=%s_opar=%iperp=%i_RN=%.1f" % (othername, redshift, exp_time, phase, gal_flamb(15000.), PSFs["PSF_source"],
-                                                                                                                                     pixel_scale, slice_scale, mdl.split("/")[-1].split(".")[0], sntype, IFURfl.split("/")[-1].split(".")[0], zodifl.split("/")[-1].split(".")[0],
-                                                                                                                                     offset_par, offset_perp, sqrt(read_noise[0]**2 + read_noise[1]**2))
+        plt_root = "%s_z=%.2f_exp=%.1f_ph=%.1f_gal=%.1g_PSF=%s_pxsl=%.3f_ssl=%i_mdl=%s_type=%s_%s_zodi=%s_opar=%iperp=%i_RN=%.1f_absmag=%.2f" % (othername, redshift, exp_time, phase, gal_flamb(15000.), PSFs["PSF_source"],
+                                                                                                                                                 pixel_scale, slice_scale, mdl.split("/")[-1].split(".")[0], sntype, IFURfl.split("/")[-1].split(".")[0], zodifl.split("/")[-1].split(".")[0],
+                                                                                                                                                 offset_par, offset_perp, sqrt(read_noise[0]**2 + read_noise[1]**2),
+                                                                                                                                                 SN_absmag)
     except:
         plt_root = ""
 
@@ -722,7 +735,8 @@ def get_spec_with_err(redshift, exp_time, phase = 0, gal_flamb = lambda x:0., pi
 
         nresl = 0.5*float(len(inds[0]))
 
-        print("MeanS/N", obsframe_bins[i], obsframe_bins[i+1], this_photons/this_errs, this_photons/this_errs/sqrt(nresl))
+        if show_plots:
+            print("MeanS/N", obsframe_bins[i], obsframe_bins[i+1], this_photons/this_errs, this_photons/this_errs/sqrt(nresl))
         signal_to_noises["obs_frame"][obskey] = this_photons/this_errs/sqrt(nresl)
         signal_to_noises["obs_frame_band"][obskey] = this_photons/this_errs
         signal_to_noises["photons/s_obs"][obskey] = sum(photons_SN_per_sec[inds])
@@ -835,7 +849,7 @@ def solve_for_exptime(S_to_N, redshift, PSFs, key1 = "obs_frame", key2 = (10200,
 def get_imaging_SN(PSFs, exp_time, effective_meters2_fl, wavemin = 4000, wavemax = 25000,
                    waves = None, redshift=0, phase=0, gal_flamb = lambda x:0., pixel_scale = 0.11,
                    IPC = 0.02, offset_par = 5, offset_perp = 5, source_dir = "input", zodi_fl = "aldering.txt", mdl = "hsiao",
-                   dark_current = 0.015, TTel = 282., verbose = False, approximate_PSF = True, bad_pixel_rate = 0, read_noise_floor = 5., read_noise_white = 20.):
+                   dark_current = 0.015, TTel = 282., verbose = False, approximate_PSF = True, bad_pixel_rate = 0, read_noise_floor = 5., read_noise_white = 20., SN_absmag = -19.08):
 
     scale = int(round(pixel_scale/0.005))
     if any(waves == None):
@@ -892,7 +906,7 @@ def get_imaging_SN(PSFs, exp_time, effective_meters2_fl, wavemin = 4000, wavemax
             mag = model.bandmag('bessellv', 'ab', 0.)
             if verbose:
                 print("mag, ampl ", mag, ampl)
-            ampl *= 10.**(0.4*(mag -- 19.08))
+            ampl *= 10.**(0.4*(mag - SN_absmag))
 
         model.set(z=redshift, t0=0., amplitude=ampl)
 

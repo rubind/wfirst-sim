@@ -13,12 +13,8 @@ from SimpleFisher import run_FoM, get_Jacobian_NSNe1, get_params
 import argparse
 from astropy.cosmology import FlatLambdaCDM
 import time
+from FileRead import writecol
 
-def volume_of_z(z):
-    return interp1d(
-        [0.0, 0.1,  0.2,  0.3,  0.4,  0.5,  0.6,  0.7,  0.8,  0.9,  1.0,  1.1,  1.2,  1.3,  1.4,  1.5,  1.6,  1.7,  1.8],
-        [0.0, 0.33, 2.48, 7.74, 16.9, 30.5, 48.5, 70.9, 97.5, 128., 162., 199., 239., 281., 325., 371., 419., 468., 511.],
-        kind = 'linear')(z)
 
 def sn_rates(z):
     # 1e-4 /year/Mpc^3/h70^3.
@@ -45,23 +41,36 @@ def get_sne_in_sqdeg_per_twoobsyear(dz = 0.1, margin = 20./365.24): # Margin is 
 
 
 def search_time(z):
-
+    if opts.search == 0:
+        return 0.
 
     #This is for a two-band imaging survey. Five bands, including F184, requires 3x the time.
+    """
+    return interp1d([0, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0],
+                    [0., 0., (112.5 + 2.*opts.slew), 129.6 + 2.*opts.slew, 148.9 + 2.*opts.slew,
+                     172.5 + 2.*opts.slew, 205.6 + 2.*opts.slew, 236.1 + 2.*opts.slew, 277.4 + 2.*opts.slew, 307.2 + 2.*opts.slew,
+                     347.6 + 2.*opts.slew, 401.8 + 2.*opts.slew, 454.8 + 2.*opts.slew, 535.0 + 2.*opts.slew, 629.3 + 2.*opts.slew], kind = 'linear')(z + 0.05)*3.
+    """
+    """
     return interp1d([0, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0],
                     [(21.6 + 2.*opts.slew), (21.6 + 2.*opts.slew), (37.5 + 2.*opts.slew), (52.9 + 2.*opts.slew), (65.5 + 2.*opts.slew),
                      (81.2 + 2.*opts.slew), (94.1 + 2.*opts.slew), (112.5 + 2.*opts.slew), 129.6 + 2.*opts.slew, 148.9 + 2.*opts.slew,
                      172.5 + 2.*opts.slew, 205.6 + 2.*opts.slew, 236.1 + 2.*opts.slew, 277.4 + 2.*opts.slew, 307.2 + 2.*opts.slew,
                      347.6 + 2.*opts.slew, 401.8 + 2.*opts.slew, 454.8 + 2.*opts.slew, 535.0 + 2.*opts.slew, 629.3 + 2.*opts.slew], kind = 'linear')(z + 0.05)*3.
     """
+
+
     #This is for a prism-only imaging survey:
     return interp1d([0, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0],
                     [10. + opts.slew, 10. + opts.slew, 25. + opts.slew, 70. + opts.slew, # 0, 0.2, 0.3, 0.4
                      135. + opts.slew, 290. + opts.slew, 465. + opts.slew, 780. + opts.slew, #  0.5, 0.6, 0.7, 0.8
                      1250. + opts.slew, 1900. + opts.slew, 2500. + opts.slew, 3600. + opts.slew, # 0.9, 1.0, 1.1, 1.2
                      5150. + opts.slew, 7100. + opts.slew, 9000. + opts.slew, 12100. + opts.slew, # 1.3, 1.4, 1.5, 1.6
-                     16200. + opts.slew, 21600. + opts.slew, 26500. + opts.slew, 33000. + opts.slew
+                     16200. + opts.slew, 21600. + opts.slew, 26500. + opts.slew, 33000. + opts.slew # 1.7, 1.8, 1.9, 2.0
                     ], kind = 'linear')(z + 0.05)
+
+    """
+    
     # This is for three bands plus prism
     return interp1d([0, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0],
                     [10. + opts.slew, 10. + opts.slew, 25. + opts.slew, 70. + opts.slew, # 0, 0.2, 0.3, 0.4
@@ -76,8 +85,6 @@ def search_time(z):
                      347.6 + 2.*opts.slew, 401.8 + 2.*opts.slew, 454.8 + 2.*opts.slew, 535.0 + 2.*opts.slew, 629.3 + 2.*opts.slew], kind = 'linear')(z + 0.05)*1.5
     """
     
-    if opts.search == 0:
-        return 0.
 
 
 def supernova_survey_time(redshifts, sn_counts, verbose = False, FoM_label = ""):
@@ -89,8 +96,20 @@ def supernova_survey_time(redshifts, sn_counts, verbose = False, FoM_label = "")
     exp_time = 0
 
     if verbose:
+
         plt.figure()
         plt.plot(redshifts, sn_counts, 'o')
+        writecol(flname + ".txt", [redshifts, sn_counts])
+
+        f = open(flname + ".txt", 'r')
+        lines = f.read()
+        f.close()
+
+        f = open(flname + ".txt", 'w')
+        f.write("FoM_label " + FoM_label + "\n")
+        f.write(lines)
+        f.close()
+
 
     sqdeg_tot = 0.
 
@@ -120,7 +139,7 @@ def supernova_survey_time(redshifts, sn_counts, verbose = False, FoM_label = "")
         plt.ylim(plt.ylim(0, plt.ylim()[-1]))
         plt.xlabel("Redshift")
         plt.ylabel("Number of SNe per 0.1")
-        plt.savefig("sn_survey_totyears=%.2f_tides=%i.pdf" % (opts.total, opts.tides))
+        plt.savefig(flname + ".pdf")
         plt.close()
    
     return exp_time
@@ -147,6 +166,12 @@ def make_paramfile(scaled_guess):
     lines = lines.replace("HHHHH", str( [0.1]*(len(at_max_exp_times) + 1)  ))
     lines = lines.replace("FFFFF", str([opts.FoM] + opts.bins))
     lines = lines.replace("EEEEE", str(at_max_exp_times))
+    lines = lines.replace("PPPPP", str(opts.IFCpix))
+    lines = lines.replace("QQQQQ", str(opts.IFCslice))
+    lines = lines.replace("RRRRR", str(opts.IFCRNfloor))
+    lines = lines.replace("GGGGG", "'" + effareafl + "'")
+    lines = lines.replace("DDDDD", "'" + IFURfl + "'")
+    lines = lines.replace("SSSSS", "'" + PSF_source + "'")
     f = open("paramfile_tmp.txt", 'w')
     f.write(lines)
     f.close()
@@ -206,6 +231,7 @@ def chi2fn(new_guess, NA):
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-slew', help='Slew time (s)', type = float)
+parser.add_argument('-IFCslew', help='Slew time (s)', type = float)
 parser.add_argument('-FoM', help='FoM type', type = str)
 parser.add_argument('-total', help='Survey time (years)', type = float)
 parser.add_argument('-maxz', help='Maximum Redshift', type = float, default = 2.0)
@@ -214,35 +240,69 @@ parser.add_argument('-LSST', help='Use this many LSST fields for z<0.8 discovery
 parser.add_argument('-tides', help='Add 3000 SNe to z=0.4', type = int, default = 0)
 parser.add_argument('-followup', help='Have followup time: IFC, 6.5, or None', type = str, default = "IFC")
 parser.add_argument('-search', help='Have search time', type = int, default = 1)
+parser.add_argument('-IFCpix', help='IFC pixel scale (arcsec)', type = float, default = 0.)
+parser.add_argument('-IFCslice', help='IFC slice scale (arcsec)', type = float, default = 0.)
+parser.add_argument('-IFCRNfloor', help='IFC read-noise floor', type = float, default = 5.0)
 opts = parser.parse_args()
+
+print("python optimize_survey.py -slew 1000 -FoM DETF -total 0.8 -search 0 -followup 6.5 -IFCpix 0.015 -IFCslice 0.015 -IFCRNfloor 8.")
 
 
 sne_in_sqdeg_per_twoobsyear = get_sne_in_sqdeg_per_twoobsyear()
 
-PSFs = initialize_PSFs(pixel_scales = [10], slice_scales = [30], PSF_source = "WebbPSF")
 redshifts = arange(0.15, opts.maxz - 0.04, 0.1)
 exp_times = []
 at_max_exp_times = []
 
 for redshift in redshifts:
     if opts.followup == "IFC" or opts.followup == "None":
+        opts.IFCpix = 0.05
+        opts.IFCslice = 0.15
+
+
+        PSFs = initialize_PSFs(pixel_scales = [int(around(opts.IFCpix/0.005))], slice_scales = [int(around(opts.IFCslice/0.005))], PSF_source = "WebbPSF")
+        IFURfl = "IFU_R_160720.txt"
+
         exp_time = solve_for_exptime(10.*sqrt(15.), redshift, PSFs, key1 = "rest_frame_band_S/N", key2 = (5000, 6000),
-                                     pixel_scale = 0.05, slice_scale = 0.15,
+                                     pixel_scale = opts.IFCpix, slice_scale = opts.IFCslice,
                                      source_dir = os.environ["WFIRST_SIM_DATA"] + "/pixel-level/input/",
-                                     IFURfl = "IFU_R_160720.txt", min_wave = 4200.)*3
+                                     IFURfl = IFURfl, min_wave = 4200.)*3
         at_max_exp_times.append(exp_time/3.)
-        exp_time += opts.slew*6. # 6 visits; 1+1 + 4-point ref
+        exp_time += opts.IFCslew*6. # 6 visits; 1+1 + 4-point ref
         exp_times.append(exp_time)
+        effareafl = "IFU_effective_area_BFT.txt"
+        PSF_source = "Gauss_PSFs_0.1arcsec"
 
     if opts.followup == "6.5":
-          exp_time = solve_for_exptime(10.*sqrt(15.), redshift, PSFs, key1 = "rest_frame_band_S/N", key2 = (5000, 6000),
-                                     pixel_scale = 0.05, slice_scale = 0.15,
+        PSF_source = "Gauss_PSFs_0.1arcsec"
+        PSFs = initialize_PSFs(pixel_scales = [int(around(opts.IFCpix/0.005)), 10], slice_scales = [int(around(opts.IFCslice/0.005)), 30],
+                               PSF_source = PSF_source)
+        
+        effareafl = "IFU_effective_area_BFT.txt"
+        IFURfl = "BFT_IFU.txt"
+        exp_time = solve_for_exptime(20.*sqrt(15.), redshift, PSFs, key1 = "rest_frame_band_S/N", key2 = (5000, 6000),
+                                     pixel_scale = opts.IFCpix, slice_scale = opts.IFCslice, effareafl = effareafl,
                                      source_dir = os.environ["WFIRST_SIM_DATA"] + "/pixel-level/input/",
-                                     IFURfl = "IFU_R_160720.txt", min_wave = 4200.)*3
-          at_max_exp_times.append(exp_time/3.)
+                                     IFURfl = IFURfl, min_wave = 4200., max_wave = 18000., read_noise_floor = opts.IFCRNfloor)*2 # max + ref = *2
+        at_max_exp_times.append(exp_time/2.)
+        
+        exp_time += opts.IFCslew*2. # 2 visits; 1+1 + 4-point ref
+        exp_times.append(exp_time)
+          
 
-          exp_time += opts.slew*2. # 2 visits; 1+1 + 4-point ref
-          exp_times.append(exp_time)
+"""
+prism_times = []
+for redshift in redshifts:
+    prism_PSFs = initialize_PSFs(pixel_scales = [22], slice_scales = [100], PSF_source = "")
+    prism_times.append(solve_for_exptime(35, redshift, prism_PSFs, key1 = "rest_frame_band_S/N", key2 = (5000, 6000),
+                                         pixel_scale = 0.11, slice_scale = 0.5,
+                                         source_dir = os.environ["WFIRST_SIM_DATA"] + "/pixel-level/input/",
+                                         IFURfl = ".txt", min_wave = 7500.))
+"""
+
+flname = "sn_survey_totyears=%.2f_tides=%i_slew=%.2g_IFCslew=%.2g_IFCpix=%.3f_IFCslice=%.3f_IFCRNfloor=%.1f" % (opts.total, opts.tides, opts.slew, opts.IFCslew,
+                                                                                                                opts.IFCpix, opts.IFCslice, opts.IFCRNfloor)
+
 
 if opts.followup == "None":
     exp_times = [1.]*len(redshifts)
@@ -252,20 +312,29 @@ print("exp_times ", exp_times)
 
 plt.plot(redshifts, exp_times)
 
-plt.savefig("exptime_vs_z.pdf")
+plt.savefig("exptime_vs_z_%s.pdf" % flname)
 plt.close()
 
 
 make_paramfile(scaled_guess = 100*ones(len(redshifts), dtype=float64))
 params = get_params("paramfile_tmp.txt", PSFs)
 jacobian_NSNe1 = get_Jacobian_NSNe1(params)
-
-initial_guess = exp(-redshifts/2.)*10. * (1 + random.random(size = len(redshifts))) * (redshifts/2.)
-
 total_time = 15778463.04*2. * opts.total
 
+bestF = 10000
 
-P, F, NA = miniNM_new(ministart = initial_guess, miniscale = initial_guess/3., chi2fn = chi2fn, passdata = None, verbose = True, inlimit = lambda x: all(x >= 0), maxruncount = 100, maxiter = 500, compute_Cmat = False)
+for i in range(3):
+    initial_guess = random.random(size = len(redshifts))*100
+    P, F, NA = miniNM_new(ministart = initial_guess, miniscale = initial_guess/3., chi2fn = chi2fn, passdata = None, verbose = True, inlimit = lambda x: all(x >= 0), maxruncount = 1, maxiter = 20, compute_Cmat = False)
+
+    if F < bestF:
+        bestP = P
+        bestF = F
+        print("bestF, bestP", bestF, bestP)
+        
+#P, F, NA = miniNM_new(ministart = bestP, miniscale = bestP.max()*ones(len(bestP), dtype=float64)/5., chi2fn = chi2fn, passdata = None, verbose = True, inlimit = lambda x: all(x >= 0), maxruncount = 100, maxiter = 1500, compute_Cmat = False)
+P, F, NA = miniNM_new(ministart = bestP, miniscale = bestP.max()*ones(len(bestP), dtype=float64)/5., chi2fn = chi2fn, passdata = None, verbose = True, inlimit = lambda x: all(x >= 0), maxruncount = 2, maxiter = 200, compute_Cmat = False)
+
 
 print("best P", P)
 chi2fn(P, None)

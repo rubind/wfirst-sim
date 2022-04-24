@@ -3,7 +3,7 @@ from numpy import *
 from astropy.cosmology import FlatLambdaCDM
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
-from pixel_level_ETC2 import initialize_PSFs, get_imaging_SN, solve_for_exptime, get_spec_with_err
+from pixel_level_ETC2 import initialize_PSFs, get_imaging_SN, solve_for_exptime, get_spec_with_err, flamb_to_photons_per_wave, resolution_to_wavelengths
 import sys
 from FileRead import readcol, writecol, format_file
 import subprocess
@@ -30,6 +30,17 @@ def file_to_fn(fl, col = 1):
     y = vals[:,col]
 
     return interp1d(x, y, kind = 'linear')
+
+def get_zodi(eff_area_fl, pixel_scale = 0.11):
+    dwaves = 1.
+    waves = arange(4000., 25000. + dwaves, dwaves)
+
+    log10zodi_fn = file_to_fn(wfirst_data_path + "/pixel-level/input/aldering.txt")
+    m2fn = file_to_fn(eff_area_fl)
+    zodi_fn = lambda x: 10.**(log10zodi_fn(x))
+
+    return sum(flamb_to_photons_per_wave(zodi_fn(waves), m2fn(waves), waves, dwaves))*pixel_scale**2.
+
 
 
 def get_SNCosmo_model(redshift, x1, c, MV, daymax, source):
@@ -85,6 +96,7 @@ def run_ETC(redshift, phase, source, exp_time, gal_flambs):
         NA, NA, NA, NA, sncosmo_model = realize_SN(redshift = redshift, daymax = 0, source = source)
 
         f_lamb_SN = sncosmo_model.flux(phase*(1. + redshift), WFI_args["waves"])
+
         
         ETC_result = get_imaging_SN(redshift = 0, exp_time = exp_time, gal_flamb = gal_flambs[i],
                                     effective_meters2_fl = effective_meters2_fl, phase = 0, mdl = f_lamb_SN,
@@ -92,6 +104,34 @@ def run_ETC(redshift, phase, source, exp_time, gal_flambs):
         SNRs.append(ETC_result["PSF_phot_S/N"])
 
     return SNRs
+
+def run_ETC_prism(redshift, source, exp_time):
+    inds = where((WFI_args["waves"]/(1. + redshift) >= 5000)*(WFI_args["waves"]/(1. + redshift) <= 6000))
+    SNRs = []
+
+    for i in range(nsne):
+        NA, NA, NA, NA, sncosmo_model = realize_SN(redshift = redshift, daymax = 0, source = source)
+
+        SNR_per_epoch = []
+        for phase in arange(-15, 45, 5./(1. + redshift)):
+            f_lamb_SN = sncosmo_model.flux(phase*(1. + redshift), WFI_args["waves"])
+            #plt.figure(5)
+            #plt.plot(WFI_args["waves"], f_lamb_SN, label = str(phase))
+
+            ETC_result = get_spec_with_err(exp_time = exp_time, mdl = f_lamb_SN,
+                                           offset_par = int(around(random.random()*22)), offset_perp = int(around(random.random()*22)), **WFI_args)
+
+            this_StoN = ETC_result["spec_S/N"]
+
+            SNR_per_epoch.append(sqrt(sum(this_StoN[inds]**2.)))
+        #plt.legend(loc = 'best')
+        ##plt.savefig("tmp.pdf")
+        #plt.close()
+        
+        SNRs.append(float(sqrt(dot(SNR_per_epoch, SNR_per_epoch))))
+
+    return SNRs
+
 
 def make_SN_curve(P, exp_time):
     readouts = exp_time/2.825
@@ -143,45 +183,77 @@ parser.add_argument("--wfcdark", help="WFC dark current", type=float, default = 
 parser.add_argument("--wfcrnf", help="WFC read-noise floor", type=float, default = 5.)
 parser.add_argument("--wfcrnw", help="WFC white read noise", type=float, default = 20.)
 parser.add_argument("--zodi", help="Zodi File", type=str, default = "aldering")
-parser.add_argument("--zlots", help="Lots of Redshifts", type=int, default = 0)
+parser.add_argument("--zlots", help="Lots of Redshifts", type=float, default = 0.)
 parser.add_argument("--nsne", help="Number of SNe", type=int, default = 400)
 parser.add_argument("--SNRpeaktarg", help="S/N per point at peak", type=float, default = 10)
 parser.add_argument("--SNRpeakred", help="S/N per point at this redshift", type=float, default = 1)
+parser.add_argument("--addhost", type=int, default = 1)
 
 
 opts = parser.parse_args()
 
 print(opts)
 
-print("Reading PSFs...")
-psfnm = "WebbPSF_WFC"
+if opts.filt == "P100":
+    prism = 1
+else:
+    prism = 0
 
-PSFs = initialize_PSFs(pixel_scales = [22], slice_scales = [22], PSF_source = psfnm)
-WFI_args = {"PSFs": PSFs, "source_dir": wfirst_data_path + "/pixel-level/input/",
-            "pixel_scale": 0.11, "dark_current": opts.wfcdark, "read_noise_white": opts.wfcrnw, "read_noise_floor": opts.wfcrnf,
-            "IPC": 0.02,
-            "TTel": opts.ttel,
-            "zodi_fl": file_to_fn(wfirst_data_path + "/pixel-level/input/" + opts.zodi + ".txt"),
-            "bad_pixel_rate": 0.01,
-            "waves": arange(4500., 25000.1, 25.)}
+print("Reading PSFs...")
+
+if prism:
+    psfnm = "Prism_3Element_PSF_SCA08"
+    PSFs = initialize_PSFs(pixel_scales = [22], slice_scales = [100], PSF_source = psfnm)
+
+    zodi_per_pix = get_zodi(eff_area_fl = wfirst_data_path + "/pixel-level/input/P100.txt")
+    zodi_per_pix *= 1.05 # For host-galaxy light
+    print("zodi_per_pix ", zodi_per_pix)
+
+    waves, dwaves = resolution_to_wavelengths(source_dir = wfirst_data_path, IFURfl = file_to_fn(wfirst_data_path + "/pixel-level/input/Prism_R.txt"), min_wave = 7500., max_wave = 18000.)
+
+
+    WFI_args = {"gal_flamb": lambda x:0, "pixel_scale": 0.11, "redshift": 0, "phase": 0, "white_noise": 30, "read_noise_floor": 5., 
+                "slice_scale": 0.5, "dark_current": zodi_per_pix + 0.015, "PSFs": PSFs, "waves": waves,
+                "effareafl": file_to_fn(wfirst_data_path + "/pixel-level/input/P100.txt"), "TTel": 200,
+                "restframe_bins": (5000, 6000), "psfsize": 5, "zodifl": lambda x: -20}
+
+else:
+    psfnm = "WebbPSF_WFC"
+    
+    PSFs = initialize_PSFs(pixel_scales = [22], slice_scales = [22], PSF_source = psfnm)
+    WFI_args = {"PSFs": PSFs, "source_dir": wfirst_data_path + "/pixel-level/input/",
+                "pixel_scale": 0.11, "dark_current": opts.wfcdark, "read_noise_white": opts.wfcrnw, "read_noise_floor": opts.wfcrnf,
+                "IPC": 0.02,
+                "TTel": opts.ttel,
+                "zodi_fl": file_to_fn(wfirst_data_path + "/pixel-level/input/" + opts.zodi + ".txt"),
+                "bad_pixel_rate": 0.01,
+                "waves": arange(4500., 25000.1, 25.)}
+    
 
 nsne = opts.nsne
 
 if 1:
-    if opts.zlots:
-        redshifts = arange(0.2, 3.51, 0.1)
-        phases = [0]
+    if prism:
+        if opts.zlots == 0:
+            redshifts = arange(0.3, 2.01, 0.1)
+        else:
+            redshifts = [float(opts.zlots)]
+        phases = [-99]
     else:
-        redshifts = [0.4, 0.8, 1.0, 1.2, 1.7, 2.0]
-        phases = [-10, -8, -6, 0]
+        if opts.zlots:
+            redshifts = arange(0.2, 3.51, 0.1)
+            phases = [0]
+        else:
+            redshifts = [0.4, 0.8, 1.0, 1.2, 1.7, 2.0]
+            phases = [-10, -8, -6, 0]
 
-    exp_times = 10**arange(0.5, 4.31, 0.05)
+    exp_times = 10**arange(0.5, 5.01, 0.05)
     source = sncosmo.SALT2Source(modeldir=wfirst_data_path + "/salt2_extended/")
     effective_meters2_fl = file_to_fn(wfirst_data_path + "/pixel-level/input/" + opts.filt + ".txt")
 
     for sqrtt in [0]:
         plt.figure(figsize = (6*len(redshifts), 4*len(phases)))
-        pltname = "StoN_vs_exptime_%s_TTel_%.1f_%s%s_%s_dark=%.3f_rnf=%.1f_rnw=%.1f_SNRtarg=%.2f@%.2f" % (opts.filt, opts.ttel, psfnm, "_sqrtt"*sqrtt, opts.zodi, opts.wfcdark, opts.wfcrnf, opts.wfcrnw, opts.SNRpeaktarg, opts.SNRpeakred)
+        pltname = "StoN_vs_exptime_%s_TTel_%.1f_%s%s_%s_dark=%.3f_rnf=%.1f_rnw=%.1f_SNRtarg=%.2f@%.2f_addhost=%i_zlots=%.1f" % (opts.filt, opts.ttel, psfnm, "_sqrtt"*sqrtt, opts.zodi, opts.wfcdark, opts.wfcrnf, opts.wfcrnw, opts.SNRpeaktarg, opts.SNRpeakred, opts.addhost, opts.zlots)
 
         if not sqrtt:
             fres = open(pltname + ".txt", 'w')
@@ -199,7 +271,13 @@ if 1:
                 for exp_time in exp_times:
                     gal_flambs = make_galaxy_spectrum(redshifts = [redshifts[j]]*nsne)
 
-                    SNRs = run_ETC(redshift = redshifts[j], phase = phases[i], source = source, exp_time = exp_time, gal_flambs = gal_flambs)
+                    if opts.addhost == 0:
+                        gal_flambs = [lambda x:0.] *nsne
+
+                    if prism:
+                        SNRs = run_ETC_prism(redshift = redshifts[j], source = source, exp_time = exp_time)
+                    else:
+                        SNRs = run_ETC(redshift = redshifts[j], phase = phases[i], source = source, exp_time = exp_time, gal_flambs = gal_flambs)
 
                     SNR5 = scoreatpercentile(SNRs, 5.)
                     SNR50 = scoreatpercentile(SNRs, 50.)
@@ -236,9 +314,17 @@ if 1:
                 curve10 = fit_curve(exp_times, SNR10s)
                 curve20 = fit_curve(exp_times, SNR20s)
 
-                SNRtargets = [opts.SNRpeaktarg*(phases[i] == 0)*sqrt((1. + opts.SNRpeakred)/(redshifts[j] + 1.)) +
-                              4.*(phases[i] != 0)*sqrt((1. + opts.SNRpeakred)/(redshifts[j] + 1.))]
-                SNRtargets = [SNRtargets[0]/sqrt(2.)] + SNRtargets # Only considering two dithers below, so don't change this
+                if prism:
+                    SNRtargets = [15/2., 20/2., 25/2., 35/2.] + [15./sqrt(2.), 20./sqrt(2), 25./sqrt(2), 35/sqrt(2.)]
+                    n_dithers_from_SNR = {}
+                    for SNRtarget in SNRtargets[:4]:
+                        n_dithers_from_SNR[SNRtarget] = 4
+                    for SNRtarget in SNRtargets[4:]:
+                        n_dithers_from_SNR[SNRtarget] = 2
+                else:
+                    SNRtargets = [opts.SNRpeaktarg*(phases[i] == 0)*sqrt((1. + opts.SNRpeakred)/(redshifts[j] + 1.)) +
+                                  4.*(phases[i] != 0)*sqrt((1. + opts.SNRpeakred)/(redshifts[j] + 1.))]
+                    SNRtargets = [SNRtargets[0]/sqrt(2.)] + SNRtargets # Only considering two dithers below, so don't change this
 
                 if sqrtt:
                     plt.plot(exp_times, curve90/sqrt(exp_times), color = 'b', label = "90th: " + SNR_label(exp_times, curve90, SNRtargets = SNRtargets)[0])
@@ -260,10 +346,11 @@ if 1:
                         print("these_results ", these_results)
 
                         for SNRkey in these_results:
-                            isminexptime = int(SNRkey == min(these_results.keys()))
-
+                            n_dithers = n_dithers_from_SNR[SNRkey]
+                            print("n_dithers", n_dithers)
                             fres.write("%.1f: filt=%s  TTel=%.1f  redshift=%.1f  phase=%.1f  key=%.2f%s  exp=%.1f\n" % (percentile, opts.filt, opts.ttel, redshifts[j], phases[i], SNRkey,
-                                                                                                                        "x2"*isminexptime, these_results[SNRkey]*(1 + isminexptime)))
+                                                                                                                        ("x" + str(n_dithers))*(n_dithers > 1),
+                                                                                                                        these_results[SNRkey]*n_dithers))
                             fres.flush()
 
                 plt.title("S/N @ %i rest-frame, Redshift %.2f" % (phases[i], redshifts[j]))
@@ -302,6 +389,8 @@ else:
                 print("Redshift", redshifts[j], phases[i])
 
                 gal_flambs = make_galaxy_spectrum(redshifts = [redshifts[j]]*nsne)
+                if opts.addhost == 0:
+                    gal_flambs = [lambda x:0.] *nsne
 
                 SNRs = run_ETC(redshift = redshifts[j], phase = phases[i], source = source, exp_time = exp_time, gal_flambs = gal_flambs)
 

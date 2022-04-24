@@ -28,7 +28,7 @@ import tempfile
 import time
 from scipy.stats import percentileofscore
 import matplotlib.patches as patches
-
+whoami = subprocess.getoutput("whoami")
 
 
 def file_to_fn(fl, col = 1):
@@ -140,7 +140,7 @@ def init_ground(grizY_30s_ground_depths):
                                       Y = grizY_30s_ground_depths[4] + 1.25*log10(3600/30.))
 
     WFI_filt_fns = {}
-    for filt in ["R062", "Z087", "Y106", "J129", "H158", "F184", "K193", "W146"]:
+    for filt in ["R062", "Z087", "Y106", "J129", "H158", "F184", "K213", "W146"]:
         WFI_filt_fns[filt] = file_to_fn(wfirst_data_path + "/pixel-level/input/" + filt + ".txt")
 
     return ground_filt_fns, ground_obslambs, ground_five_sigma_one_hour, WFI_filt_fns
@@ -559,7 +559,7 @@ def get_slew_time(RAs, Decs, roll_angles, filt_inds = None, NN_filt_change = 120
 
     temp.flush()
 
-    cmd = "/Users/rubind/Dropbox/Shared/concorde/TSP/concorde -x tmp "# + temp.name # -x deletes tmp files
+    cmd = "/Users/" + whoami + "/Dropbox/Shared/concorde/TSP/concorde -x tmp "# + temp.name # -x deletes tmp files
     print(cmd)
     print(subprocess.getoutput(cmd))
     
@@ -586,7 +586,7 @@ def get_slew_time(RAs, Decs, roll_angles, filt_inds = None, NN_filt_change = 120
         if label_filts:
             for i in range(len(RAs)):
                 plt.plot(RAs[i], Decs[i], '.',
-                         color = {"R087": (1, 0.5, 1), "Z087": 'm', "Y106": 'b', "J129": 'c', "H158": 'g', "F184": 'r', "K193": 'k', "W149": 'gray', "W146": 'gray', "None": 'gray', "Pointings": 'gray'}[filt_names[i]],
+                         color = {"R087": (1, 0.5, 1), "Z087": 'm', "Y106": 'b', "J129": 'c', "H158": 'g', "F184": 'r', "K213": 'k', "W149": 'gray', "W146": 'gray', "None": 'gray', "Pointings": 'gray'}[filt_names[i]],
                          label = filt_names[i]*(labeled.count(filt_names[i]) == 0)*label_filts, zorder = 3)
                 labeled.append(filt_names[i])
         else:

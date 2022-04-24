@@ -20,6 +20,12 @@ max_ground_wavelength	10000.
 min_rest_wavelength	3300.
 max_rest_wavelength	8600.
 
+pixel_scale		PPPPP
+slice_scale		QQQQQ
+IFURNfloor		RRRRR
+IFUeffareafl		GGGGG
+IFURfl			DDDDD
+PSF_source		SSSSS
 
 ###################################### Dispersions ######################################
 HD_RMS  	HHHHH
