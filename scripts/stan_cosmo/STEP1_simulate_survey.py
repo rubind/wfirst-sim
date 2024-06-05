@@ -86,8 +86,8 @@ def read_csv(csv_file):
 
     # Start with global parameters
     for key in ["total_survey_time", "survey_duration", "hours_per_visit", "maximum_trigger_fraction", "shallow_SNR", "medium_SNR", "deep_SNR", "reference_SNR", "number_of_reference_dithers", "SN_rates",
-                "slew_table", "zodiacal_background", "telescope_temperature", "PSFs", "interpixel_capacitance",
-                "WFI_dark_current", "WFI_read_noise_floor", "WFI_read_noise_white",
+                "slew_table", "zodiacal_background", "telescope_temperature", "PSFs", "WFI_PSFs", "interpixel_capacitance",
+                "WFI_dark_current", "WFI_read_noise_floor", "WFI_read_noise_white", "WFI_pixel_scale",
                 "IFU_min_wave", "IFU_max_wave", "IFU_effective_area", "IFU_resolution", "IFU_pixel_scale", "IFU_slice_in_pixels", "IFU_dark_current", "IFU_read_noise_floor", "IFU_read_noise_white", "bad_pixel_rate"]:
         survey_parameters[key] = read_from_lines(lines, key)
     for key in ["adjust_each_SN_exp_time", "targeted_parallels"]:
@@ -140,7 +140,7 @@ def init_ground(grizY_30s_ground_depths):
                                       Y = grizY_30s_ground_depths[4] + 1.25*log10(3600/30.))
 
     WFI_filt_fns = {}
-    for filt in ["R062", "Z087", "Y106", "J129", "H158", "F184", "K213", "W146"]:
+    for filt in ["R062", "Z087", "Y106", "J129", "H158", "F184", "K213", "W146", "Euclid_Y", "Euclid_J", "Euclid_H"]:
         WFI_filt_fns[filt] = file_to_fn(wfirst_data_path + "/pixel-level/input/" + filt + ".txt")
 
     return ground_filt_fns, ground_obslambs, ground_five_sigma_one_hour, WFI_filt_fns
@@ -490,7 +490,7 @@ def run_observation_through_ground_ETC(SN_data, row_to_add, current_date, ground
 
 def quantize_time(t):
     #return ceil(t/5.65001)*5.65 # The ...01 is for numerical accuracy.
-    return ceil(array(t)/2.825001)*2.825 # The ...01 is for numerical accuracy.
+    return ceil(array(t)/3.04001)*3.04 # The ...01 is for numerical accuracy.
 
 
 def get_single_slew_or_filt_change(RAs, Decs, roll_angles, i, j, filt_inds, NN_filt_change, n_filters):
@@ -1494,7 +1494,8 @@ survey_parameters = read_csv(sys.argv[1])
 
 print("Reading PSFs...")
 PSFs = initialize_PSFs(pixel_scales = [10, 15, 22], slice_scales = [30, 30, 22], PSF_source = survey_parameters["PSFs"])
-PSFs_WFC = initialize_PSFs(pixel_scales = [10, 15, 22], slice_scales = [30, 30, 22], PSF_source = "WebbPSF_WFC")
+PSFs_WFC = initialize_PSFs(pixel_scales = [10, 15, 22] + [60]*(survey_parameters["WFI_PSFs"] == "Euclid_PSF"),
+                           slice_scales = [30, 30, 22] + [60]*(survey_parameters["WFI_PSFs"] == "Euclid_PSF"), PSF_source = survey_parameters["WFI_PSFs"])
 
 
 slew_fn = file_to_fn(wfirst_data_path + "/pixel-level/input/" + survey_parameters["slew_table"], col = 2)
@@ -1502,7 +1503,7 @@ slew_fn = file_to_fn(wfirst_data_path + "/pixel-level/input/" + survey_parameter
 
     
 WFI_args = {"PSFs": PSFs_WFC, "source_dir": wfirst_data_path + "/pixel-level/input",
-            "pixel_scale": 0.11,
+            "pixel_scale": survey_parameters["WFI_pixel_scale"],
             "dark_current": survey_parameters["WFI_dark_current"],
             "read_noise_floor": survey_parameters["WFI_read_noise_floor"],
             "read_noise_white": survey_parameters["WFI_read_noise_white"],

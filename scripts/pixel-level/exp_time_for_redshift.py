@@ -1,5 +1,5 @@
 from copy import deepcopy
-from numpy import *
+import numpy as np
 from astropy.cosmology import FlatLambdaCDM
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
@@ -25,7 +25,7 @@ import argparse
 import tqdm
 
 def file_to_fn(fl, col = 1):
-    vals = loadtxt(fl)
+    vals = np.loadtxt(fl)
     x = vals[:,0]
     y = vals[:,col]
 
@@ -33,7 +33,7 @@ def file_to_fn(fl, col = 1):
 
 def get_zodi(eff_area_fl, pixel_scale = 0.11):
     dwaves = 1.
-    waves = arange(4000., 25000. + dwaves, dwaves)
+    waves = np.arange(4000., 25000. + dwaves, dwaves)
 
     log10zodi_fn = file_to_fn(wfirst_data_path + "/pixel-level/input/aldering.txt")
     m2fn = file_to_fn(eff_area_fl)
@@ -68,17 +68,17 @@ def get_SNCosmo_model(redshift, x1, c, MV, daymax, source):
 
 def realize_SN(redshift, daymax, source):
     """
-    x1 = random.normal() - 0.25
-    c = random.normal()*0.1 + random.exponential()*0.1 - 0.1*log(2.)
-    host_mass = random.normal() + 10.
+    x1 = np.random.normal() - 0.25
+    c = np.random.normal()*0.1 + np.random.exponential()*0.1 - 0.1*np.log(2.)
+    host_mass = np.random.normal() + 10.
 
-    MV = -19.08 + random.normal()*0.12 + random.normal()*0.055*redshift - 0.13*x1 + 2.1*c - (host_mass > 10.)*0.08 # beta is 2.1, as this is MV
+    MV = -19.08 + np.random.normal()*0.12 + np.random.normal()*0.055*redshift - 0.13*x1 + 2.1*c - (host_mass > 10.)*0.08 # beta is 2.1, as this is MV
     """
     
     MB, x1, color, mass = make_SALT2_params(size = 1)
     [MB, x1, color, mass] = [item[0] for item in [MB, x1, color, mass]]
 
-    MB += random.normal()*0.1 + 0.055*redshift*random.normal() + 5/log(10.)*(0.001/redshift)*random.normal()
+    MB += np.random.normal()*0.1 + 0.055*redshift*np.random.normal() + 5/np.log(10.)*(0.001/redshift)*np.random.normal()
 
     sncosmo_model = get_SNCosmo_model(redshift = redshift,
                                       x1 = x1,
@@ -100,42 +100,42 @@ def run_ETC(redshift, phase, source, exp_time, gal_flambs):
         
         ETC_result = get_imaging_SN(redshift = 0, exp_time = exp_time, gal_flamb = gal_flambs[i],
                                     effective_meters2_fl = effective_meters2_fl, phase = 0, mdl = f_lamb_SN,
-                                    offset_par = int(around(random.random()*22)), offset_perp = int(around(random.random()*22)), **WFI_args)
+                                    offset_par = int(np.around(np.random.random()*22)), offset_perp = int(np.around(np.random.random()*22)), **WFI_args)
         SNRs.append(ETC_result["PSF_phot_S/N"])
 
     return SNRs
 
 def run_ETC_prism(redshift, source, exp_time):
-    inds = where((WFI_args["waves"]/(1. + redshift) >= 5000)*(WFI_args["waves"]/(1. + redshift) <= 6000))
+    inds = np.where((WFI_args["waves"]/(1. + redshift) >= 5000)*(WFI_args["waves"]/(1. + redshift) <= 6000))
     SNRs = []
 
     for i in range(nsne):
         NA, NA, NA, NA, sncosmo_model = realize_SN(redshift = redshift, daymax = 0, source = source)
 
         SNR_per_epoch = []
-        for phase in arange(-15, 45, 5./(1. + redshift)):
+        for phase in np.arange(-15, 45, 5./(1. + redshift)):
             f_lamb_SN = sncosmo_model.flux(phase*(1. + redshift), WFI_args["waves"])
             #plt.figure(5)
             #plt.plot(WFI_args["waves"], f_lamb_SN, label = str(phase))
 
             ETC_result = get_spec_with_err(exp_time = exp_time, mdl = f_lamb_SN,
-                                           offset_par = int(around(random.random()*22)), offset_perp = int(around(random.random()*22)), **WFI_args)
+                                           offset_par = int(np.around(np.random.random()*22)), offset_perp = int(np.around(np.random.random()*22)), **WFI_args)
 
             this_StoN = ETC_result["spec_S/N"]
 
-            SNR_per_epoch.append(sqrt(sum(this_StoN[inds]**2.)))
+            SNR_per_epoch.append(np.sqrt(sum(this_StoN[inds]**2.)))
         #plt.legend(loc = 'best')
         ##plt.savefig("tmp.pdf")
         #plt.close()
         
-        SNRs.append(float(sqrt(dot(SNR_per_epoch, SNR_per_epoch))))
+        SNRs.append(float(np.sqrt(np.dot(SNR_per_epoch, SNR_per_epoch))))
 
     return SNRs
 
 
 def make_SN_curve(P, exp_time):
-    readouts = exp_time/2.825
-    return exp_time/sqrt(P[0] + P[1]/exp_time*(readouts - 1)/(readouts + 1) + P[2]*exp_time)
+    readouts = exp_time/3.04
+    return exp_time/np.sqrt(P[0] + P[1]/exp_time*(readouts - 1)/(readouts + 1) + P[2]*exp_time)
 
 def chi2fn(P, thedata):
     exp_times, SNs = thedata[0]
@@ -145,7 +145,7 @@ def chi2fn(P, thedata):
 
     model = make_SN_curve(P, exp_times)
     resid = (SNs - model)/SNs
-    return dot(resid, resid)
+    return np.dot(resid, resid)
 
 def fit_curve(exp_times, SNs):
     bestF = 1e100
@@ -227,7 +227,7 @@ else:
                 "TTel": opts.ttel,
                 "zodi_fl": file_to_fn(wfirst_data_path + "/pixel-level/input/" + opts.zodi + ".txt"),
                 "bad_pixel_rate": 0.01,
-                "waves": arange(4500., 25000.1, 25.)}
+                "waves": np.arange(4500., 25000.1, 25.)}
     
 
 nsne = opts.nsne
@@ -235,19 +235,19 @@ nsne = opts.nsne
 if 1:
     if prism:
         if opts.zlots == 0:
-            redshifts = arange(0.3, 2.01, 0.1)
+            redshifts = np.arange(0.3, 2.01, 0.1)
         else:
             redshifts = [float(opts.zlots)]
         phases = [-99]
     else:
         if opts.zlots:
-            redshifts = arange(0.2, 3.51, 0.1)
+            redshifts = np.arange(0.2, 3.51, 0.1)
             phases = [0]
         else:
             redshifts = [0.4, 0.8, 1.0, 1.2, 1.7, 2.0]
             phases = [-10, -8, -6, 0]
 
-    exp_times = 10**arange(0.5, 5.01, 0.05)
+    exp_times = 10**np.arange(0.5, 5.01, 0.05)
     source = sncosmo.SALT2Source(modeldir=wfirst_data_path + "/salt2_extended/")
     effective_meters2_fl = file_to_fn(wfirst_data_path + "/pixel-level/input/" + opts.filt + ".txt")
 
@@ -315,22 +315,36 @@ if 1:
                 curve20 = fit_curve(exp_times, SNR20s)
 
                 if prism:
-                    SNRtargets = [15/2., 20/2., 25/2., 35/2.] + [15./sqrt(2.), 20./sqrt(2), 25./sqrt(2), 35/sqrt(2.)]
+                    SNRtargets = [15/2., 20/2., 25/2., 35/2.] + [15./np.sqrt(2.), 20./np.sqrt(2), 25./np.sqrt(2), 35/np.sqrt(2.)]
                     n_dithers_from_SNR = {}
                     for SNRtarget in SNRtargets[:4]:
                         n_dithers_from_SNR[SNRtarget] = 4
                     for SNRtarget in SNRtargets[4:]:
                         n_dithers_from_SNR[SNRtarget] = 2
                 else:
-                    SNRtargets = [opts.SNRpeaktarg*(phases[i] == 0)*sqrt((1. + opts.SNRpeakred)/(redshifts[j] + 1.)) +
-                                  4.*(phases[i] != 0)*sqrt((1. + opts.SNRpeakred)/(redshifts[j] + 1.))]
-                    SNRtargets = [SNRtargets[0]/sqrt(2.)] + SNRtargets # Only considering two dithers below, so don't change this
+                    SNRtargets_one_dither = [opts.SNRpeaktarg*(phases[i] == 0)*np.sqrt((1. + opts.SNRpeakred)/(redshifts[j] + 1.)) +
+                                             4.*(phases[i] != 0)*np.sqrt((1. + opts.SNRpeakred)/(redshifts[j] + 1.))]
+                    n_dithers_from_SNR = {}
+                    for SNRtarget in SNRtargets_one_dither:
+                        n_dithers_from_SNR[SNRtarget] = 1
+
+                    SNRtargets = deepcopy(SNRtargets_one_dither)
+                    for cadence_to_consider in [1., 2., 2.5, 3., 4., 6., 7., 8., 9., 10., 11., 12., 13., 14., 15.]:
+                        SNRtargets.append(SNRtargets_one_dither[0]*np.sqrt(cadence_to_consider/5.))
+                        n_dithers_from_SNR[SNRtargets[-1]] = 5./cadence_to_consider
+
+
+                    #SNRtargets = [SNRtargets[0]/np.sqrt(2.)] + SNRtargets
+                    #n_dithers_from_SNR[SNRtargets[0]] = 2
+
+                    
+                    
 
                 if sqrtt:
-                    plt.plot(exp_times, curve90/sqrt(exp_times), color = 'b', label = "90th: " + SNR_label(exp_times, curve90, SNRtargets = SNRtargets)[0])
-                    plt.plot(exp_times, curve50/sqrt(exp_times), color = 'k', label = "50th: " + SNR_label(exp_times, curve50, SNRtargets = SNRtargets)[0])
-                    plt.plot(exp_times, curve10/sqrt(exp_times), color = 'r', label = "10th: " + SNR_label(exp_times, curve10, SNRtargets = SNRtargets)[0])
-                    plt.plot(exp_times, curve5/sqrt(exp_times), color = 'm', label = "5th: " + SNR_label(exp_times, curve5, SNRtargets = SNRtargets)[0])
+                    plt.plot(exp_times, curve90/np.sqrt(exp_times), color = 'b', label = "90th: " + SNR_label(exp_times, curve90, SNRtargets = SNRtargets)[0])
+                    plt.plot(exp_times, curve50/np.sqrt(exp_times), color = 'k', label = "50th: " + SNR_label(exp_times, curve50, SNRtargets = SNRtargets)[0])
+                    plt.plot(exp_times, curve10/np.sqrt(exp_times), color = 'r', label = "10th: " + SNR_label(exp_times, curve10, SNRtargets = SNRtargets)[0])
+                    plt.plot(exp_times, curve5/np.sqrt(exp_times), color = 'm', label = "5th: " + SNR_label(exp_times, curve5, SNRtargets = SNRtargets)[0])
                 else:
                     plt.plot(exp_times, curve90, color = 'b', label = "90th: " + SNR_label(exp_times, curve90, SNRtargets = SNRtargets)[0])
                     plt.plot(exp_times, curve50, color = 'k', label = "50th: " + SNR_label(exp_times, curve50, SNRtargets = SNRtargets)[0])
@@ -349,7 +363,7 @@ if 1:
                             n_dithers = n_dithers_from_SNR[SNRkey]
                             print("n_dithers", n_dithers)
                             fres.write("%.1f: filt=%s  TTel=%.1f  redshift=%.1f  phase=%.1f  key=%.2f%s  exp=%.1f\n" % (percentile, opts.filt, opts.ttel, redshifts[j], phases[i], SNRkey,
-                                                                                                                        ("x" + str(n_dithers))*(n_dithers > 1),
+                                                                                                                        ("x%.3f" % n_dithers)*(n_dithers != 1),
                                                                                                                         these_results[SNRkey]*n_dithers))
                             fres.flush()
 
@@ -378,7 +392,7 @@ else:
         effective_meters2_fl = file_to_fn(wfirst_data_path + "/pixel-level/input/" + filts[k] + ".txt")
 
         for j in range(len(redshifts)):
-            phases = arange(-15, 40, 5./(1 + redshifts[j]))
+            phases = np.arange(-15, 40, 5./(1 + redshifts[j]))
             plt.subplot(len(filts),len(redshifts), k*len(redshifts) + j + 1)
 
             SNR10s = []
@@ -403,13 +417,13 @@ else:
                 SNR50s.append(SNR50)
                 SNR90s.append(SNR90)
 
-            SNR10s = array(SNR10s)
-            SNR50s = array(SNR50s)
-            SNR90s = array(SNR90s)
+            SNR10s = np.array(SNR10s)
+            SNR50s = np.array(SNR50s)
+            SNR90s = np.array(SNR90s)
 
-            stack10 = sqrt(dot(SNR10s, SNR10s))
-            stack50 = sqrt(dot(SNR50s, SNR50s))
-            stack90 = sqrt(dot(SNR90s, SNR90s))
+            stack10 = np.sqrt(np.dot(SNR10s, SNR10s))
+            stack50 = np.sqrt(np.dot(SNR50s, SNR50s))
+            stack90 = np.sqrt(np.dot(SNR90s, SNR90s))
 
             plt.plot(phases, SNR10s, '.', color = 'r', label = "10th, stack=%.1f" % stack10)
             plt.plot(phases, SNR50s, '.', color = 'g', label = "50th, stack=%.1f" % stack50)

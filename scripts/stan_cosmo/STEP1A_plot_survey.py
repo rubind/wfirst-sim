@@ -5,10 +5,10 @@ import subprocess
 import multiprocessing as mp
 from scipy.stats import scoreatpercentile
 
+colors = {"R062": (1, 0.5, 1), "Z087": 'm', "Y106": 'b', "J129": 'g', "H158": 'orange', "F184": 'r', "K193": 'r', "Ground_g": 'm', "Ground_r": 'b', "Ground_i": 'c', "Ground_z": 'g', "Ground_Y": 'orange', "g": 'm', "r": 'b', "i": 'c', "z": 'g', "Y": 'orange', "W146": 'orange', "Euclid_Y": 'b', "Euclid_J": 'g', "Euclid_H": 'orange'}
 
 def plot_a_SN(lc_data, daymax, plot_to_make, phase_not_date, redshift, plt, flc = None):
 
-    colors = {"R062": (1, 0.5, 1), "Z087": 'm', "Y106": 'b', "J129": 'g', "H158": 'orange', "F184": 'r', "K193": 'r', "Ground_g": 'm', "Ground_r": 'b', "Ground_i": 'c', "Ground_z": 'g', "Ground_Y": 'orange', "g": 'm', "r": 'b', "i": 'c', "z": 'g', "Y": 'orange', "W146": 'orange'}
 
     filts_used = unique(lc_data["filts"])
     filts_to_sort = [[item[1:], item] for item in filts_used]
@@ -209,8 +209,7 @@ def plot_field(SN_data, working_dir, nsne, outputname, plt):
     plt.close()
 
 def plot_time_used(SN_data, working_dir, outputname, plt):
-    colors = {"R062": (1, 0.5, 1), "Z087": 'm', "Y106": 'b', "J129": 'g', "H158": 'orange', "F184": 'r', "K193": 'r', "Ground_g": 'm', "Ground_r": 'b', "Ground_i": 'c', "Ground_z": 'g', "Ground_Y": 'orange', "g": 'm', "r": 'b', "i": 'c', "z": 'g', "Y": 'orange', "W146": 'orange'}
-
+    
 
     dates = sort(unique(SN_data["observation_table"]["date"]))
     filts = sort(unique(SN_data["observation_table"]["filt"]))[::-1]

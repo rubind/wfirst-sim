@@ -9,19 +9,6 @@ wfirst_path = os.environ["WFIRST"]
 wfirst_data_path = os.environ["WFIRST_SIM_DATA"]
 
 
-def modelfn(prism, flamb):
-    fluxes = flamb*prism.flamb_to_photons_per_wave
-
-    model = []
-    for j in range(len(prism.dxs)):
-        tmp_mod = np.zeros([len(prism.modY), len(prism.modX)], dtype=np.float64)
-        
-        for i in range(len(prism.waves)):
-            tmp_mod += fluxes[i]*get_PSF(prism.modX - (prism.sub_xs[i] + prism.dxs[j]), prism.modY - prism.dys[j], wave = prism.waves[i], linear_coeff_fns = prism.linear_coeff_fns, PSF_fns = prism.PSF_fns)
-        model.append(tmp_mod)
-    model = np.array(model)
-
-    return model
 
 
 def pullfn_per_pix(P, all_data):
@@ -76,12 +63,12 @@ def get_PSF(rel_x, rel_y, wave, linear_coeff_fns, PSF_fns):
     return tmp_mod
 
 class prism:
-    def __init__(self):
+    def __init__(self, total_exp_time, dxs = [0.2, 0.7, 0.45, 0.95], dys = [0.2, 0.2, 0.7, 0.7], LSF_scale = 1.0, R_scale = 1.0):
         self.subsample = 5.
-        self.total_exp_time = 3600. # Over all dithers
+        self.total_exp_time = total_exp_time # Over all dithers
         
-        self.dxs = [0.2, 0.7, 0.45, 0.95]
-        self.dys = [0.2, 0.2, 0.7, 0.7]
+        self.dxs = dxs
+        self.dys = dys
         """
         for dx in np.arange(2, dtype=np.float64)/2.:
             for dy in np.arange(2, dtype=np.float64)/2.:
@@ -92,7 +79,7 @@ class prism:
         self.exp_time = self.total_exp_time/len(self.dxs)
 
         self.waves_native, self.dwaves_native = resolution_to_wavelengths(source_dir = wfirst_data_path + "/pixel-level/input/", IFURfl = "Prism_R.txt",
-                                                                          min_wave = 7500., max_wave = 18000.)
+                                                                          min_wave = 7500., max_wave = 18000., R_scale = R_scale)
 
         self.wave_to_x_fn = interp1d(self.waves_native, np.arange(len(self.waves_native), dtype=np.float64), kind = 'linear')
 
@@ -128,7 +115,7 @@ class prism:
             self.PSFs[(wave, 22, 22)][:,0] = 0.
             self.PSFs[(wave, 22, 22)][:,-1] = 0.
 
-            self.PSF_fns[wave] = RectBivariateSpline(self.psf_x, self.psf_x, self.PSFs[(wave, 22, 22)],
+            self.PSF_fns[wave] = RectBivariateSpline(self.psf_x, self.psf_x*LSF_scale, self.PSFs[(wave, 22, 22)]/LSF_scale,
                                                      kx = 1, ky = 1) #interp2d(psf_x, psf_x, PSFs[(wave, 22, 22)], fill_value = 0.)
             y_vals = np.zeros(len(self.PSFs["waves"]))
             y_vals[i] = 1.
@@ -146,6 +133,19 @@ class prism:
         self.modY -= np.mean(self.modY)
     
 
+    def modelfn(self, flamb):
+        fluxes = flamb*self.flamb_to_photons_per_wave
+
+        model = []
+        for j in range(len(self.dxs)):
+            tmp_mod = np.zeros([len(self.modY), len(self.modX)], dtype=np.float64)
+
+            for i in range(len(self.waves)):
+                tmp_mod += fluxes[i]*get_PSF(self.modX - (self.sub_xs[i] + self.dxs[j]), self.modY - self.dys[j], wave = self.waves[i], linear_coeff_fns = self.linear_coeff_fns, PSF_fns = self.PSF_fns)
+            model.append(tmp_mod)
+        model = np.array(model)
+
+        return model
 
 
 if __name__ == "__main__":

@@ -121,7 +121,7 @@ print integrate_spec(waves, dwaves, redshift, restframe_bins, f_lamb_SN, yerr_fl
 stop_here
 """
 
-def resolution_to_wavelengths(source_dir, IFURfl, min_wave, max_wave, waves = None):
+def resolution_to_wavelengths(source_dir, IFURfl, min_wave, max_wave, waves = None, R_scale = 1.0):
     if hasattr(IFURfl, '__call__'):
         spec_R = IFURfl
     else:
@@ -130,7 +130,7 @@ def resolution_to_wavelengths(source_dir, IFURfl, min_wave, max_wave, waves = No
     if any(waves == None):
         waves = array([min_wave], dtype=float64)
         while waves[-1] <= max_wave:
-            waves = append(waves, waves[-1]*exp(0.5/spec_R(waves[-1]))
+            waves = append(waves, waves[-1]*exp(0.5/(R_scale*spec_R(waves[-1])))
                        )
         if waves[-1] > max_wave:
             waves = waves[:-1]
@@ -465,7 +465,7 @@ def get_spec_with_err(redshift, exp_time, phase = 0, gal_flamb = lambda x:0., pi
                       zodifl = "aldering.txt", effareafl = "IFU_effective_area_160513.txt", thermalfl = None,
                       source_dir = "input/", read_noise = None, white_noise = 15., read_noise_floor = 4., aper_rad_fn = None, waves = None, fine_waves = None,
                       restframe_bins = [3000., 4000., 5000., 6000., 8000., 10000., 12000.],
-                      bad_pixel_rate = 0, frame_time = 2.825,
+                      bad_pixel_rate = 0, frame_time = 3.04,
                       obsframe_bins = [7000, 8000., 10200, 12850, 16050, 20000.], TTel = 282., IPC = 0.02, nframe = None, use_R07_noise = False, psfsize = 7):
 
     if hasattr(effareafl, '__call__'):
@@ -877,7 +877,7 @@ def get_imaging_SN(PSFs, exp_time, effective_meters2_fl, wavemin = 4000, wavemax
                  )
     """
     read_noise = sqrt(read_noise_floor**2 + 
-                      12.* read_noise_white**2. * (exp_time/2.825 - 1.)/ (exp_time/2.825) / (exp_time/2.825  + 1.)
+                      12.* read_noise_white**2. * (exp_time/3.04 - 1.)/ (exp_time/3.04) / (exp_time/3.04  + 1.)
                  )
 
 
