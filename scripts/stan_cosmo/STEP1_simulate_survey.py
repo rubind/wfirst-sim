@@ -1,3 +1,4 @@
+import numpy as np
 from numpy import *
 from astropy.cosmology import FlatLambdaCDM
 from matplotlib import use
@@ -16,8 +17,6 @@ from generator import make_SALT2_params
 from pixel_level_ETC2 import initialize_PSFs, get_imaging_SN, solve_for_exptime, get_spec_with_err
 #from FileRead import readcol
 import subprocess
-import argparse
-import glob
 import sncosmo
 import pickle as pickle
 import multiprocessing as mp
@@ -26,6 +25,7 @@ import matplotlib.path as MPLpath
 import copy as cp
 import tempfile
 import time
+import tqdm
 from scipy.stats import percentileofscore
 import matplotlib.patches as patches
 whoami = subprocess.getoutput("whoami")
@@ -103,7 +103,7 @@ def read_csv(csv_file):
     print("n_tiers ", n_tiers)
     
 
-    single_keys = ["tier_name", "tier_fraction_time", "square_degrees", "cadence"]
+    single_keys = ["tier_name", "tier_fraction_time", "square_degrees", "cadence", "max_z", "max_SNe"]
     list_keys = ["filters", "exp_times_per_dither", "dithers_per_filter", "trigger_redshifts", "trigger_fraction", "parallel_filters"]
     survey_parameters["tier_parameters"] = {}
     for key in single_keys + list_keys:
@@ -233,15 +233,18 @@ def compress_lc_data(SN_data, current_date, filt):
             
             ws = SN_data["SN_observations"][i]["dfluxes"][inds]**(-2.)
             fs = SN_data["SN_observations"][i]["fluxes"][inds]
+            tfs = SN_data["SN_observations"][i]["true_fluxes"][inds]
 
             new_f = sum(ws * fs)/sum(ws)
+            new_tf = sum(ws * tfs)/sum(ws)
             new_df = 1./sqrt(sum(ws))
 
             SN_data["SN_observations"][i]["fluxes"][inds[0]] = new_f
+            SN_data["SN_observations"][i]["true_fluxes"][inds[0]] = new_tf
             SN_data["SN_observations"][i]["dfluxes"][inds[0]] = new_df
             SN_data["SN_observations"][i]["ispar"][inds[0]] = any(SN_data["SN_observations"][i]["ispar"][inds])
 
-            for key in ["dates", "fluxes", "dfluxes", "filts"]:
+            for key in ["dates", "true_fluxes", "fluxes", "dfluxes", "filts"]:
                 SN_data["SN_observations"][i][key] = SN_data["SN_observations"][i][key][:nobs+1-len(inds)]
 
     return SN_data
@@ -406,6 +409,7 @@ def run_observation_through_ETC(SN_data, row_to_add, current_date):
 
             flux_with_noise = AB_flux + random.normal()*AB_flux/SNR_total
             SN_data["SN_observations"][ind]["dates"] = append(SN_data["SN_observations"][ind]["dates"], current_date)
+            SN_data["SN_observations"][ind]["true_fluxes"] = append(SN_data["SN_observations"][ind]["true_fluxes"], AB_flux)
             SN_data["SN_observations"][ind]["fluxes"] = append(SN_data["SN_observations"][ind]["fluxes"], flux_with_noise)
             SN_data["SN_observations"][ind]["dfluxes"] = append(SN_data["SN_observations"][ind]["dfluxes"], AB_flux/SNR_total)
             SN_data["SN_observations"][ind]["filts"] = append(SN_data["SN_observations"][ind]["filts"], row_to_add["filt"])
@@ -479,6 +483,7 @@ def run_observation_through_ground_ETC(SN_data, row_to_add, current_date, ground
     
         flux_with_noise = AB_flux + random.normal()*AB_flux/SNR_total
         SN_data["SN_observations"][ind]["dates"] = append(SN_data["SN_observations"][ind]["dates"], current_date)
+        SN_data["SN_observations"][ind]["true_fluxes"] = append(SN_data["SN_observations"][ind]["true_fluxes"], flux_with_noise)
         SN_data["SN_observations"][ind]["fluxes"] = append(SN_data["SN_observations"][ind]["fluxes"], flux_with_noise)
         SN_data["SN_observations"][ind]["dfluxes"] = append(SN_data["SN_observations"][ind]["dfluxes"], AB_flux/SNR_total)
         SN_data["SN_observations"][ind]["filts"] = append(SN_data["SN_observations"][ind]["filts"], row_to_add["filt"])
@@ -550,68 +555,73 @@ def get_slew_time(RAs, Decs, roll_angles, filt_inds = None, NN_filt_change = 120
     temp.write("EDGE_WEIGHT_TYPE: EXPLICIT\n")
     temp.write("EDGE_WEIGHT_FORMAT: UPPER_ROW\n")
     temp.write("EDGE_WEIGHT_SECTION\n")
-    
+
+    all_times_for_test = []
     for i in range(len(RAs)):
         for j in range(i+1,len(RAs)):
-            temp.write("%0.f " % (get_single_slew_or_filt_change(RAs, Decs, roll_angles, i, j, filt_inds, NN_filt_change, n_filters)*100.))
+            this_time = "%i" % (get_single_slew_or_filt_change(RAs, Decs, roll_angles, i, j, filt_inds, NN_filt_change, n_filters)*100.)
+            temp.write(this_time + " ")
+            all_times_for_test.append(this_time)
         temp.write('0 \n')
     temp.write("EOF\n")
 
     temp.flush()
 
-    cmd = "/Users/" + whoami + "/Dropbox/Shared/concorde/TSP/concorde -x tmp "# + temp.name # -x deletes tmp files
-    print(cmd)
-    print(subprocess.getoutput(cmd))
+    if len(set(all_times_for_test)) != 1:
+        cmd = "/Users/" + whoami + "/Dropbox/Shared/concorde/TSP/concorde -x tmp "# + temp.name # -x deletes tmp files
+        print(cmd)
+        print(subprocess.getoutput(cmd))
     
+        
+        f = open(temp.name.split("/")[-1] + ".sol", 'r')
+        lines = f.read().split(None)
+        f.close()
+        subprocess.getoutput("rm -f " + temp.name.split("/")[-1] + ".sol")
+        temp.close()
     
-    f = open(temp.name.split("/")[-1] + ".sol", 'r')
-    lines = f.read().split(None)
-    f.close()
-    subprocess.getoutput("rm -f " + temp.name.split("/")[-1] + ".sol")
-    temp.close()
-    
 
-    assert int(lines[0]) == len(RAs) + 1, str(lines)
-    del lines[0]
+        assert int(lines[0]) == len(RAs) + 1, str(lines)
+        del lines[0]
 
-    sol = [int(item) for item in lines]
-    ind = sol.index(len(sol) - 1)
-    sol = sol[ind+1:] + sol[:ind]
+        sol = [int(item) for item in lines]
+        ind = sol.index(len(sol) - 1)
+        sol = sol[ind+1:] + sol[:ind]
 
-    labeled = []
-    total_time = 0.
+        labeled = []
+        
+
+        if show_solution:
+            if label_filts:
+                for i in range(len(RAs)):
+                    plt.plot(RAs[i], Decs[i], '.',
+                             color = {"R087": (1, 0.5, 1), "Z087": 'm', "Y106": 'b', "J129": 'c', "H158": 'g', "F184": 'r', "K213": 'k', "W149": 'gray', "W146": 'gray', "None": 'gray', "Pointings": 'gray'}[filt_names[i]],
+                             label = filt_names[i]*(labeled.count(filt_names[i]) == 0)*label_filts, zorder = 3)
+                    labeled.append(filt_names[i])
+            else:
+                plt.plot(RAs, Decs, '.', color = 'b')
 
 
-    if show_solution:
-        if label_filts:
+            circle1=plt.Circle((0,0),sqrt(square_degrees/pi), fill = False, label = 'Field Edge')
+            fig = plt.gcf()
+            fig.gca().add_artist(circle1)
+
+            patches = []
             for i in range(len(RAs)):
-                plt.plot(RAs[i], Decs[i], '.',
-                         color = {"R087": (1, 0.5, 1), "Z087": 'm', "Y106": 'b', "J129": 'c', "H158": 'g', "F184": 'r', "K213": 'k', "W149": 'gray', "W146": 'gray', "None": 'gray', "Pointings": 'gray'}[filt_names[i]],
-                         label = filt_names[i]*(labeled.count(filt_names[i]) == 0)*label_filts, zorder = 3)
-                labeled.append(filt_names[i])
-        else:
-            plt.plot(RAs, Decs, '.', color = 'b')
-
-
-        circle1=plt.Circle((0,0),sqrt(square_degrees/pi), fill = False, label = 'Field Edge')
-        fig = plt.gcf()
-        fig.gca().add_artist(circle1)
-
-        patches = []
-        for i in range(len(RAs)):
-            xs, ys = field_outline(RAs_to_add[i], Decs_to_add[i], WFI_orient = 0)
-            
-            """
+                xs, ys = field_outline(RAs_to_add[i], Decs_to_add[i], WFI_orient = 0)
+                
+                """
             xs = concatenate((xs, xs[:,:1]), axis = 1)
             ys = concatenate((ys, ys[:,:1]), axis = 1)
             
             for j in range(len(xs)):
                 plt.plot(xs[j], ys[j], linewidth = 0.25, color = [(0.75, 0.75, 0.75), (0.25, 0.25, 0.25), (0.5,0.5,0.5)][i%3])
             """
-            for j in range(len(xs)):
-                poly = Polygon(list(zip(xs[j],ys[j])),facecolor=[(1, 0.8, 0.8), (0.8, 1, 0.8), (0.8, 0.8, 1.)][i%3],edgecolor='none')
-                plt.gca().add_patch(poly)
-
+                for j in range(len(xs)):
+                    poly = Polygon(list(zip(xs[j],ys[j])),facecolor=[(1, 0.8, 0.8), (0.8, 1, 0.8), (0.8, 0.8, 1.)][i%3],edgecolor='none')
+                    plt.gca().add_patch(poly)
+    else:
+        sol = np.arange(len(RAs))
+        
     print("slew ", end=' ') 
 
 
@@ -632,6 +642,7 @@ def get_slew_time(RAs, Decs, roll_angles, filt_inds = None, NN_filt_change = 120
             else:
                 color_dict["%.2f" % slew_times_found[i]] = ['m', 'b', 'c', 'g', 'orange', 'r', 'k'][i]
 
+    total_time = 0.
     for i in range(len(RAs) - 1):
         slew_time = get_single_slew_or_filt_change(RAs, Decs, roll_angles, sol[i], sol[i+1], filt_inds, NN_filt_change, n_filters)
         ordered_sol.append([RAs[sol[i]], Decs[sol[i]], RAs[sol[i+1]], Decs[sol[i+1]],
@@ -777,7 +788,7 @@ def plan_and_add_triggers(SN_data, rows_to_add, current_date, cadence, IFS_trigg
 
     trigger_prob_fn = interp1d(IFS_trigger_params["trigger_redshifts"],
                                clip([item*IFS_trigger_params["trigger_scaling"] for item in IFS_trigger_params["trigger_fraction"]], 0, 1),
-                               kind = 'linear')
+                               kind = 'linear', fill_value = 0.)
 
 
     possible_inds = array([], dtype=int32)
@@ -805,8 +816,9 @@ def plan_and_add_triggers(SN_data, rows_to_add, current_date, cadence, IFS_trigg
 
     for i in range(len(possible_metrics)):
         quantile = percentileofscore(possible_metrics, possible_metrics[i])/100.
+        quantile = np.clip(quantile, 0, 1)
         select_this_SN = 1 - quantile < trigger_prob_fn(possible_redshifts[i]) # Has to be less than, or else 0 is always triggered on!
-        print(possible_redshifts[i], possible_metrics[i], "selected ", select_this_SN)
+        print("z", possible_redshifts[i], "quantile", quantile, "possible_metrics", possible_metrics[i], "selected ", select_this_SN, possible_redshifts[i], trigger_prob_fn(possible_redshifts[i]))
 
         if select_this_SN:
             if IFS_trigger_params["adjust_each_SN_exp_time"]:
@@ -832,7 +844,7 @@ def plan_and_add_triggers(SN_data, rows_to_add, current_date, cadence, IFS_trigg
             # Add references
             trigger_SNRs = IFS_trigger_params["SNRs"] + [IFS_trigger_params["SNR_set"][-1]]*IFS_trigger_params["number_of_reference_dithers"]
 
-            dates_wrt_one_year = linspace(0., 365./2., IFS_trigger_params["number_of_reference_dithers"] + 1.)
+            dates_wrt_one_year = linspace(0., 365./2., IFS_trigger_params["number_of_reference_dithers"] + 1)
             dates_wrt_one_year = dates_wrt_one_year[:-1]
             dates_wrt_one_year -= median(dates_wrt_one_year)
             print("dates_wrt_one_year", dates_wrt_one_year)
@@ -935,7 +947,7 @@ def optimize_triggers(rows_to_add, current_date, cadence, parallel_filters):
 
 def plan_and_add_triggers_old(SN_data, rows_to_add, current_date, cadence, IFS_trigger_params, parallel_filters, square_degrees):
     """This function targets SNe in the parallels, but rolling quickly doesn't work. So the assumption of a constant roll angle is off. I'm replacing this with a function that just spreads observations spatially."""
-
+    stop_here
 
     trigger_roll_angle = date_to_roll_angle(current_date + cadence + 15.) # can hold a roll angle for 30 days
 
@@ -1332,8 +1344,8 @@ def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, ground_dept
 
 
 def make_SNe(square_degrees, cadence, survey_duration, hours_per_visit, rates_fn, redshift_set, IFS_trigger_params, tier_filters, tier_exptimes, ground_depths, dithers, parallel_filters,
-             fraction_time, total_survey_time, redshift_step = 0.05, salt2_model = True, verbose = False, phase_buffer = 20, survey_fields = "None"):
-    assert square_degrees < 500, "Should use more accurate formula for large surveys!"
+             fraction_time, total_survey_time, max_z, max_SNe, redshift_step = 0.05, salt2_model = True, verbose = False, phase_buffer = 20, survey_fields = "None"):
+    assert square_degrees <= 5000, "Should use more accurate formula for large surveys!"
 
 
     cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
@@ -1349,12 +1361,13 @@ def make_SNe(square_degrees, cadence, survey_duration, hours_per_visit, rates_fn
     if verbose:
         print(SNe_in_survey_field, sum(SNe_in_survey_field))
 
-    SNe_actual = [random.poisson(item) for item in SNe_in_survey_field]
+    SNe_actual = [random.poisson(SNe_in_survey_field[i]) for i in range(len(redshift_set)) if redshift_set[i] <= max_z]
     if verbose:
         print(SNe_actual, sum(SNe_actual))
     redshifts = []
     for i in range(len(redshift_set)):
-        redshifts += [redshift_set[i]]*SNe_actual[i]
+        if redshift_set[i] <= max_z:
+            redshifts += [redshift_set[i]]*SNe_actual[i]
     redshifts = array(redshifts)
 
     assert len(redshifts) == sum(SNe_actual)
@@ -1364,6 +1377,16 @@ def make_SNe(square_degrees, cadence, survey_duration, hours_per_visit, rates_fn
 
     redshifts = redshifts[not_at_edge]
     daymaxes = daymaxes[not_at_edge]
+
+    if len(redshifts) > max_SNe:
+        the_mask = np.array([1] * max_SNe + [0] * (len(redshifts) - max_SNe))
+        np.random.shuffle(the_mask)
+
+        inds = np.where(the_mask)
+        redshifts = redshifts[inds]
+        daymaxes = daymaxes[inds]
+        
+    
     nsne = len(redshifts)
 
     if verbose:
@@ -1411,15 +1434,13 @@ def make_SNe(square_degrees, cadence, survey_duration, hours_per_visit, rates_fn
     gal_backgrounds = make_galaxy_spectrum(redshifts)
     source = sncosmo.SALT2Source(modeldir=wfirst_data_path + "/salt2_extended/")
 
-    for i in range(nsne):
-        if i % 2000 == 0:
-            print(i, nsne)
+    for i in tqdm.trange(nsne):
         MV, x1, c, host_mass, sncosmo_model = realize_SN(redshifts[i], daymaxes[i], source = source)
         
 
         SN_data["SN_observations"].append(dict(
             MV = MV, x1 = x1, c = c, host_mass = host_mass, sncosmo_model = sncosmo_model, gal_background = gal_backgrounds[i],
-            dates = array([], dtype=float64), fluxes = array([], dtype=float64), dfluxes = array([], dtype=float64),
+            dates = array([], dtype=float64), true_fluxes = array([], dtype=float64), fluxes = array([], dtype=float64), dfluxes = array([], dtype=float64),
             filts = array([], dtype=(str, 10)), ispar = array([], dtype=bool), IFS_dates = [], IFS_fluxes = [], IFS_dfluxes = [], IFS_exptimes = [],
             found_date = None
         ))
@@ -1552,7 +1573,7 @@ IFS_trigger_params["number_of_reference_dithers"] = survey_parameters["number_of
 print("IFS_trigger_params", IFS_trigger_params)
 
 redshift_step = 0.05
-redshift_set = arange(0.125, 2.475 + redshift_step/10., redshift_step)
+redshift_set = arange(0.075, 2.475 + redshift_step/10., redshift_step)
 
 survey_parameters["uniform_IFS_exptimes"] = {}
 source = sncosmo.SALT2Source(modeldir=wfirst_data_path + "/salt2_extended/")
@@ -1589,6 +1610,8 @@ for i in range(len(survey_parameters["tier_parameters"]["tier_name"])):
                             parallel_filters = survey_parameters["tier_parameters"]["parallel_filters"][i],
                             fraction_time = survey_parameters["tier_parameters"]["tier_fraction_time"][i],
                             total_survey_time = survey_parameters["total_survey_time"],
+                            max_z = survey_parameters["tier_parameters"]["max_z"][i],
+                            max_SNe = survey_parameters["tier_parameters"]["max_SNe"][i],
                             redshift_step = 0.05,
                             salt2_model = True, verbose = True, phase_buffer = 20,
                             survey_fields = survey_parameters["tier_parameters"]["tier_name"][i])
