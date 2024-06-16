@@ -109,6 +109,8 @@ max_z,0.1,
 source ~/.bash_profile
 export WFIRST=/home/drubin/wfirst-sim/
 export WFIRST_SIM_DATA=/home/drubin/wfirst-sim-data/
+pip install sncosmo
+pip install sep
 
 """)
     f.write("cd " + pwd + "/" + wd + '\n')
