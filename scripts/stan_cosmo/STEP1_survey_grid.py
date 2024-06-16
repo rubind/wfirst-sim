@@ -116,7 +116,8 @@ export WFIRST_SIM_DATA=/home/drubin/wfirst-sim-data/
     f.write("python ../../STEP2_Analytic_Fisher.py survey.pickle > fisher_log.txt\n")
     f.write("python ../../FoM.py comb_mat.fits > FoM.txt\n")
     f.close()
-    
+
+    print(getoutput("cd " + wd "\n sbatch run.sh"))
     
 
 wide_exp_times = [] # RZYJHF, z=0.5
