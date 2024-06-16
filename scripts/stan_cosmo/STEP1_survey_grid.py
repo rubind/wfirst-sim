@@ -112,9 +112,9 @@ export WFIRST_SIM_DATA=/home/drubin/wfirst-sim-data/
 
 """)
     f.write("cd " + pwd + "/" + wd + '\n')
-    f.write("python ../../STEP1_simulate_survey.py paramfile.csv survey.pickle > log.txt\n")
-    f.write("python ../../STEP2_Analytic_Fisher.py survey.pickle > fisher_log.txt\n")
-    f.write("python ../../FoM.py comb_mat.fits > FoM.txt\n")
+    f.write("python $WFIRST/scripts/stan_cosmo/STEP1_simulate_survey.py paramfile.csv survey.pickle > log.txt\n")
+    f.write("python $WFIRST/scripts/stan_cosmo/STEP2_Analytic_Fisher.py survey.pickle > fisher_log.txt\n")
+    f.write("python $WFIRST/scripts/stan_cosmo/FoM.py comb_mat.fits > FoM.txt\n")
     f.close()
 
     print(getoutput("cd " + wd "\n sbatch run.sh"))
