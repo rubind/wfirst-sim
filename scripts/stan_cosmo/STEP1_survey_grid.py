@@ -142,6 +142,6 @@ if grid_type == "tier_fraction":
                 
                 make_survey(total_survey_years = 0.375, widepercent = widepercent, medpercent = medpercent, deeppercent = deeppercent)
 elif grid_type == "total_time":
-    for total_survey_years in np.arange(0.05, 1.01, 0.05):
+    for total_survey_years in np.arange(0.05, 1.01, 0.025):
         make_survey(total_survey_years = total_survey_years, widepercent = 70, medpercent = 0, deeppercent = 30)
 
