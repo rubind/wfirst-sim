@@ -535,39 +535,48 @@ def get_slew_time(RAs, Decs, roll_angles, filt_inds = None, NN_filt_change = 120
     if filt_names == None:
         filt_names = ["None"]*len(RAs)
 
-    valid_tmp_file = False
-    attempts = 0
 
-    while not valid_tmp_file:
-        try:
-            temp = open("tmp", 'w') #tempfile.NamedTemporaryFile()
-            valid_tmp_file = True
-        except:
-            print("Couldn't make temp file!")
-            attempts += 1
-            assert attempts < 100
-            time.sleep(10)
-
-    print("temp", temp)
-
-    temp.write("TYPE: TSP\n")
-    temp.write("DIMENSION: %i\n" % (len(RAs) + 1))
-    temp.write("EDGE_WEIGHT_TYPE: EXPLICIT\n")
-    temp.write("EDGE_WEIGHT_FORMAT: UPPER_ROW\n")
-    temp.write("EDGE_WEIGHT_SECTION\n")
 
     all_times_for_test = []
     for i in range(len(RAs)):
         for j in range(i+1,len(RAs)):
             this_time = "%i" % (get_single_slew_or_filt_change(RAs, Decs, roll_angles, i, j, filt_inds, NN_filt_change, n_filters)*100.)
-            temp.write(this_time + " ")
             all_times_for_test.append(this_time)
-        temp.write('0 \n')
-    temp.write("EOF\n")
 
-    temp.flush()
-
+        
     if len(set(all_times_for_test)) != 1:
+        
+        valid_tmp_file = False
+        attempts = 0
+
+        while not valid_tmp_file:
+            try:
+                temp = open("tmp", 'w') #tempfile.NamedTemporaryFile()
+                valid_tmp_file = True
+            except:
+                print("Couldn't make temp file!")
+                attempts += 1
+                assert attempts < 100
+                time.sleep(10)
+
+        print("temp", temp)
+        
+        temp.write("TYPE: TSP\n")
+        temp.write("DIMENSION: %i\n" % (len(RAs) + 1))
+        temp.write("EDGE_WEIGHT_TYPE: EXPLICIT\n")
+        temp.write("EDGE_WEIGHT_FORMAT: UPPER_ROW\n")
+        temp.write("EDGE_WEIGHT_SECTION\n")
+
+
+        for i in range(len(RAs)):
+            for j in range(i+1,len(RAs)):
+                this_time = "%i" % (get_single_slew_or_filt_change(RAs, Decs, roll_angles, i, j, filt_inds, NN_filt_change, n_filters)*100.)
+                temp.write(this_time + " ")
+            temp.write('0 \n')
+        temp.write("EOF\n")
+        temp.flush()
+
+
         cmd = "/Users/" + whoami + "/Dropbox/Shared/concorde/TSP/concorde -x tmp "# + temp.name # -x deletes tmp files
         print(cmd)
         print(subprocess.getoutput(cmd))
