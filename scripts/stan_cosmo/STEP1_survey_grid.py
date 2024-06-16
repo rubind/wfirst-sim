@@ -94,6 +94,12 @@ max_z,0.1,
     write_tier(f, total_survey_years = total_survey_years, tier_name = "Deep", tier_percent = deeppercent, exp_times = [152.9, 152.9, 235.4, 246.3, 336.7, 1017.6], cadence = 5, max_z = 2.5)
 
     f.close()
+
+    pwd = getoutput("pwd")
+    f = open(wd + "/run.sh", 'w')
+    f.write("cd " + pwd + "/" + wd + '\n')
+    f.close()
+    
     
 
 wide_exp_times = [] # RZYJHF, z=0.5
