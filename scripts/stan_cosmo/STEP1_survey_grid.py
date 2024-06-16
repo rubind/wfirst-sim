@@ -117,7 +117,7 @@ export WFIRST_SIM_DATA=/home/drubin/wfirst-sim-data/
     f.write("python $WFIRST/scripts/stan_cosmo/FoM.py comb_mat.fits > FoM.txt\n")
     f.close()
 
-    print(getoutput("cd " + wd "\n sbatch run.sh"))
+    print(getoutput("cd " + wd + "\n sbatch run.sh"))
     
 
 wide_exp_times = [] # RZYJHF, z=0.5
