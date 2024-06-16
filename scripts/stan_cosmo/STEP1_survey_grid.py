@@ -38,7 +38,7 @@ def make_survey(total_survey_years, widepercent, medpercent, deeppercent):
 
     f = open(wd + "/paramfile.csv", 'w')
 
-    f.write("""total_survey_time,0.375,,,,,
+    f.write("""total_survey_time,%.4f,,,,,
 maximum_trigger_fraction,0.9,,,,,
 adjust_each_SN_exp_time,FALSE,,,,,
 normalization_wavelength_range,5000,6000,,,,
@@ -87,7 +87,7 @@ trigger_fraction,1,0,0,0,0,0
 parallel_filters,H158,,,,,
 max_SNe,800,
 max_z,0.1,
-""")
+""" % total_survey_years)
     
     
     write_tier(f, total_survey_years = total_survey_years, tier_name = "Wide", tier_percent = widepercent, exp_times = [24.6, 31.4, 42.8, 61.8, 94, 175.4], cadence = 10, max_z = 1.0)
