@@ -1,6 +1,7 @@
 import numpy as np
 from subprocess import getoutput
 import tqdm
+import sys
 
 
 def write_tier(f, total_survey_years, tier_name, tier_percent, exp_times, cadence, max_z):
@@ -32,7 +33,7 @@ max_z,%.2f,\n""" % (tier_name, tier_percent/100., square_degrees,
     
 
 def make_survey(total_survey_years, widepercent, medpercent, deeppercent):
-    wd = "survey_grid/yr=%.3f_w=%03i_m=%03i_d=%03i" % (total_survey_years, widepercent, medpercent, deeppercent)
+    wd = location + "/yr=%.3f_w=%03i_m=%03i_d=%03i" % (total_survey_years, widepercent, medpercent, deeppercent)
     getoutput("mkdir -p " + wd)
 
     f = open(wd + "/paramfile.csv", 'w')
@@ -126,14 +127,21 @@ wide_exp_times = [] # RZYJHF, z=0.5
 med_exp_times = [] # RZYJHF, z=1.0
 deep_exp_times = [] # RZYJHF, z=1.7
 
+grid_type = sys.argv[1]
+location = sys.argv[2]
 
-getoutput("rm -fr survey_grid")
+getoutput("rm -fr " + location)
 
-for widepercent in np.arange(0, 101, 5):
-    for medpercent in np.arange(0, 101, 5):
-        if widepercent + medpercent <= 100:
-            deeppercent = 100 - (widepercent + medpercent)
+if grid_type == "tier_fraction":
+    for widepercent in np.arange(0, 101, 5):
+        for medpercent in np.arange(0, 101, 5):
+            if widepercent + medpercent <= 100:
+                deeppercent = 100 - (widepercent + medpercent)
+                
+                print("widepercent", widepercent, "medpercent", medpercent, "deeppercent", deeppercent)
+                
+                make_survey(total_survey_years = 0.375, widepercent = widepercent, medpercent = medpercent, deeppercent = deeppercent)
+elif grid_type == "total_time":
+    for total_survey_years in np.arange(0.05, 1.01, 0.05):
+        make_survey(total_survey_years = total_survey_years, widepercent = 70, medpercent = 0, deeppercent = 30)
 
-            print("widepercent", widepercent, "medpercent", medpercent, "deeppercent", deeppercent)
-
-            make_survey(total_survey_years = 0.375, widepercent = widepercent, medpercent = medpercent, deeppercent = deeppercent)
