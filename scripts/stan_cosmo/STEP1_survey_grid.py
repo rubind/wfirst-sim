@@ -97,7 +97,24 @@ max_z,0.1,
 
     pwd = getoutput("pwd")
     f = open(wd + "/run.sh", 'w')
+    f.write("""#!/bin/bash
+#SBATCH --job-name=sim
+#SBATCH --partition=shared
+#SBATCH --time=0-05:00:00 ## time format is DD-HH:MM:SS
+#SBATCH --nodes=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=12G # Memory per node my job requires
+#SBATCH --error=example-%A.err # %A - filled with jobid, where to write the stderr
+#SBATCH --output=example-%A.out # %A - filled with jobid, wher to write the stdout
+source ~/.bash_profile
+export WFIRST=/home/drubin/wfirst-sim/
+export WFIRST_SIM_DATA=/home/drubin/wfirst-sim-data/
+
+""")
     f.write("cd " + pwd + "/" + wd + '\n')
+    f.write("python ../../STEP1_simulate_survey.py paramfile.csv survey.pickle > log.txt\n")
+    f.write("python ../../STEP2_Analytic_Fisher.py survey.pickle > fisher_log.txt\n")
+    f.write("python ../../FoM.py comb_mat.fits > FoM.txt\n")
     f.close()
     
     
