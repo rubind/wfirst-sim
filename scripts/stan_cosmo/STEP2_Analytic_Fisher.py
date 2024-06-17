@@ -184,7 +184,9 @@ def parseP(P, stan_data):
     ind += stan_data["NCoeff"]
 
     return parsed
-    
+
+def unparseP(parsed):
+    return np.concatenate((parsed["mu_bins"], parsed["dZPs"], parsed["coeff"]))
 
 def residfn(P, wrapped_data):
     stan_data = wrapped_data[0]
@@ -253,3 +255,20 @@ comb_mat[0] /= 1000.
 comb_mat[1:] = mu_mat
 
 save_img(comb_mat, "comb_mat.fits")
+
+
+
+P, F, Cmat_no_model = miniLM_new(ministart = np.zeros(stan_data["NCoeff"] + stan_data["Nz"] + stan_data["NFilt"], dtype=np.float64),
+                                 miniscale = unparseP(dict(coeff = [0.]*stan_data["NCoeff"], mu_bins = [1.]*stan_data["Nz"], dZPs = [1.]*stan_data["NFilt"])),
+                                 residfn = residfn,
+                                 passdata = stan_data,
+                                 verbose = True, maxiter = 1)
+
+mu_mat_no_model = Cmat_no_model[:stan_data["Nz"], :stan_data["Nz"]]
+comb_mat = np.zeros([len(mu_mat) + 1, len(mu_mat)], dtype=np.float64)
+comb_mat[0] = other_data["milliz_list"]
+comb_mat[0] /= 1000.
+
+comb_mat[1:] = mu_mat_no_model
+
+save_img(comb_mat, "comb_mat_no_model.fits")
