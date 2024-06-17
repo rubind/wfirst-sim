@@ -32,12 +32,14 @@ max_z,%.2f,\n""" % (tier_name, tier_percent/100., square_degrees,
                     max_z))
     
 
-def make_survey(total_survey_years, widepercent, medpercent, deeppercent):
+def make_survey(total_survey_years, widepercent, medpercent, deeppercent, nnearby):
     wd = location + "/yr=%.3f_w=%03i_m=%03i_d=%03i" % (total_survey_years, widepercent, medpercent, deeppercent)
     getoutput("mkdir -p " + wd)
 
     f = open(wd + "/paramfile.csv", 'w')
 
+    square_degrees = 5000*(nnearby/800.)
+    
     f.write("""total_survey_time,%.4f,,,,,
 maximum_trigger_fraction,0.9,,,,,
 adjust_each_SN_exp_time,FALSE,,,,,
@@ -77,7 +79,7 @@ bad_pixel_rate,0.01,,,,,
 __________________________________________,,,,,,
 tier_name,Nearby,,,,,,
 tier_fraction_time,0.,,,,,,
-square_degrees,5000.,,,,,,
+square_degrees,%i,,,,,,
 filters,g,r,i,z,
 exp_times_per_dither,1,1,1,1,
 cadence,4,4,4,4,
@@ -85,9 +87,9 @@ dithers_per_filter,1,1,1,1,
 trigger_redshifts,0,0.01,0.65,0.8,0.81,3
 trigger_fraction,1,0,0,0,0,0
 parallel_filters,H158,,,,,
-max_SNe,800,
+max_SNe,%i,
 max_z,0.1,
-""" % total_survey_years)
+""" % (total_survey_years, square_degrees, nnearby))
     
     
     write_tier(f, total_survey_years = total_survey_years, tier_name = "Wide", tier_percent = widepercent, exp_times = [24.6, 31.4, 42.8, 61.8, 94, 175.4], cadence = 10, max_z = 1.0)
@@ -140,8 +142,14 @@ if grid_type == "tier_fraction":
                 
                 print("widepercent", widepercent, "medpercent", medpercent, "deeppercent", deeppercent)
                 
-                make_survey(total_survey_years = 0.375, widepercent = widepercent, medpercent = medpercent, deeppercent = deeppercent)
+                make_survey(total_survey_years = 0.375, widepercent = widepercent, medpercent = medpercent, deeppercent = deeppercent, nnearby = 800)
 elif grid_type == "total_time":
     for total_survey_years in np.arange(0.05, 1.01, 0.025):
-        make_survey(total_survey_years = total_survey_years, widepercent = 70, medpercent = 0, deeppercent = 30)
+        make_survey(total_survey_years = total_survey_years, widepercent = 70, medpercent = 0, deeppercent = 30, nnearby = 800)
 
+elif grid_type == "nnearby":
+    for nnearby in np.arange(0, 3001., 200):
+        make_survey(total_survey_years = total_survey_years, widepercent = 70, medpercent = 0, deeppercent = 30, nnearby = nnearby)
+
+else:
+    print("Unknown grid type! want: tier_fraction total_time or nnearby")
