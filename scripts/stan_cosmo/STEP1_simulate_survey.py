@@ -36,7 +36,10 @@ def file_to_fn(fl, col = 1):
     x = vals[:,0]
     y = vals[:,col]
 
-    return interp1d(x, y, kind = 'linear', bounds_error = False, fill_value = 0.)
+    if np.max(y) - np.min(y) == 0:
+        return lambda x: y[0]
+    else:
+        return interp1d(x, y, kind = 'linear', bounds_error = False, fill_value = 0.)
 
 """
 def eval_file(param):
@@ -1354,7 +1357,7 @@ def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, ground_dept
 
 def make_SNe(square_degrees, cadence, survey_duration, hours_per_visit, rates_fn, redshift_set, IFS_trigger_params, tier_filters, tier_exptimes, ground_depths, dithers, parallel_filters,
              fraction_time, total_survey_time, max_z, max_SNe, redshift_step = 0.05, salt2_model = True, verbose = False, phase_buffer = 20, survey_fields = "None"):
-    assert square_degrees <= 5000, "Should use more accurate formula for large surveys!"
+    #assert square_degrees <= 5000, "Should use more accurate formula for large surveys!"
 
 
     cosmo = FlatLambdaCDM(H0=70, Om0=0.3)

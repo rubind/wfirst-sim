@@ -33,7 +33,7 @@ max_z,%.2f,\n""" % (tier_name, tier_percent/100., square_degrees,
     
 
 def make_survey(total_survey_years, widepercent, medpercent, deeppercent, nnearby):
-    wd = location + "/yr=%.3f_w=%03i_m=%03i_d=%03i" % (total_survey_years, widepercent, medpercent, deeppercent)
+    wd = location + "/yr=%.3f_w=%03i_m=%03i_d=%03i_nnearby=%05i" % (total_survey_years, widepercent, medpercent, deeppercent, nnearby)
     getoutput("mkdir -p " + wd)
 
     f = open(wd + "/paramfile.csv", 'w')
@@ -76,7 +76,10 @@ IFU_pixel_scale,0.05,,,,,
 IFU_slice_in_pixels,3,,,,,
 IFU_dark_current,0.003,,,,,
 bad_pixel_rate,0.01,,,,,
-__________________________________________,,,,,,
+""" % (total_survey_years))
+    
+    if nnearby > 0:
+        f.write("""__________________________________________,,,,,,
 tier_name,Nearby,,,,,,
 tier_fraction_time,0.,,,,,,
 square_degrees,%i,,,,,,
@@ -89,8 +92,8 @@ trigger_fraction,1,0,0,0,0,0
 parallel_filters,H158,,,,,
 max_SNe,%i,
 max_z,0.1,
-""" % (total_survey_years, square_degrees, nnearby))
-    
+""" % (square_degrees, nnearby))
+
     
     write_tier(f, total_survey_years = total_survey_years, tier_name = "Wide", tier_percent = widepercent, exp_times = [24.6, 31.4, 42.8, 61.8, 94, 175.4], cadence = 10, max_z = 1.0)
     write_tier(f, total_survey_years = total_survey_years, tier_name = "Medium", tier_percent = medpercent, exp_times = [152.9, 67.6, 75.3, 92.2, 187.9, 390.4], cadence = 5, max_z = 2.0)
@@ -148,8 +151,8 @@ elif grid_type == "total_time":
         make_survey(total_survey_years = total_survey_years, widepercent = 70, medpercent = 0, deeppercent = 30, nnearby = 800)
 
 elif grid_type == "nnearby":
-    for nnearby in np.arange(0, 3001., 200):
-        make_survey(total_survey_years = total_survey_years, widepercent = 70, medpercent = 0, deeppercent = 30, nnearby = nnearby)
+    for nnearby in np.arange(0, 3001, 200):
+        make_survey(total_survey_years = 0.375, widepercent = 70, medpercent = 0, deeppercent = 30, nnearby = int(nnearby))
 
 else:
     print("Unknown grid type! want: tier_fraction total_time or nnearby")

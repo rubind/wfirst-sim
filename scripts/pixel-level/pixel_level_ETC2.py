@@ -889,7 +889,7 @@ def get_imaging_SN(PSFs, exp_time, effective_meters2_fl, wavemin = 4000, wavemax
     except:
         model_len = None
 
-    if mdl == 'hsiao':
+    if isinstance(mdl, str) and (mdl == 'hsiao'):
         cosmo = cosmology.FlatLambdaCDM(Om0 = 0.3, H0 = 70.)
         ten_pc_z = 2.33494867e-9
         assert abs(cosmo.distmod(z=ten_pc_z).value) < 1.e-3, "Distance modulus zeropoint wrong!"
