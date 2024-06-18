@@ -528,6 +528,7 @@ def get_slew_time(RAs, Decs, roll_angles, filt_inds = None, NN_filt_change = 120
         return quantize_time(slew_fn(dist)), [[RAs[0], Decs[0], RAs[1], Decs[1],
                                               dist,
                                               quantize_time(slew_fn(dist))]]
+    
 
     if len(unique(roll_angles)) > 2:
         print("Large number of roll angles found!!! ", len(unique(roll_angles)))
@@ -540,14 +541,7 @@ def get_slew_time(RAs, Decs, roll_angles, filt_inds = None, NN_filt_change = 120
 
 
 
-    all_times_for_test = []
-    for i in range(len(RAs)):
-        for j in range(i+1,len(RAs)):
-            this_time = "%i" % (get_single_slew_or_filt_change(RAs, Decs, roll_angles, i, j, filt_inds, NN_filt_change, n_filters)*100.)
-            all_times_for_test.append(this_time)
-
-        
-    if len(set(all_times_for_test)) != 1:
+    if slew_fn(0) != slew_fn(10): # Not a constant function:
         
         valid_tmp_file = False
         attempts = 0
