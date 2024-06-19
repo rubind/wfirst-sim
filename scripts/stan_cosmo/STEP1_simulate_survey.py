@@ -143,7 +143,7 @@ def init_ground(grizY_30s_ground_depths):
                                       Y = grizY_30s_ground_depths[4] + 1.25*log10(3600/30.))
 
     WFI_filt_fns = {}
-    for filt in ["R062", "Z087", "Y106", "J129", "H158", "F184", "K213", "W146", "Euclid_Y", "Euclid_J", "Euclid_H"]:
+    for filt in ["R062", "Z087", "Y106", "J129", "H158", "F184", "K213", "W146", "P100", "Euclid_Y", "Euclid_J", "Euclid_H"]:
         WFI_filt_fns[filt] = file_to_fn(wfirst_data_path + "/pixel-level/input/" + filt + ".txt")
 
     return ground_filt_fns, ground_obslambs, ground_five_sigma_one_hour, WFI_filt_fns
@@ -402,6 +402,7 @@ def prism_ETC_wrapper(SN_data, ind, row_to_add, current_date):
     f_lamb_SN = SN_data["SN_observations"][ind]["sncosmo_model"].flux(current_date, IFS_args["waves"])
 
     assert all(1 - isnan(f_lamb_SN))
+    assert row_to_add["filt"] == "P100"
     
     #args = cp.deepcopy(IFS_args)
     IFS_args["mdl"] = f_lamb_SN
@@ -445,7 +446,7 @@ def run_observation_through_ETC(SN_data, row_to_add, current_date):
 
         for ind in inds:
             #args = cp.deepcopy(WFI_args)
-            if filt != "P100":
+            if row_to_add["filt"] != "P100":
                 SN_data = imaging_ETC_wrapper(SN_data = SN_data, ind = ind, row_to_add = row_to_add, current_date = current_date)
             else:
                 SN_data = prism_ETC_wrapper(SN_data = SN_data, ind = ind, row_to_add = row_to_add, current_date = current_date)
@@ -802,12 +803,14 @@ def get_IFS_exptimes(redshift, sncosmo_model, daymax, IFS_trigger_params, gal_fl
         flamb_model = sncosmo_model.flux(daymax, IFS_args["waves"])
         IFS_args["mdl"] = flamb_model
 
+        """
+        Commenting out for now
         IFS_exptimes[SNR] = quantize_time(solve_for_exptime(S_to_N = SNR, redshift = 0, gal_flamb = gal_flamb, bad_pixel_rate = 0,
                                                             key1 = "rest_frame_band_S/N",
                                                             key2 = (IFS_trigger_params["normalization_wavelength_range"][0]*(1. + redshift),
                                                                     IFS_trigger_params["normalization_wavelength_range"][1]*(1 + redshift)), **IFS_args)
                                           )
-
+        """
     print("Found ", redshift, IFS_exptimes)
     return IFS_exptimes
 
@@ -1479,7 +1482,7 @@ def make_SNe(square_degrees, cadence, survey_duration, hours_per_visit, rates_fn
         SN_data["SN_observations"].append(dict(
             MV = MV, x1 = x1, c = c, host_mass = host_mass, sncosmo_model = sncosmo_model, gal_background = gal_backgrounds[i],
             dates = array([], dtype=float64), true_fluxes = array([], dtype=float64), fluxes = array([], dtype=float64), dfluxes = array([], dtype=float64),
-            filts = array([], dtype=(str, 10)), ispar = array([], dtype=bool), IFS_dates = [], IFS_fluxes = [], IFS_dfluxes = [], IFS_exptimes = [],
+            filts = array([], dtype=(str, 10)), ispar = array([], dtype=bool), IFS_dates = [], IFS_fluxes = [], IFS_true_fluxes = [], IFS_dfluxes = [], IFS_exptimes = [],
             found_date = None
         ))
 
@@ -1552,7 +1555,7 @@ picklefl = sys.argv[2]
 survey_parameters = read_csv(sys.argv[1])
 
 print("Reading PSFs...")
-PSFs = initialize_PSFs(pixel_scales = [10, 15, 22], slice_scales = [30, 30, 22], PSF_source = survey_parameters["PSFs"])
+PSFs = initialize_PSFs(pixel_scales = [10, 15, 22, 22], slice_scales = [30, 30, 22, 110], PSF_source = survey_parameters["PSFs"])
 PSFs_WFC = initialize_PSFs(pixel_scales = [10, 15, 22] + [60]*(survey_parameters["WFI_PSFs"] == "Euclid_PSF"),
                            slice_scales = [30, 30, 22] + [60]*(survey_parameters["WFI_PSFs"] == "Euclid_PSF"), PSF_source = survey_parameters["WFI_PSFs"])
 

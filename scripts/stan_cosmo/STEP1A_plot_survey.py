@@ -5,7 +5,7 @@ import subprocess
 import multiprocessing as mp
 from scipy.stats import scoreatpercentile
 
-colors = {"R062": (1, 0.5, 1), "Z087": 'm', "Y106": 'b', "J129": 'g', "H158": 'orange', "F184": 'r', "K193": 'r', "Ground_g": 'm', "Ground_r": 'b', "Ground_i": 'c', "Ground_z": 'g', "Ground_Y": 'orange', "g": 'm', "r": 'b', "i": 'c', "z": 'g', "Y": 'orange', "W146": 'orange', "Euclid_Y": 'b', "Euclid_J": 'g', "Euclid_H": 'orange'}
+colors = {"R062": (1, 0.5, 1), "Z087": 'm', "Y106": 'b', "J129": 'g', "H158": 'orange', "F184": 'r', "K193": 'r', "Ground_g": 'm', "Ground_r": 'b', "Ground_i": 'c', "Ground_z": 'g', "Ground_Y": 'orange', "g": 'm', "r": 'b', "i": 'c', "z": 'g', "Y": 'orange', "W146": 'orange', "Euclid_Y": 'b', "Euclid_J": 'g', "Euclid_H": 'orange', "P100": 'k'}
 
 def plot_a_SN(lc_data, daymax, plot_to_make, phase_not_date, redshift, plt, flc = None):
 
@@ -138,7 +138,7 @@ def make_IFS_phase_plot(SN_data, working_dir, nsne, outputname, plt):
         for j in range(3):
             phases = []
             for k in range(nsne):
-                if SN_data["SN_observations"][k]["IFS_dates"] != [] and SN_data["SN_table"]["redshifts"][k] == redshift_set[i]:
+                if len(SN_data["SN_observations"][k]["IFS_dates"]) >=3  and SN_data["SN_table"]["redshifts"][k] == redshift_set[i]:
                     phases.append(
                         (SN_data["SN_observations"][k]["IFS_dates"][j] - SN_data["SN_table"]["daymaxes"][k])/(1 + SN_data["SN_table"]["redshifts"][k])
                         )
