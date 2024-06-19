@@ -167,6 +167,17 @@ def get_stan_data(SN_data):
     
     print("stan_data", stan_data)
     print("other_data", other_data)
+
+    plt.hist(stan_data["redshifts"], bins = np.arange(0, 2.51, 0.05))
+    plt.savefig("redshifts_selected.pdf", bbox_inches = 'tight')
+    plt.close()
+
+    f = open("redshifts_selected.txt", 'w')
+    for redshift in np.sort(np.unique(stan_data["redshifts"])):
+        f.write("%.3f  %i\n" % (redshift, sum(stan_data["redshifts"] == redshift)))
+    f.close()
+    
+    
     return stan_data, other_data
 
 
