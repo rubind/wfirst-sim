@@ -374,6 +374,54 @@ def IFS_to_WFI(IFS_RA, IFS_Dec, WFI_orient):
     return IFS_RA + cos(WFI_orient)*dr, IFS_Dec + sin(WFI_orient)*dr
 
 
+def imaging_ETC_wrapper(SN_data, ind, row_to_add, current_date):
+    f_lamb_SN = SN_data["SN_observations"][ind]["sncosmo_model"].flux(current_date, WFI_args["waves"])
+    WFI_args["mdl"] = f_lamb_SN
+                
+    ETC_result = get_imaging_SN(redshift = 0, exp_time = row_to_add["exptime"], gal_flamb = SN_data["SN_observations"][ind]["gal_background"],
+                                effective_meters2_fl = WFI_filt_fns[row_to_add["filt"]], phase = 0,
+                                offset_par = random.random()*22, offset_perp = random.random()*22, **WFI_args)
+    
+    #ETC_result = {"AB_mag": 24, "PSF_phot_S/N": 5.}
+    
+    AB_flux = 10.**(-0.4*(ETC_result["AB_mag"] - master_zp))
+    SNR_total = ETC_result["PSF_phot_S/N"]
+    
+    flux_with_noise = AB_flux + random.normal()*AB_flux/SNR_total
+    SN_data["SN_observations"][ind]["dates"] = append(SN_data["SN_observations"][ind]["dates"], current_date)
+    SN_data["SN_observations"][ind]["true_fluxes"] = append(SN_data["SN_observations"][ind]["true_fluxes"], AB_flux)
+    SN_data["SN_observations"][ind]["fluxes"] = append(SN_data["SN_observations"][ind]["fluxes"], flux_with_noise)
+    SN_data["SN_observations"][ind]["dfluxes"] = append(SN_data["SN_observations"][ind]["dfluxes"], AB_flux/SNR_total)
+    SN_data["SN_observations"][ind]["filts"] = append(SN_data["SN_observations"][ind]["filts"], row_to_add["filt"])
+    SN_data["SN_observations"][ind]["ispar"] = append(SN_data["SN_observations"][ind]["ispar"], row_to_add["SNind"] > -1)
+
+    return SN_data
+
+
+def prism_ETC_wrapper(SN_data, ind, row_to_add, current_date):
+    f_lamb_SN = SN_data["SN_observations"][ind]["sncosmo_model"].flux(current_date, IFS_args["waves"])
+
+    assert all(1 - isnan(f_lamb_SN))
+    
+    #args = cp.deepcopy(IFS_args)
+    IFS_args["mdl"] = f_lamb_SN
+    
+    ETC_result = get_spec_with_err(redshift = 0, exp_time = row_to_add["exptime"], gal_flamb = lambda x:0, bad_pixel_rate = survey_parameters["bad_pixel_rate"],
+                                   show_plots = 0, **IFS_args)
+    
+    
+    SN_data["SN_observations"][ind]["IFS_dates"].append(current_date)
+    SN_data["SN_observations"][ind]["IFS_exptimes"].append(row_to_add["exptime"])
+    
+    noise = ETC_result["f_lamb_SN"]/ETC_result["spec_S/N"]
+    assert all(1 - isnan(noise) - isinf(noise))
+    SN_data["SN_observations"][ind]["IFS_true_fluxes"].append(ETC_result["f_lamb_SN"])
+    
+    SN_data["SN_observations"][ind]["IFS_fluxes"].append(
+        ETC_result["f_lamb_SN"] + random.normal(size = len(ETC_result["f_lamb_SN"]))*noise)
+    SN_data["SN_observations"][ind]["IFS_dfluxes"].append(noise)
+    return SN_data
+
 
 def run_observation_through_ETC(SN_data, row_to_add, current_date):
     phases = (current_date - SN_data["SN_table"]["daymaxes"])/(1. + SN_data["SN_table"]["redshifts"])
@@ -396,27 +444,11 @@ def run_observation_through_ETC(SN_data, row_to_add, current_date):
         #print "inds ", inds
 
         for ind in inds:
-            f_lamb_SN = SN_data["SN_observations"][ind]["sncosmo_model"].flux(current_date, WFI_args["waves"])
-
             #args = cp.deepcopy(WFI_args)
-            WFI_args["mdl"] = f_lamb_SN
-
-            ETC_result = get_imaging_SN(redshift = 0, exp_time = row_to_add["exptime"], gal_flamb = SN_data["SN_observations"][ind]["gal_background"],
-                                        effective_meters2_fl = WFI_filt_fns[row_to_add["filt"]], phase = 0,
-                                        offset_par = random.random()*22, offset_perp = random.random()*22, **WFI_args)
-
-            #ETC_result = {"AB_mag": 24, "PSF_phot_S/N": 5.}
-
-            AB_flux = 10.**(-0.4*(ETC_result["AB_mag"] - master_zp))
-            SNR_total = ETC_result["PSF_phot_S/N"]
-
-            flux_with_noise = AB_flux + random.normal()*AB_flux/SNR_total
-            SN_data["SN_observations"][ind]["dates"] = append(SN_data["SN_observations"][ind]["dates"], current_date)
-            SN_data["SN_observations"][ind]["true_fluxes"] = append(SN_data["SN_observations"][ind]["true_fluxes"], AB_flux)
-            SN_data["SN_observations"][ind]["fluxes"] = append(SN_data["SN_observations"][ind]["fluxes"], flux_with_noise)
-            SN_data["SN_observations"][ind]["dfluxes"] = append(SN_data["SN_observations"][ind]["dfluxes"], AB_flux/SNR_total)
-            SN_data["SN_observations"][ind]["filts"] = append(SN_data["SN_observations"][ind]["filts"], row_to_add["filt"])
-            SN_data["SN_observations"][ind]["ispar"] = append(SN_data["SN_observations"][ind]["ispar"], row_to_add["SNind"] > -1)
+            if filt != "P100":
+                SN_data = imaging_ETC_wrapper(SN_data = SN_data, ind = ind, row_to_add = row_to_add, current_date = current_date)
+            else:
+                SN_data = prism_ETC_wrapper(SN_data = SN_data, ind = ind, row_to_add = row_to_add, current_date = current_date)
 
 
     in_pointing_mask = inside_field(SN_RAs = SN_data["test_points"][0]["RAs"],
