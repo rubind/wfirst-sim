@@ -7,7 +7,7 @@ import sys
 import matplotlib.pyplot as plt
 import extinction
 from DavidsNM import save_img, miniLM_new
-from scipy.interpolate import RectBivariateSpline
+from scipy.interpolate import RectBivariateSpline, interp1d
 import tqdm
 
 
@@ -55,17 +55,57 @@ def rest_model_1D_to_2D(rest_1D, other_data):
                 ind_1D += 1
     assert ind_1D == len(rest_1D)
     return rest_2D
+
+def bin_by_wave(x, y, sigy, bin_edges):
+    bin_vals = []
+    bin_sigvals = []
+
+    weighty = 1./sigy**2.
     
+    for i in range(len(bin_edges) - 1):
+        inds = np.where((x >= bin_edges[i])*(x < bin_edges[i+1]))
+        bin_vals.append(sum(weighty[inds]*y[inds])/sum(weighty[inds]))
+        bin_sigvals.append(1./np.sqrt(sum(weighty[inds])))
+
+    bin_vals = np.array(bin_vals)
+    bin_sigvals = np.array(bin_sigvals)
+
+    assert np.isclose(sum(1./bin_sigvals**2.), sum(weighty))
+    return bin_vals, bin_sigvals
+    
+
 def get_stan_data(SN_data):
-    other_data = dict(filt_names = [], lambs_dict = dict(R062 = 6200., Z087 = 8700., Y106 = 10600., J129 = 12900., H158 = 15800., F184 = 18400., K213 = 21300., g = 4800., r = 6200., i = 7700., z = 8700.),
+    other_data = dict(filt_names = ["R062", "Z087", "Y106", "J129", "H158", "F184", "K213", "g", "r", "i", "z"],
+                      lambs_dict = dict(R062 = 6200., Z087 = 8700., Y106 = 10600., J129 = 12900., H158 = 15800., F184 = 18400., K213 = 21300., g = 4800., r = 6200., i = 7700., z = 8700.),
                       milliz_list = [], model_phase = np.linspace(-15., 45., 10), model_rest = np.exp(np.linspace(np.log(3000.), np.log(16000.), 9)))
 
     other_data["phase0_ind"] = np.argmin(np.abs(other_data["model_phase"]))
     other_data["restB_ind"] = np.argmin(np.abs(other_data["model_rest"] - 4400.))
     other_data["restV_ind"] = np.argmin(np.abs(other_data["model_rest"] - 5500.))
 
+    other_data["wave_bin_edges"] = np.exp(np.linspace(np.log(SN_data["IFC_waves"][0]*0.9999),
+                                                      np.log(SN_data["IFC_waves"][-1]*1.0001),
+                                                      prism_bins+1))
+                                          
+
+    other_data["AB25"] = (0.10884806248e-10/SN_data["IFC_waves"]**2.)
+    print("wave_bin_edges", other_data["wave_bin_edges"])
+    other_data["wave_bin"] = bin_by_wave(x = SN_data["IFC_waves"], y = SN_data["IFC_waves"], sigy = np.ones(len(SN_data["IFC_waves"])), bin_edges = other_data["wave_bin_edges"])[0]
+    print("wave_bin", other_data["wave_bin"])
+
+
+    prism_calib_fns = {}
+    prism_calib_nodes = ["R062", "Z087", "Y106", "J129", "H158", "F184"]
+    x_vals = [other_data["lambs_dict"][filt] for filt in prism_calib_nodes]
+
+    for filt in prism_calib_nodes:
+        y_vals = np.zeros(len(x_vals), dtype=np.float64)
+        y_vals[prism_calib_nodes.index(filt)] = 1.
+        prism_calib_fns[filt] = interp1d(x_vals, y_vals, kind = 'quadratic')
+        
     
     stan_data = dict(NSNe = 0,
+                     NFilt = len(other_data["filt_names"]),
                      redshifts = [],
                      daymaxes = [],
                      rest_lambs = [],
@@ -74,6 +114,7 @@ def get_stan_data(SN_data):
                      mags = [],
                      dmags = [],
                      z_inds = [],
+                     d_mag_d_filt = [],
                      filt_inds = [])
 
     assert len(SN_data["SN_observations"]) == len(SN_data["SN_table"]["redshifts"])
@@ -97,6 +138,7 @@ def get_stan_data(SN_data):
         if NPts > 10 and np.sqrt(sum(SNRs**2.)) > 40:
             stan_data["mags"].append(-2.5*np.log10(SN_LC["true_fluxes"][good_inds]))
             stan_data["dmags"].append((2.5/np.log(10.)) * np.abs(SN_LC["dfluxes"][good_inds]/SN_LC["true_fluxes"][good_inds]))
+            stan_data["d_mag_d_filt"].append(np.zeros([NPts, stan_data["NFilt"]], dtype=np.float64))
 
             this_daymax = SN_data["SN_table"]["daymaxes"][SN_ind]
             
@@ -105,24 +147,90 @@ def get_stan_data(SN_data):
             
 
             for filt in np.unique(SN_LC["filts"][good_inds]):
-                if other_data["filt_names"].count(filt) == 0:
-                    other_data["filt_names"].append(filt)
+                assert other_data["filt_names"].count(filt) == 1
+                filt_mask = SN_LC["filts"][good_inds] == filt
+                stan_data["d_mag_d_filt"][-1][:, other_data["filt_names"].index(filt)] = filt_mask
 
+                
             milliz = int(np.around(1000.*this_z))
             if other_data["milliz_list"].count(milliz) == 0:
                 other_data["milliz_list"].append(milliz)
             
             stan_data["z_inds"].append(other_data["milliz_list"].index(milliz))        
             stan_data["filt_inds"].append([other_data["filt_names"].index(item) for item in SN_LC["filts"][good_inds]])
+
+            
+
             
             stan_data["rest_lambs"].append(this_rest_lambs)
             stan_data["true_phases"].append((SN_LC["dates"][good_inds] - this_daymax)/(1. + this_z))
             stan_data["color_law"].append(extinction.ccm89(this_rest_lambs, a_v = 3.1, r_v = 3.1))
+
+
+            if len(SN_LC["IFS_dates"]) > 1:
+                for IFS_ind in range(len(SN_LC["IFS_dates"])):
+                    #print(SN_LC)
+                    
+                    this_rest_lambs = other_data["wave_bin"]/(1. + this_z)
+                    bin_flux, bin_sig_flux = bin_by_wave(x = SN_data["IFC_waves"],
+                                                         y = SN_LC["IFS_true_fluxes"][IFS_ind]/other_data["AB25"],
+                                                         sigy = SN_LC["IFS_dfluxes"][IFS_ind]/other_data["AB25"],
+                                                         bin_edges = other_data["wave_bin_edges"])
+
+                    
+                    good_inds = np.where((bin_flux > 0)
+                                         *(this_rest_lambs > other_data["model_rest"][0])
+                                         *(this_rest_lambs < other_data["model_rest"][-1]))
+
+                    N_prism_waves = len(this_rest_lambs[good_inds])
+                    frac_flux_err = bin_sig_flux[good_inds]/bin_flux[good_inds]
+
+                    this_d_mag_d_filt = np.zeros([N_prism_waves, stan_data["NFilt"]], dtype=np.float64)
+
+                    for filt in prism_calib_fns:
+                        this_d_mag_d_filt[:, other_data["filt_names"].index(filt)] = prism_calib_fns[filt](other_data["wave_bin"][good_inds])
+                                          
+                    stan_data["d_mag_d_filt"][-1] = np.concatenate((stan_data["d_mag_d_filt"][-1], this_d_mag_d_filt))
+
+                    assert N_prism_waves == len(frac_flux_err)
+                    
+                    stan_data["mags"][-1] = np.concatenate((
+                        stan_data["mags"][-1],
+                        -2.5*np.log10(bin_flux[good_inds])
+                        ))
+                    
+                    stan_data["dmags"][-1] = np.concatenate((
+                        stan_data["dmags"][-1],
+                        (2.5/np.log(10.)) * np.abs(frac_flux_err)
+                    ))
+
+                    stan_data["rest_lambs"][-1] = np.concatenate((
+                        stan_data["rest_lambs"][-1],
+                        this_rest_lambs[good_inds]
+                    ))
+                    
+                    stan_data["color_law"][-1] = np.concatenate((
+                        stan_data["color_law"][-1],
+                        extinction.ccm89(this_rest_lambs[good_inds], a_v = 3.1, r_v = 3.1)
+                    ))
+                    
+                    stan_data["filt_inds"][-1] = np.concatenate((
+                        stan_data["filt_inds"][-1], [-1]*N_prism_waves
+                    ))
+
+                    
+                    stan_data["true_phases"][-1] = np.concatenate((
+                        stan_data["true_phases"][-1], [(SN_LC["IFS_dates"][IFS_ind] - this_daymax)/(1. + this_z)]*N_prism_waves
+                        ))
+                    
+                    
+
             
             stan_data["NSNe"] += 1
 
-            
-    stan_data["NFilt"] = len(other_data["filt_names"])
+
+
+    
     stan_data["Nz"] = len(other_data["milliz_list"])
     for key in stan_data:
         try:
@@ -161,11 +269,12 @@ def get_stan_data(SN_data):
 
             for j in range(Npts_this_SN):
                 this_dmagdcoeff[j, i] = ifn(stan_data["true_phases"][SN_ind][j], stan_data["rest_lambs"][SN_ind][j]/10000.)
-
+            
+            
         stan_data["dmagdcoeff"].append(this_dmagdcoeff)
 
     
-    print("stan_data", stan_data)
+    #print("stan_data", stan_data)
     print("other_data", other_data)
 
     plt.hist(stan_data["redshifts"], bins = np.arange(0, 2.51, 0.05))
@@ -206,18 +315,44 @@ def residfn(P, wrapped_data):
     resid_norm = []
     
     for i in tqdm.trange(stan_data["NSNe"]):
-        cmat = np.diag(stan_data["dmags"][i]**2.)
-        cmat += 0.1**2.
-        cmat += np.outer(stan_data["color_law"][i]*0.5, stan_data["color_law"][i]*0.5) # +- 0.5 mag E(B-V)
+        if direct_inverse:
+            cmat = np.diag(stan_data["dmags"][i]**2.)
+            cmat += 0.1**2.
+            cmat += np.outer(stan_data["color_law"][i]*0.5, stan_data["color_law"][i]*0.5) # +- 0.5 mag E(B-V)
         
-        for filt in np.unique(stan_data["filt_inds"][i]):
-            filt_mask = (stan_data["filt_inds"][i] == filt)
-            cmat += np.outer(filt_mask*0.03, filt_mask*0.03)
+            for filt in np.unique(stan_data["filt_inds"][i]):
+                if filt != -1:
+                    filt_mask = (stan_data["filt_inds"][i] == filt)
+                    cmat += np.outer(filt_mask*0.03, filt_mask*0.03)
 
-        wmat = np.linalg.inv(cmat)
+            wmat = np.linalg.inv(cmat)
+        else:
+            # use Woodbury matrix identity
+
+            Ainv = np.diag(stan_data["dmags"][i]**(-2.))
+            unique_filt_inds = np.unique(stan_data["filt_inds"][i])
+            Umat = np.zeros([len(stan_data["dmags"][i]), len(unique_filt_inds) + 2], dtype=np.float64)
+            Umat[:, 0] = 0.1
+            Umat[:, 1] = stan_data["color_law"][i]*0.5
+
+            next_ind = 2
+            for filt in unique_filt_inds:
+                if filt != -1:
+                    filt_mask = (stan_data["filt_inds"][i] == filt)
+                    Umat[:, next_ind] = filt_mask*0.03
+                    next_ind += 1
+            Vmat = Umat.T
+
+            identity_matrix = np.identity(len(Vmat), dtype=np.float64)
+            middle_part = np.linalg.inv(identity_matrix + np.dot(Vmat, np.dot(Ainv, Umat)))
+            wmat = Ainv - np.dot(Ainv, np.dot(Umat, np.dot(middle_part, np.dot(Vmat, Ainv))))
+
+            
         L = np.linalg.cholesky(wmat)
 
-        the_model = parsed["mu_bins"][stan_data["z_inds"][i]] + parsed["dZPs"][stan_data["filt_inds"][i]] + np.dot(stan_data["dmagdcoeff"][i], parsed["coeff"])
+        the_model = parsed["mu_bins"][stan_data["z_inds"][i]] + np.dot(stan_data["d_mag_d_filt"][i], parsed["dZPs"]) + np.dot(stan_data["dmagdcoeff"][i], parsed["coeff"])
+        #the_model = parsed["mu_bins"][stan_data["z_inds"][i]] + parsed["dZPs"][stan_data["filt_inds"][i]] + np.dot(stan_data["dmagdcoeff"][i], parsed["coeff"])
+                                          
         resid = stan_data["mags"][i] - the_model
         resid_norm.extend(np.dot(resid, L))
 
@@ -227,9 +362,14 @@ def residfn(P, wrapped_data):
 
 
 
+direct_inverse = False # Invert cmat rather than use Woodbury matrix identity
+prism_bins = 25
+
 
 SN_data = load_data()
 stan_data, other_data = get_stan_data(SN_data)
+
+
 
 
 P, F, Cmat = miniLM_new(ministart = np.zeros(stan_data["NCoeff"] + stan_data["Nz"] + stan_data["NFilt"], dtype=np.float64),
