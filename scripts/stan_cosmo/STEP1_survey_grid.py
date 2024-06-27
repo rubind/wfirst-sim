@@ -4,7 +4,7 @@ import tqdm
 import sys
 
 
-def write_tier(f, total_survey_years, tier_name, tier_percent, exp_times, cadence, max_z):
+def write_tier(f, total_survey_years, tier_name, tier_percent, exp_times, filters, cadence, max_z):
     if tier_percent == 0:
         return 0
 
@@ -12,28 +12,31 @@ def write_tier(f, total_survey_years, tier_name, tier_percent, exp_times, cadenc
     exp_times_w_overhead_seconds = sum(np.array(exp_times) + 52.)
     number_of_pointings_per_visit = (0.01*tier_percent*total_survey_years*86400*365.24)/(exp_times_w_overhead_seconds*cadence_steps)
     square_degrees = number_of_pointings_per_visit*0.281
+
+    filter_names = [dict(R = "R062", Z = "Z087",
+                         Y = "Y106", J = "J129",
+                         H = "H158", F = "F184",
+                         P = "P100")[item] for item in filters]
     
     f.write("""__________________________________________,,,,,,
 tier_name,%s,,,,,
-tier_fraction_time,%.2f,,,,,
+tier_fraction_time,%.4f,,,,,
 square_degrees,%.2f,,,,,
-filters,R062,Z087,Y106,J129,H158,F184,
-exp_times_per_dither,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,,
-cadence,%i,%i,%i,%i,%i,%i,
-dithers_per_filter,1,1,1,1,1,1,
-trigger_redshifts,0,0.01,0.65,0.8,0.81,3,
-trigger_fraction,1,0,0,0,0,0,
-parallel_filters,H158,,,,,
+filters,%s,
+exp_times_per_dither,%s,
+cadence,%s,
+dithers_per_filter,%s,
 max_SNe,1000000,
 max_z,%.2f,\n""" % (tier_name, tier_percent/100., square_degrees,
-                    exp_times[0], exp_times[1], exp_times[2],
-                    exp_times[3], exp_times[4], exp_times[5],
-                    cadence, cadence, cadence, cadence, cadence, cadence,
+                    ",".join(filter_names), ",".join(["%.2f" % item for item in exp_times]),
+                    ",".join([str(cadence)]*len(filters)),
+                    ",".join(["1"]*len(filters)),
                     max_z))
     
 
-def make_survey(total_survey_years, widepercent, medpercent, deeppercent, nnearby):
-    wd = location + "/yr=%.3f_w=%03i_m=%03i_d=%03i_nnearby=%05i" % (total_survey_years, widepercent, medpercent, deeppercent, nnearby)
+    
+def make_survey(total_survey_years, widepercent, medpercent, deeppercent, widepercent_prism, deeppercent_prism, nnearby):
+    wd = location + "/yr=%.3f_w=%03i_m=%03i_d=%03i_wp=%03i_dp=%03i_nnearby=%05i" % (total_survey_years, widepercent, medpercent, deeppercent, widepercent_prism, deeppercent_prism, nnearby)
     getoutput("mkdir -p " + wd)
 
     f = open(wd + "/paramfile.csv", 'w')
@@ -41,15 +44,6 @@ def make_survey(total_survey_years, widepercent, medpercent, deeppercent, nnearb
     square_degrees = 5000*(nnearby/800.)
     
     f.write("""total_survey_time,%.4f,,,,,
-maximum_trigger_fraction,0.9,,,,,
-adjust_each_SN_exp_time,FALSE,,,,,
-normalization_wavelength_range,5000,6000,,,,
-shallow_SNR,13.5,,,,,
-medium_SNR,23.2,,,,,
-deep_SNR,38.6,,,,,
-reference_SNR,45,,,,,
-number_of_reference_dithers,8,,,,,
-spectra_depth_and_phase,shallow  -10,medium -1,deep 1,shallow 5,shallow 10,
 targeted_parallels,TRUE,,,,,
 SN_rates,SN_rates.txt,,,,,
 survey_duration,4,,,,,
@@ -94,10 +88,14 @@ max_SNe,%i,
 max_z,0.1,
 """ % (square_degrees, nnearby))
 
-    
-    write_tier(f, total_survey_years = total_survey_years, tier_name = "Wide", tier_percent = widepercent, exp_times = [24.6, 31.4, 42.8, 61.8, 94, 175.4], cadence = 10, max_z = 1.0)
-    write_tier(f, total_survey_years = total_survey_years, tier_name = "Medium", tier_percent = medpercent, exp_times = [152.9, 67.6, 75.3, 92.2, 187.9, 390.4], cadence = 5, max_z = 2.0)
-    write_tier(f, total_survey_years = total_survey_years, tier_name = "Deep", tier_percent = deeppercent, exp_times = [152.9, 152.9, 235.4, 246.3, 336.7, 1017.6], cadence = 5, max_z = 2.5)
+
+
+        
+    write_tier(f, total_survey_years = total_survey_years, tier_name = "WideNoPrism", tier_percent = widepercent*(1. - widepercent_prism/100.), exp_times = [24.6, 31.4, 42.8, 61.8, 94, 175.4], filters = "RZYJHF", cadence = 10, max_z = 1.0)
+    write_tier(f, total_survey_years = total_survey_years, tier_name = "WidePrism", tier_percent = widepercent*widepercent_prism/100., exp_times = [24.6, 31.4, 42.8, 61.8, 94, 175.4, 1800.], filters = "RZYJHFP", cadence = 10, max_z = 1.0)
+    write_tier(f, total_survey_years = total_survey_years, tier_name = "MediumNoPrism", tier_percent = medpercent, exp_times = [152.9, 67.6, 75.3, 92.2, 187.9, 390.4], cadence = 5, filters = "RZYJHF", max_z = 2.0)
+    write_tier(f, total_survey_years = total_survey_years, tier_name = "DeepNoPrism", tier_percent = deeppercent*(1. - deeppercent_prism/100.), exp_times = [152.9, 152.9, 235.4, 246.3, 336.7, 1017.6], cadence = 5, filters = "RZYJHF", max_z = 2.5)
+    write_tier(f, total_survey_years = total_survey_years, tier_name = "DeepPrism", tier_percent = deeppercent*deeppercent_prism/100., exp_times = [152.9, 152.9, 235.4, 246.3, 336.7, 1017.6, 3600.], cadence = 5, filters = "RZYJHFP", max_z = 2.5)
 
     f.close()
 
@@ -120,7 +118,7 @@ pip install sep
 
 """)
     f.write("cd " + pwd + "/" + wd + '\n')
-    f.write("python $WFIRST/scripts/stan_cosmo/STEP1_simulate_survey.py paramfile.csv survey.pickle > log.txt\n")
+    f.write("python $WFIRST/scripts/stan_cosmo/STEP1_simple_survey.py paramfile.csv survey.pickle > log.txt\n")
     f.write("python $WFIRST/scripts/stan_cosmo/STEP2_Analytic_Fisher.py survey.pickle > fisher_log.txt\n")
     f.write("python $WFIRST/scripts/stan_cosmo/FoM.py comb_mat.fits > FoM.txt\n")
     f.close()
@@ -154,5 +152,16 @@ elif grid_type == "nnearby":
     for nnearby in np.arange(0, 3001, 200):
         make_survey(total_survey_years = 0.375, widepercent = 70, medpercent = 0, deeppercent = 30, nnearby = int(nnearby))
 
+elif grid_type == "prism_fraction":
+    for widepercent_prism in np.arange(0, 101, 5):
+        for deeppercent_prism in np.arange(0, 101, 5):
+            deeppercent = 30
+            widepercent = 70
+
+            print("widepercent_prism", widepercent_prism, "deeppercent_prism", deeppercent_prism, "widepercent", widepercent, "deeppercent", deeppercent)
+            make_survey(total_survey_years = 0.5, widepercent = widepercent, medpercent = 0, deeppercent = deeppercent, nnearby = 800, widepercent_prism = widepercent_prism, deeppercent_prism = deeppercent_prism)
+            
+
+
 else:
-    print("Unknown grid type! want: tier_fraction total_time or nnearby")
+    print("Unknown grid type! want: tier_fraction total_time prism_fraction or nnearby")
