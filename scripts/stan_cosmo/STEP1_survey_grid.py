@@ -153,7 +153,7 @@ elif grid_type == "nnearby":
         make_survey(total_survey_years = 0.375, widepercent = 70, medpercent = 0, deeppercent = 30, nnearby = int(nnearby))
 
 elif grid_type == "prism_fraction":
-    for widepercent_prism in np.arange(0, 101, 5):
+    for widepercent_prism in np.arange(0, 21, 1):
         for deeppercent_prism in np.arange(0, 101, 5):
             deeppercent = 30
             widepercent = 70
