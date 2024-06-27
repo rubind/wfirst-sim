@@ -10,6 +10,7 @@ import sys
 import os
 wfirst_path = os.environ["WFIRST"]
 wfirst_data_path = os.environ["WFIRST_SIM_DATA"]
+sys.path.append(wfirst_path + "/scripts/stan_cosmo/")
 sys.path.append(wfirst_path + "/scripts/pixel-level/")
 sys.path.append(wfirst_path + "/scripts/host/")
 from host_generator import make_galaxy_spectrum
@@ -30,6 +31,7 @@ from scipy.stats import percentileofscore
 import matplotlib.patches as patches
 whoami = subprocess.getoutput("whoami")
 
+this_is_old_code
 
 def file_to_fn(fl, col = 1):
     vals = loadtxt(fl)
@@ -106,7 +108,7 @@ def read_csv(csv_file):
     print("n_tiers ", n_tiers)
     
 
-    single_keys = ["tier_name", "tier_fraction_time", "square_degrees", "cadence", "max_z", "max_SNe"]
+    single_keys = ["tier_name", "square_degrees", "cadence", "max_z", "max_SNe"]
     list_keys = ["filters", "exp_times_per_dither", "dithers_per_filter", "trigger_redshifts", "trigger_fraction", "parallel_filters"]
     survey_parameters["tier_parameters"] = {}
     for key in single_keys + list_keys:
@@ -261,42 +263,6 @@ SN_data = {"nsne": 1, "SN_observations":
 print compress_lc_data(SN_data, 5., "J129")
 """
 
-def field_outline_old(WFI_RA, WFI_dec, WFI_orient):
-    WFI_dRA = sqrt(0.28*0.5)*0.5 # x
-    WFI_ddec = sqrt(0.28*2.)*0.5 # y
-
-    assert WFI_orient <= 2.*pi + 1e-6, "angles should be in radians!"
-
-    x1 = WFI_RA + WFI_dRA*cos(WFI_orient) - WFI_ddec*sin(WFI_orient)
-    y1 = WFI_dec + WFI_ddec*cos(WFI_orient) + WFI_dRA*sin(WFI_orient) 
-
-    x2 = WFI_RA - WFI_dRA*cos(WFI_orient) - WFI_ddec*sin(WFI_orient)
-    y2 = WFI_dec + WFI_ddec*cos(WFI_orient) - WFI_dRA*sin(WFI_orient) 
-
-    x3 = WFI_RA - WFI_dRA*cos(WFI_orient) + WFI_ddec*sin(WFI_orient)
-    y3 = WFI_dec - WFI_ddec*cos(WFI_orient) - WFI_dRA*sin(WFI_orient) 
-
-    x4 = WFI_RA + WFI_dRA*cos(WFI_orient) + WFI_ddec*sin(WFI_orient)
-    y4 = WFI_dec - WFI_ddec*cos(WFI_orient) + WFI_dRA*sin(WFI_orient) 
-    return (x1, x2, x3, x4), (y1, y2, y3, y4)
-
-def inside_field_old(SN_RAs, SN_decs, WFI_RA, WFI_dec, WFI_orient):
-    (x1, x2, x3, x4), (y1, y2, y3, y4) = field_outline(WFI_RA, WFI_dec, WFI_orient)
-
-    #plt.plot(WFI_RA, WFI_dec, 'o')
-    #plt.plot([x1,x2,x3,x4,x1], [y1, y2, y3, y4, y1])
-
-    outline = MPLpath.Path(array([[x1, y1],
-                                  [x2, y2],
-                                  [x3, y3],
-                                  [x4, y4]]
-                             ))
-    try:
-        return outline.contains_points(list(zip(SN_RAs, SN_decs)))
-    except:
-        print("Couldn't run contains_points ", SN_RAs, SN_decs)
-        sys.exit(1)
-
 
 def field_outline(WFI_RA, WFI_dec, WFI_orient):
     assert WFI_orient <= 2.*pi + 1e-6, "angles should be in radians!"
@@ -313,28 +279,6 @@ def field_outline(WFI_RA, WFI_dec, WFI_orient):
 
     return xs, ys
 
-"""
-xs, ys = field_outline(0, 0, 0.1)
-xs = concatenate((xs, xs[:,:1]), axis = 1)
-ys = concatenate((ys, ys[:,:1]), axis = 1)
-
-for i in range(len(xs)):
-    plt.plot(xs[i], ys[i])
-
-
-xs, ys = field_outline(0, 0, 0.3)
-xs = concatenate((xs, xs[:,:1]), axis = 1)
-ys = concatenate((ys, ys[:,:1]), axis = 1)
-
-for i in range(len(xs)):
-    plt.plot(xs[i], ys[i])
-
-
-plt.axes().set_aspect('equal')
-plt.savefig("test.pdf")
-plt.close()
-stop_here
-"""
 
 
 def inside_field(SN_RAs, SN_decs, WFI_RA, WFI_dec, WFI_orient):
@@ -817,12 +761,6 @@ def get_IFS_exptimes(redshift, sncosmo_model, daymax, IFS_trigger_params, gal_fl
 
 
 
-
-
-
-
-
-
 def plan_and_add_triggers(SN_data, rows_to_add, current_date, cadence, IFS_trigger_params, parallel_filters, square_degrees):
     """This function spreads parallel observations over the sky."""
 
@@ -1089,129 +1027,114 @@ def plan_and_add_triggers_old(SN_data, rows_to_add, current_date, cadence, IFS_t
             
     
     return rows_to_add
-    
 
-def get_RA_dec_for_cadence(square_degrees, next_angle):
+def approx_area_inside_circle(x, y, xsize, ysize, inner_rad, outer_rad):
+    xs, ys = np.meshgrid(np.linspace(x - xsize/2., x + xsize/2., 5),
+                         np.linspace(y - ysize/2., y + ysize/2., 10))
+
+    r2 = xs**2. + ys**2
+    return sum((r2 >= inner_rad**2.)*(r2 < outer_rad**2.))/float(sum(r2 > -1))
+
+def get_xyvals(outer_radius, small_step, large_step, even_or_odd, x_or_y, x_fix = 0.):
+    step_size = (x_or_y == "x")*small_step + (x_or_y == "y")*large_step
+
+    if even_or_odd == "even" or even_or_odd == "any":
+        x_vals = np.array([], dtype=np.float64)
+        inside_areas = []
+    elif even_or_odd == "odd":
+        x_vals = np.array([0.], dtype=np.float64)
+        inside_areas = [approx_area_inside_circle(x = 0., y = 0., xsize = small_step, ysize = large_step, inner_rad = 0., outer_rad = outer_radius) > 0.5]
+    else:
+        assert 0, even_or_odd
+
+    while inside_areas.count(0) == 0:
+        try:
+            the_max = x_vals[-1]
+        except:
+            the_max = 0.
+            
+        x_vals = np.append(x_vals, the_max + step_size)
+        if even_or_odd != "any":
+            # Add two at a time to get even/odd number
+            x_vals = np.append(x_vals, x_vals[-1] + step_size)
+
+        x_vals -= np.median(x_vals)
+
+        if x_or_y == "x":
+            inside_areas = [approx_area_inside_circle(x = x, y = 0., xsize = small_step, ysize = large_step, inner_rad = 0., outer_rad = outer_radius) > 0.5 for x in x_vals]
+        else:
+            inside_areas = [approx_area_inside_circle(x = x_fix, y = y, xsize = small_step, ysize = large_step, inner_rad = 0., outer_rad = outer_radius) > 0.5 for y in x_vals]
+
+    inside_areas = np.array(inside_areas)
+    x_vals = x_vals[np.where(inside_areas)]
+    return x_vals
+
+def get_RA_dec_for_cadence(tier_radii, next_angle):
     #small_step = sqrt(0.28*0.5)
     #large_step = sqrt(0.28*2)
     small_step = 0.37628
     large_step = 0.82034
     # Fill factor is about 90%
 
-    field_radius = sqrt(square_degrees/pi)
+    dr = 0.15 # fudge factor to reduce edge effects
 
-    x_vals = arange(around(2*field_radius/small_step))*small_step
-    x_vals -= median(x_vals)
-    #y_vals = arange(-around(field_radius*2.5/large_step), around(field_radius*2.5/large_step) + 0.001)*large_step + small_step
+    assert tier_radii[0] == 0
+    assert tier_radii == sorted(tier_radii)
 
+    x_vals = get_xyvals(outer_radius = tier_radii[1] + dr, small_step = small_step, large_step = large_step, even_or_odd = "any", x_or_y = "x") # Start with figuring out innermost tier
+    if len(x_vals) % 2 == 0:
+        x_vals_even_or_odd = "even"
+    else:
+        x_vals_even_or_odd = "odd"
     
+    yvals_odd = {}
 
+    all_xvs = []
+    all_yvs = []
+    
+    for i in range(len(tier_radii) - 1):
+        x_vals = get_xyvals(outer_radius = tier_radii[i + 1] + dr, small_step = small_step, large_step = large_step, even_or_odd = x_vals_even_or_odd, x_or_y = "x")
+        #y_vals = arange(-around(field_radius*2.5/large_step), around(field_radius*2.5/large_step) + 0.001)*large_step + small_step
 
-    RAs_to_add = []
-    Decs_to_add = []
-
-    for xv in x_vals:
-        if abs(xv) <= field_radius:
-            ylength = sqrt(field_radius**2. - xv**2.)*2.
-            rounded_size = around(ylength/large_step + 0.1) # 0.1 to give the benefit of the doubt and minimize edge effects.
-            
-            """
-            # I thought this would be a good idea, but we lose a lot at the edges of the field
-            if around(2*field_radius/large_step) % 2 == 0:
-                rounded_size = 2.*around(rounded_size/2.)
+        for xv in x_vals:
+            xv_key = np.around(xv*10)
+            if xv_key in yvals_odd:
+                y_vals_even_or_odd = yvals_odd[xv_key]
             else:
-                rounded_size = 2.*around((rounded_size - 1.)/2.) + 1
-            """
+                y_vals_even_or_odd = "any"
+            
+            y_vals = get_xyvals(outer_radius = tier_radii[i + 1] + dr, small_step = small_step, large_step = large_step, even_or_odd = "any", x_or_y = "y", x_fix = xv)
 
-            y_vals = arange(rounded_size)*large_step
-            y_vals -= median(y_vals)
+            if not xv_key in yvals_odd:
+                if len(y_vals) % 2 == 0:
+                    yvals_odd[xv_key] = "even"
+                else:
+                    yvals_odd[xv_key] = "odd"
+
 
             for yv in y_vals:
-                x0 = xv
-                y0 = yv
-                
-                RAs_to_add.append(cos(next_angle)*x0 - y0*sin(next_angle))
-                Decs_to_add.append(sin(next_angle)*x0 + y0*cos(next_angle))
+                if i == len(tier_radii) - 2:
+                    all_xvs.append(xv)
+                    all_yvs.append(yv)
+
+    RAs_to_add = [[] for i in range(len(tier_radii) - 1)]
+    Decs_to_add = [[] for i in range(len(tier_radii) - 1)]
+    
+    for xv, yv in zip(all_xvs, all_yvs):
+        overlaps = []
+        for i in range(len(tier_radii) - 1):
+            overlaps.append(approx_area_inside_circle(xv, yv, xsize = small_step, ysize = large_step, inner_rad = tier_radii[i], outer_rad = tier_radii[i+1]))
+        tier = np.argmax(overlaps)
+            
+        RAs_to_add[tier].append(cos(next_angle)*xv - yv*sin(next_angle))
+        Decs_to_add[tier].append(sin(next_angle)*xv + yv*cos(next_angle))
+
     return RAs_to_add, Decs_to_add
 
-"""
-square_degrees = 9.6
-
-RAs_to_add, Decs_to_add = get_RA_dec_for_cadence(square_degrees = square_degrees, next_angle = 0)
-
-SN_rs = sqrt(random.random(size = 350))*sqrt(square_degrees/pi)
-SN_ths = random.random(size = 350)*2*pi
-
-SN_RAs = SN_rs*cos(SN_ths)
-SN_decs = SN_rs*sin(SN_ths)
-
-
-dRAs = arange(-0.2, 0.2001, 0.01)
-ddecs = arange(-0.2, 0.2001, 0.01)
-
-number_im = zeros([len(dRAs), len(ddecs)])
-
-for j in range(len(dRAs)):
-    print j, len(dRAs)
-
-    for k in range(len(ddecs)):
-        mask = 0
-        for i in range(len(RAs_to_add)):
-            mask += inside_field(SN_RAs, SN_decs, RAs_to_add[i] + dRAs[j], Decs_to_add[i] + ddecs[k], WFI_orient=0)
-    
-        mask = mask > 0
-        print sum(mask)
-        
-        number_im[j,k] = sum(mask)
-
-
-plt.imshow(number_im, interpolation = 'nearest')
-plt.colorbar()
-plt.savefig("tmp.pdf")
-plt.close()
-
-        
-stop_here
-"""
-
-"""
-for square_degrees in arange(1., 20.1, 1.):
-    print square_degrees
-    RAs_to_add, Decs_to_add = get_RA_dec_for_cadence(square_degrees = square_degrees, next_angle = 0)
-    
-    circle1=plt.Circle((0,0),sqrt(square_degrees/pi), fill = False)
-    fig = plt.gcf()
-    fig.gca().add_artist(circle1)
-    for i in range(len(RAs_to_add)):
-        xs, ys = field_outline(RAs_to_add[i], Decs_to_add[i], WFI_orient = 0)
-
-        xs = concatenate((xs, xs[:,:1]), axis = 1)
-        ys = concatenate((ys, ys[:,:1]), axis = 1)
-
-        for j in range(len(xs)):
-            plt.plot(xs[j], ys[j], linewidth = 0.25, color = 'rgbkcm'[i%6])
-
-
-    plt.xlim(-5, 5)
-    plt.ylim(-5, 5)
-
-    #plt.plot(RAs_to_add, Decs_to_add, '.')
-    plt.axes().set_aspect('equal', 'datalim')
-
-    plt.savefig("square_degrees=%04i.pdf" % (square_degrees*100))
-    plt.close()
-
-    slew_fn = file_to_fn(wfirst_data_path + "/pixel-level/input/slew_settle_170419.txt", col = 2)
-    get_slew_time(RAs_to_add, Decs_to_add, roll_angles = [0]*len(RAs_to_add), show_solution = 1, square_degrees = square_degrees, filt_names = ["Pointings"]*len(RAs_to_add))
-    commands.getoutput("mv slew_solution.eps slew_solution_%04i.eps" % (square_degrees*100))
-
-
-stop_here
-"""
 
 
 def plan_and_add_cadence(SN_data, wfi_time_left, current_date, rows_to_add,
-                         square_degrees, cadence,
+                         tier_radii, cadence,
                          tier_filters, tier_exptimes, tier_dithers):
 
     next_angle = date_to_roll_angle(current_date + cadence)
@@ -1231,7 +1154,7 @@ def plan_and_add_cadence(SN_data, wfi_time_left, current_date, rows_to_add,
         if len(filt) > 1:
             # If WFI, not ground
             if wfi_time_left:
-                RAs_to_add, Decs_to_add = get_RA_dec_for_cadence(square_degrees, next_angle)
+                RAs_to_add, Decs_to_add = get_RA_dec_for_cadence(tier_radii, next_angle)
                 
                 for i in range(len(RAs_to_add)):
                     for j in range(dith):
@@ -1250,40 +1173,11 @@ def plan_and_add_cadence(SN_data, wfi_time_left, current_date, rows_to_add,
 
 
 
-def plan_and_add_WFI_cadence_rectangle(SN_data, current_date, rows_to_add,
-                                       RA_linear_degrees, Dec_linear_degrees,
-                                       tier_filters, tier_exptimes, dithers):
-
-    small_step = sqrt(0.28*0.5)
-    large_step = sqrt(0.28*2)
 
 
-    orient = (around(sun_angle/(pi/2.)) % 4)*(pi/2.)
+def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, ground_depths, dithers, cadence, total_survey_time, hours_per_visit, IFS_trigger_params, parallel_filters, survey_duration):
 
-    if abs(orient) < 0.01 or abs(orient - pi) < 0.01:
-        x_vals = arange(around(RA_linear_degrees/small_step))*small_step
-        y_vals = arange(around(Dec_linear_degrees/large_step))*large_step
-    elif abs(orient - pi/2.) < 0.01 or abs(orient - 1.5*pi) < 0.01:
-        x_vals = arange(around(RA_linear_degrees/large_step))*large_step
-        y_vals = arange(around(Dec_linear_degrees/small_step))*small_step
-    else:
-        raise Exception("Weird orient!", orient)
-
-
-    wide_gap_degrees = 8.546/40.88 * (0.11*4096/3600.) # 8.546 mm
-
-    for xv in x_vals:
-        for yv in y_vals:
-            for filt, expt in zip(tier_filters, tier_exptimes):
-                for i in range(dithers):
-                    rows_to_add.add_row((current_date + cadence, filt, expt, xv + i*wide_gap_degrees, yv + i*wide_gap_degrees, orient, "WFI", -1))
-
-    return rows_to_add
-
-
-def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, ground_depths, dithers, cadence, fraction_time, total_survey_time, hours_per_visit, IFS_trigger_params, parallel_filters, survey_duration):
-
-    starting_time = 31557000*total_survey_time*fraction_time  # Seconds in total_survey_time years
+    starting_time = 31557000*total_survey_time  # Seconds in total_survey_time years
     total_time_left = starting_time
     total_slew_time = 0.0
 
@@ -1309,8 +1203,8 @@ def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, ground_dept
 
     SN_data["time_remaining_values"] = [[(current_date, total_time_left, total_time_left, current_trigger_scaling)]]
 
-    while (len(rows_to_add["filt"]) > 0 or current_date == 0) and current_date < 365*(3 + survey_duration):
-        # The extra 1.5 on the 2 years is to get references + have some margin
+    while (len(rows_to_add["filt"]) > 0 or current_date == 0) and current_date < 365*(2 + survey_duration):
+        # The extra 2 on the survey_duration is to get references + have some margin if the survey is faster than expected
         IFS_trigger_params["trigger_scaling"] = current_trigger_scaling
 
 
@@ -1366,7 +1260,7 @@ def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, ground_dept
         if current_date > 10*cadence:
             # Let's take a look at the last five steps
             time_in_last_five = SN_data["time_remaining_values"][0][-6][1] - SN_data["time_remaining_values"][0][-1][1]
-            relative_time_scaling = hours_per_visit*fraction_time*3600*5./(time_in_last_five + 1e-6)
+            relative_time_scaling = hours_per_visit*3600*5./(time_in_last_five + 1e-6)
 
             current_trigger_scaling = relative_time_scaling*mean([SN_data["time_remaining_values"][0][i][3] for i in range(-6, 0)])
 
@@ -1382,12 +1276,22 @@ def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, ground_dept
     return SN_data
 
 
+def make_random_positions(inner_radius, outer_radius, nsne):
+    CDF = random.random(size = nsne)
+    rs = np.sqrt((1. - CDF)*inner_radius**2. + CDF*outer_radius**2.)
+    thetas = random.random(size = nsne)*2*pi
+        
+    RAs = rs*cos(thetas)
+    Decs = rs*sin(thetas)
+    return RAs, Decs
 
 
-def make_SNe(square_degrees, cadence, survey_duration, hours_per_visit, rates_fn, redshift_set, IFS_trigger_params, tier_filters, tier_exptimes, ground_depths, dithers, parallel_filters,
-             fraction_time, total_survey_time, max_z, max_SNe, redshift_step = 0.05, salt2_model = True, verbose = False, phase_buffer = 20, survey_fields = "None"):
+def make_SNe(inner_radius, outer_radius, cadence, survey_duration, hours_per_visit,
+             rates_fn, redshift_set, IFS_trigger_params, tier_filters, tier_exptimes, ground_depths, dithers, parallel_filters,
+             total_survey_time, max_z, max_SNe, redshift_step = 0.05, salt2_model = True, verbose = False, phase_buffer = 20, survey_fields = "None"):
     #assert square_degrees <= 5000, "Should use more accurate formula for large surveys!"
 
+    square_degrees = np.pi*outer_radius**2. - np.pi*inner_radius**2.
 
     cosmo = FlatLambdaCDM(H0=70, Om0=0.3)
     frac_of_sky = (square_degrees)/(4.*pi*(180./pi)**2.)
@@ -1433,18 +1337,8 @@ def make_SNe(square_degrees, cadence, survey_duration, hours_per_visit, rates_fn
     if verbose:
         print("SNe not near beginning/end: ", nsne)
 
-    rs = sqrt(random.random(size = nsne))*sqrt(square_degrees/pi)
-    thetas = random.random(size = nsne)*2*pi
-        
-    RAs = rs*cos(thetas)
-    Decs = rs*sin(thetas)
-
-
-    rs = sqrt(random.random(size = 10))*sqrt(square_degrees/pi)
-    thetas = random.random(size = 10)*2*pi
-        
-    test_RAs = rs*cos(thetas)
-    test_Decs = rs*sin(thetas)
+    RAs, Decs = make_random_positions(inner_radius = inner_radius, outer_radius = outer_radius, nsne = nsne)
+    test_RAs, test_Decs = make_random_positions(inner_radius = inner_radius, outer_radius = outer_radius, nsne = 10)
     test_Mags = arange(24., 31.1, 0.4)
 
     test_points = {"RAs": [], "Decs": [], "Mags": [], "Observations": []}
@@ -1502,17 +1396,12 @@ def make_SNe(square_degrees, cadence, survey_duration, hours_per_visit, rates_fn
         ))
     """
 
-
     if salt2_model:
         if verbose:
             print("Observing ", tier_filters, tier_exptimes)
 
-
-        SN_data = run_survey(SN_data = SN_data, square_degrees = square_degrees, tier_filters = tier_filters, tier_exptimes = tier_exptimes,
-                             ground_depths = ground_depths, dithers = dithers, cadence = cadence,
-                             fraction_time = fraction_time, total_survey_time = total_survey_time, hours_per_visit = hours_per_visit,
-                             IFS_trigger_params = IFS_trigger_params, parallel_filters = parallel_filters, survey_duration = survey_duration)
     return SN_data
+
 
 def merge_SN_data(SN_data, this_SN_data):
 
@@ -1548,127 +1437,146 @@ def merge_SN_data(SN_data, this_SN_data):
     return SN_data
 
 ################################################### Starting here ###################################################
-master_zp = 25.0 # AB mag
-picklefl = sys.argv[2]
+
+if __name__ == "__main__":
+    master_zp = 25.0 # AB mag
+    picklefl = sys.argv[2]
 
 
-survey_parameters = read_csv(sys.argv[1])
+    survey_parameters = read_csv(sys.argv[1])
 
-print("Reading PSFs...")
-PSFs = initialize_PSFs(pixel_scales = [10, 15, 22, 22], slice_scales = [30, 30, 22, 110], PSF_source = survey_parameters["PSFs"])
-PSFs_WFC = initialize_PSFs(pixel_scales = [10, 15, 22] + [60]*(survey_parameters["WFI_PSFs"] == "Euclid_PSF"),
-                           slice_scales = [30, 30, 22] + [60]*(survey_parameters["WFI_PSFs"] == "Euclid_PSF"), PSF_source = survey_parameters["WFI_PSFs"])
-
-
-slew_fn = file_to_fn(wfirst_data_path + "/pixel-level/input/" + survey_parameters["slew_table"], col = 2)
+    print("Reading PSFs...")
+    PSFs = initialize_PSFs(pixel_scales = [10, 15, 22, 22], slice_scales = [30, 30, 22, 110], PSF_source = survey_parameters["PSFs"])
+    PSFs_WFC = initialize_PSFs(pixel_scales = [10, 15, 22] + [60]*(survey_parameters["WFI_PSFs"] == "Euclid_PSF"),
+                               slice_scales = [30, 30, 22] + [60]*(survey_parameters["WFI_PSFs"] == "Euclid_PSF"), PSF_source = survey_parameters["WFI_PSFs"])
 
 
-    
-WFI_args = {"PSFs": PSFs_WFC, "source_dir": wfirst_data_path + "/pixel-level/input",
-            "pixel_scale": survey_parameters["WFI_pixel_scale"],
-            "dark_current": survey_parameters["WFI_dark_current"],
-            "read_noise_floor": survey_parameters["WFI_read_noise_floor"],
-            "read_noise_white": survey_parameters["WFI_read_noise_white"],
-            "IPC": survey_parameters["interpixel_capacitance"],
-            "TTel": survey_parameters["telescope_temperature"],
-            "zodi_fl": file_to_fn(wfirst_data_path + "/pixel-level/input/" + survey_parameters["zodiacal_background"]),
-            "bad_pixel_rate": survey_parameters["bad_pixel_rate"],
-            "waves": arange(6000., 22500.1, 25.)}
-
-IFS_args = {"PSFs": PSFs, "source_dir": wfirst_data_path + "/pixel-level/input",
-            "pixel_scale": survey_parameters["IFU_pixel_scale"],
-            "slice_scale": survey_parameters["IFU_slice_in_pixels"]*survey_parameters["IFU_pixel_scale"],
-            "dark_current": survey_parameters["IFU_dark_current"],
-            "read_noise_floor": survey_parameters["IFU_read_noise_floor"],
-            "white_noise": survey_parameters["IFU_read_noise_white"],
-            "IFURfl": file_to_fn(wfirst_data_path + "/pixel-level/input/" + survey_parameters["IFU_resolution"]),
-            "zodifl": file_to_fn(wfirst_data_path + "/pixel-level/input/" + survey_parameters["zodiacal_background"]),
-            "effareafl": file_to_fn(wfirst_data_path + "/pixel-level/input/" + survey_parameters["IFU_effective_area"]),
-            "min_wave": survey_parameters["IFU_min_wave"], "max_wave": survey_parameters["IFU_max_wave"],
-            "offset_par": int(around(survey_parameters["IFU_pixel_scale"]*0.25/0.005)), "offset_perp": 0,
-            "IPC": survey_parameters["interpixel_capacitance"], "TTel": survey_parameters["telescope_temperature"]}
+    slew_fn = file_to_fn(wfirst_data_path + "/pixel-level/input/" + survey_parameters["slew_table"], col = 2)
 
 
-IFS_args["waves"] = get_spec_with_err(exp_time = 100, redshift = 1., phase = 0, show_plots = 0, **IFS_args)["obs_waves"]
 
-ground_filt_fns, ground_obslambs, ground_five_sigma_one_hour, WFI_filt_fns = init_ground(survey_parameters["grizY_30s_ground_depths"])
+    WFI_args = {"PSFs": PSFs_WFC, "source_dir": wfirst_data_path + "/pixel-level/input",
+                "pixel_scale": survey_parameters["WFI_pixel_scale"],
+                "dark_current": survey_parameters["WFI_dark_current"],
+                "read_noise_floor": survey_parameters["WFI_read_noise_floor"],
+                "read_noise_white": survey_parameters["WFI_read_noise_white"],
+                "IPC": survey_parameters["interpixel_capacitance"],
+                "TTel": survey_parameters["telescope_temperature"],
+                "zodi_fl": file_to_fn(wfirst_data_path + "/pixel-level/input/" + survey_parameters["zodiacal_background"]),
+                "bad_pixel_rate": survey_parameters["bad_pixel_rate"],
+                "waves": arange(6000., 22500.1, 25.)}
 
-ground_args = {"waves": ground_obslambs, "filt_fns": ground_filt_fns}
-
-################################################### Run! ###################################################
-
-
-assert isclose(sum(survey_parameters["tier_parameters"]["tier_fraction_time"]), 1), sum(survey_parameters["tier_parameters"]["tier_fraction_time"])
-assert survey_parameters["maximum_trigger_fraction"] <= 1
-
-rates_fn_full = file_to_fn(wfirst_data_path + "/pixel-level/input/" + survey_parameters["SN_rates"]) # per 1e-4 year Mpc^3 (h = 0.7)
-rates_fn = lambda x: rates_fn_full(x)*survey_parameters["maximum_trigger_fraction"]
-
-IFS_trigger_params = dict(adjust_each_SN_exp_time = survey_parameters["adjust_each_SN_exp_time"],
-                          normalization_wavelength_range = survey_parameters["normalization_wavelength_range"],
-                          SNR_set = [survey_parameters["shallow_SNR"], survey_parameters["medium_SNR"], survey_parameters["deep_SNR"], survey_parameters["reference_SNR"]/sqrt(survey_parameters["number_of_reference_dithers"])],
-                          phases = [item[1] for item in survey_parameters["spectra_depth_and_phase"]])
-IFS_trigger_params["SNRs"] = [IFS_trigger_params["SNR_set"][["shallow", "medium", "deep"].index(item[0])] for item in survey_parameters["spectra_depth_and_phase"]]
-IFS_trigger_params["number_of_reference_dithers"] = survey_parameters["number_of_reference_dithers"]
-
-print("IFS_trigger_params", IFS_trigger_params)
-
-redshift_step = 0.05
-redshift_set = arange(0.075, 2.475 + redshift_step/10., redshift_step)
-
-survey_parameters["uniform_IFS_exptimes"] = {}
-source = sncosmo.SALT2Source(modeldir=wfirst_data_path + "/salt2_extended/")
-
-for redshift in redshift_set:
-    print("Getting median...")
-    mBs, x1s, colors, masses = make_SALT2_params(size = 10000)
-
-    if max(IFS_args["waves"]) > IFS_trigger_params["normalization_wavelength_range"][1]*(1 + redshift):
-        sncosmo_model = get_SNCosmo_model(redshift = redshift, x1 = median(x1s), c = median(colors), MV = median(mBs - colors), daymax = 0, source = source)
-        survey_parameters["uniform_IFS_exptimes"][redshift] = get_IFS_exptimes(redshift = redshift, sncosmo_model = sncosmo_model, daymax = 0,
-                                                                               IFS_trigger_params = IFS_trigger_params, gal_flamb = make_galaxy_spectrum([redshift], median_not_random = True)[0])
-
-IFS_trigger_params["uniform_IFS_exptimes"] = survey_parameters["uniform_IFS_exptimes"]
-
-SN_data = {}
+    IFS_args = {"PSFs": PSFs, "source_dir": wfirst_data_path + "/pixel-level/input",
+                "pixel_scale": survey_parameters["IFU_pixel_scale"],
+                "slice_scale": survey_parameters["IFU_slice_in_pixels"]*survey_parameters["IFU_pixel_scale"],
+                "dark_current": survey_parameters["IFU_dark_current"],
+                "read_noise_floor": survey_parameters["IFU_read_noise_floor"],
+                "white_noise": survey_parameters["IFU_read_noise_white"],
+                "IFURfl": file_to_fn(wfirst_data_path + "/pixel-level/input/" + survey_parameters["IFU_resolution"]),
+                "zodifl": file_to_fn(wfirst_data_path + "/pixel-level/input/" + survey_parameters["zodiacal_background"]),
+                "effareafl": file_to_fn(wfirst_data_path + "/pixel-level/input/" + survey_parameters["IFU_effective_area"]),
+                "min_wave": survey_parameters["IFU_min_wave"], "max_wave": survey_parameters["IFU_max_wave"],
+                "offset_par": int(around(survey_parameters["IFU_pixel_scale"]*0.25/0.005)), "offset_perp": 0,
+                "IPC": survey_parameters["interpixel_capacitance"], "TTel": survey_parameters["telescope_temperature"]}
 
 
-for i in range(len(survey_parameters["tier_parameters"]["tier_name"])):
-    IFS_trigger_params["trigger_redshifts"] = survey_parameters["tier_parameters"]["trigger_redshifts"][i]
-    IFS_trigger_params["trigger_fraction"] = survey_parameters["tier_parameters"]["trigger_fraction"][i]
+    IFS_args["waves"] = get_spec_with_err(exp_time = 100, redshift = 1., phase = 0, show_plots = 0, **IFS_args)["obs_waves"]
+
+    ground_filt_fns, ground_obslambs, ground_five_sigma_one_hour, WFI_filt_fns = init_ground(survey_parameters["grizY_30s_ground_depths"])
+
+    ground_args = {"waves": ground_obslambs, "filt_fns": ground_filt_fns}
+
+    ################################################### Run! ###################################################
 
 
-    this_SN_data = make_SNe(square_degrees = survey_parameters["tier_parameters"]["square_degrees"][i],
-                            cadence = survey_parameters["tier_parameters"]["cadence"][i],
-                            hours_per_visit = survey_parameters["hours_per_visit"],
-                            survey_duration = survey_parameters["survey_duration"], rates_fn = rates_fn,
-                            redshift_set = redshift_set,
-                            IFS_trigger_params = IFS_trigger_params,
-                            tier_filters = survey_parameters["tier_parameters"]["filters"][i],
-                            tier_exptimes = quantize_time(survey_parameters["tier_parameters"]["exp_times_per_dither"][i]),
-                            dithers = survey_parameters["tier_parameters"]["dithers_per_filter"][i],
-                            ground_depths = get_ground_depths(survey_parameters, tier = i),
-                            parallel_filters = survey_parameters["tier_parameters"]["parallel_filters"][i],
-                            fraction_time = survey_parameters["tier_parameters"]["tier_fraction_time"][i],
-                            total_survey_time = survey_parameters["total_survey_time"],
-                            max_z = survey_parameters["tier_parameters"]["max_z"][i],
-                            max_SNe = survey_parameters["tier_parameters"]["max_SNe"][i],
-                            redshift_step = 0.05,
-                            salt2_model = True, verbose = True, phase_buffer = 20,
-                            survey_fields = survey_parameters["tier_parameters"]["tier_name"][i])
-    this_SN_data["SN_table"]["RAs"] += i*20. # Make sure tiers don't overlap
-    this_SN_data["observation_table"]["RA"] += i*20. # Make sure tiers don't overlap
+    assert survey_parameters["maximum_trigger_fraction"] <= 1
 
-    for j in range(len(this_SN_data["SN_observations"])):
-        this_SN_data["SN_observations"][j]["sncosmo_model"] = None # Can't pickle SNCosmo model!
-        this_SN_data["SN_observations"][j]["gal_background"] = this_SN_data["SN_observations"][j]["gal_background"](IFS_args["waves"])  # Can't pickle SNCosmo model!
+    rates_fn_full = file_to_fn(wfirst_data_path + "/pixel-level/input/" + survey_parameters["SN_rates"]) # per 1e-4 year Mpc^3 (h = 0.7)
+    rates_fn = lambda x: rates_fn_full(x)*survey_parameters["maximum_trigger_fraction"]
 
-    SN_data = merge_SN_data(SN_data, this_SN_data)
+    IFS_trigger_params = dict(adjust_each_SN_exp_time = survey_parameters["adjust_each_SN_exp_time"],
+                              normalization_wavelength_range = survey_parameters["normalization_wavelength_range"],
+                              SNR_set = [survey_parameters["shallow_SNR"], survey_parameters["medium_SNR"], survey_parameters["deep_SNR"], survey_parameters["reference_SNR"]/sqrt(survey_parameters["number_of_reference_dithers"])],
+                              phases = [item[1] for item in survey_parameters["spectra_depth_and_phase"]])
+    IFS_trigger_params["SNRs"] = [IFS_trigger_params["SNR_set"][["shallow", "medium", "deep"].index(item[0])] for item in survey_parameters["spectra_depth_and_phase"]]
+    IFS_trigger_params["number_of_reference_dithers"] = survey_parameters["number_of_reference_dithers"]
+
+    print("IFS_trigger_params", IFS_trigger_params)
+
+    redshift_step = 0.05
+    redshift_set = arange(0.075, 2.475 + redshift_step/10., redshift_step)
+
+    survey_parameters["uniform_IFS_exptimes"] = {}
+    source = sncosmo.SALT2Source(modeldir=wfirst_data_path + "/salt2_extended/")
+
+    for redshift in redshift_set:
+        print("Getting median...")
+        mBs, x1s, colors, masses = make_SALT2_params(size = 10000)
+
+        if max(IFS_args["waves"]) > IFS_trigger_params["normalization_wavelength_range"][1]*(1 + redshift):
+            sncosmo_model = get_SNCosmo_model(redshift = redshift, x1 = median(x1s), c = median(colors), MV = median(mBs - colors), daymax = 0, source = source)
+            survey_parameters["uniform_IFS_exptimes"][redshift] = get_IFS_exptimes(redshift = redshift, sncosmo_model = sncosmo_model, daymax = 0,
+                                                                                   IFS_trigger_params = IFS_trigger_params, gal_flamb = make_galaxy_spectrum([redshift], median_not_random = True)[0])
+
+    IFS_trigger_params["uniform_IFS_exptimes"] = survey_parameters["uniform_IFS_exptimes"]
+
+    SN_data = {}
 
 
-SN_data["survey_parameters"] = survey_parameters
-SN_data["IFC_waves"] = IFS_args["waves"]
 
-pickle.dump(SN_data, open(picklefl, 'wb'))
+    assert sorted(survey_parameters["tier_parameters"]["square_degrees"]) == survey_parameters["tier_parameters"]["square_degrees"], "Smaller tiers should be first/inside in almost all cases to minimize edge effects"
 
-print("Done!")
+    inner_radius = 0.
+
+    for i in range(len(survey_parameters["tier_parameters"]["tier_name"])):
+        print("Running tier", survey_parameters["tier_parameters"]["tier_name"][i])
+        outer_radius = np.sqrt(survey_parameters["tier_parameters"]["square_degrees"][i]/np.pi + inner_radius**2.)
+
+        assert np.isclose(np.pi*outer_radius**2. - np.pi*inner_radius**2., survey_parameters["tier_parameters"]["square_degrees"][i])
+        print("inner_radius", inner_radius, "outer_radius", outer_radius)
+
+        IFS_trigger_params["trigger_redshifts"] = survey_parameters["tier_parameters"]["trigger_redshifts"][i]
+        IFS_trigger_params["trigger_fraction"] = survey_parameters["tier_parameters"]["trigger_fraction"][i]
+
+
+        this_SN_data = make_SNe(inner_radius = inner_radius,
+                                outer_radius = outer_radius,
+                                cadence = survey_parameters["tier_parameters"]["cadence"][i],
+                                hours_per_visit = survey_parameters["hours_per_visit"],
+                                survey_duration = survey_parameters["survey_duration"], rates_fn = rates_fn,
+                                redshift_set = redshift_set,
+                                IFS_trigger_params = IFS_trigger_params,
+                                tier_filters = survey_parameters["tier_parameters"]["filters"][i],
+                                tier_exptimes = quantize_time(survey_parameters["tier_parameters"]["exp_times_per_dither"][i]),
+                                dithers = survey_parameters["tier_parameters"]["dithers_per_filter"][i],
+                                ground_depths = get_ground_depths(survey_parameters, tier = i),
+                                parallel_filters = survey_parameters["tier_parameters"]["parallel_filters"][i],
+                                total_survey_time = survey_parameters["total_survey_time"],
+                                max_z = survey_parameters["tier_parameters"]["max_z"][i],
+                                max_SNe = survey_parameters["tier_parameters"]["max_SNe"][i],
+                                redshift_step = 0.05,
+                                salt2_model = True, verbose = True, phase_buffer = 20,
+                                survey_fields = survey_parameters["tier_parameters"]["tier_name"][i])
+        inner_radius = outer_radius # For next tier
+
+
+    SN_data = run_survey(SN_data = SN_data, square_degrees = square_degrees, tier_filters = tier_filters, tier_exptimes = tier_exptimes,
+                         ground_depths = ground_depths, dithers = dithers, cadence = cadence,
+                         total_survey_time = total_survey_time, hours_per_visit = hours_per_visit,
+                         IFS_trigger_params = IFS_trigger_params, parallel_filters = parallel_filters, survey_duration = survey_duration)
+
+
+    for i in range(len(survey_parameters["tier_parameters"]["tier_name"])):
+        for j in range(len(this_SN_data["SN_observations"])):
+            this_SN_data["SN_observations"][j]["sncosmo_model"] = None # Can't pickle SNCosmo model!
+            this_SN_data["SN_observations"][j]["gal_background"] = this_SN_data["SN_observations"][j]["gal_background"](IFS_args["waves"])  # Can't pickle SNCosmo model!
+
+        SN_data = merge_SN_data(SN_data, this_SN_data)
+
+
+    SN_data["survey_parameters"] = survey_parameters
+    SN_data["IFC_waves"] = IFS_args["waves"]
+
+    pickle.dump(SN_data, open(picklefl, 'wb'))
+
+    print("Done!")
