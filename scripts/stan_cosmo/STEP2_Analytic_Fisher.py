@@ -360,6 +360,22 @@ def residfn(P, wrapped_data):
     return np.concatenate((np.array(resid_norm), priors))
 
 
+def run_fit(fit_coeff, fitdZP, outputsuffix):
+    P, F, Cmat_no_model = miniLM_new(ministart = np.zeros(stan_data["NCoeff"] + stan_data["Nz"] + stan_data["NFilt"], dtype=np.float64),
+                                     miniscale = unparseP(dict(coeff = [fit_coeff]*stan_data["NCoeff"], mu_bins = [1.]*stan_data["Nz"], dZPs = [fitdZP]*stan_data["NFilt"])),
+                                     residfn = residfn,
+                                     passdata = stan_data,
+                                     verbose = True, maxiter = 1)
+    
+    mu_mat_no_model = Cmat_no_model[:stan_data["Nz"], :stan_data["Nz"]]
+    comb_mat = np.zeros([len(mu_mat) + 1, len(mu_mat)], dtype=np.float64)
+    comb_mat[0] = other_data["milliz_list"]
+    comb_mat[0] /= 1000.
+    
+    comb_mat[1:] = mu_mat_no_model
+    
+    save_img(comb_mat, "comb_mat" + outputsuffix + ".fits")
+    
 
 
 direct_inverse = False # Invert cmat rather than use Woodbury matrix identity
@@ -408,18 +424,5 @@ comb_mat[1:] = mu_mat
 save_img(comb_mat, "comb_mat.fits")
 
 
-
-P, F, Cmat_no_model = miniLM_new(ministart = np.zeros(stan_data["NCoeff"] + stan_data["Nz"] + stan_data["NFilt"], dtype=np.float64),
-                                 miniscale = unparseP(dict(coeff = [0.]*stan_data["NCoeff"], mu_bins = [1.]*stan_data["Nz"], dZPs = [1.]*stan_data["NFilt"])),
-                                 residfn = residfn,
-                                 passdata = stan_data,
-                                 verbose = True, maxiter = 1)
-
-mu_mat_no_model = Cmat_no_model[:stan_data["Nz"], :stan_data["Nz"]]
-comb_mat = np.zeros([len(mu_mat) + 1, len(mu_mat)], dtype=np.float64)
-comb_mat[0] = other_data["milliz_list"]
-comb_mat[0] /= 1000.
-
-comb_mat[1:] = mu_mat_no_model
-
-save_img(comb_mat, "comb_mat_no_model.fits")
+run_fit(fit_coeff = 0, fitdZP = 1, outputsuffix = "_no_model")
+run_fit(fit_coeff = 0, fitdZP = 0, outputsuffix = "_stat_only")

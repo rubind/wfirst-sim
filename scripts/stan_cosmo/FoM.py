@@ -19,6 +19,9 @@ for item in sys.argv[1:]:
 
 
 
+    FoM = get_FoM(cmat, z_list, shift_constraint = 0.0035)[0]
+    print("FoM_0.35 ", item, FoM)
+
     FoM = get_FoM(cmat, z_list, shift_constraint = 0.0026)[0]
     print("FoM_0.26 ", item, FoM)
     

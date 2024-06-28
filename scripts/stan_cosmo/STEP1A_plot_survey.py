@@ -1,4 +1,5 @@
 from numpy import *
+import numpy as np
 import pickle as pickle
 import sys
 import subprocess
@@ -517,7 +518,11 @@ def make_SNR_vs_z(SN_data, working_dir, nsne, plt):
     plt.close()
 
 def get_cadence_stops(SN_data):
-    survey_fields = around(SN_data["observation_table"]["RA"]/20.)
+    print(SN_data["observation_table"])
+    
+    survey_fields = array(SN_data["observation_table"]["survey_fields"])
+    
+    
     cadence_stops = []
 
     for i in range(int(survey_fields.max())+1):

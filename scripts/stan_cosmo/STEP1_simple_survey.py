@@ -377,8 +377,8 @@ def get_slew_time(square_degrees):
     return pointings*52.
 
 def add_observations_to_sndata(SN_data, rows_to_add, current_date, ground_depths, square_degrees):
-    rows_added = Table(names = ["date", "filt", "exptime", "RA", "dec", "orient", "instr", "SNind"],
-                       dtype= ("f8", "S10", "f8", "f8", "f8", "f8", "S10", "i4"))
+    rows_added = Table(names = ["date", "filt", "exptime", "RA", "dec", "orient", "instr", "SNind", "tier"],
+                       dtype= ("f8", "S10", "f8", "f8", "f8", "f8", "S10", "i4", "S30"))
 
     filt_set = list(set(list(rows_to_add["filt"])))
     time_used = 0.
@@ -431,7 +431,7 @@ def find_SNe(SN_data, current_date):
 
 def plan_and_add_cadence(SN_data, wfi_time_left, current_date, rows_to_add,
                          cadence,
-                         tier_filters, tier_exptimes, tier_dithers):
+                         tier_filters, tier_exptimes, tier_dithers, tier):
 
 
     for filt, expt, dith in zip(tier_filters, tier_exptimes, tier_dithers):
@@ -443,18 +443,18 @@ def plan_and_add_cadence(SN_data, wfi_time_left, current_date, rows_to_add,
                                              0.0, # RA
                                              0.0, # Dec
                                              0.0, # Angle
-                                             "WFI", -1))
+                                             "WFI", -1, tier))
 
 
             else:
                 pass # Out of time, nothing to add
         else:
-            rows_to_add.add_row((current_date + cadence, filt, 0, 0, 0, 0, "ground", -1))
+            rows_to_add.add_row((current_date + cadence, filt, 0, 0, 0, 0, "ground", -1, tier))
 
     return rows_to_add
 
 
-def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, ground_depths, dithers, cadence, total_survey_time, hours_per_visit, survey_duration):
+def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, tier, ground_depths, dithers, cadence, total_survey_time, hours_per_visit, survey_duration):
 
     starting_time = 31557000*total_survey_time  # Seconds in total_survey_time years
     total_time_left = starting_time
@@ -465,8 +465,8 @@ def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, ground_dept
     # SNind is index of SN (if any) in IFS
     # RA, dec are WFI, not IFS
 
-    observation_table = Table(names = ["date", "filt", "exptime", "RA", "dec", "orient", "instr", "SNind"],
-                              dtype= ("f8", "S10", "f8", "f8", "f8", "f8", "S10", "i4"))
+    observation_table = Table(names = ["date", "filt", "exptime", "RA", "dec", "orient", "instr", "SNind", "tier"],
+                              dtype= ("f8", "S10", "f8", "f8", "f8", "f8", "S10", "i4", "S30"))
 
     # RA is x, Dec is y
 
@@ -475,8 +475,8 @@ def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, ground_dept
     current_trigger_scaling = 1.
 
     # Start with empty table
-    rows_to_add = Table(names = ["date", "filt", "exptime", "RA", "dec", "orient", "instr", "SNind"],
-                        dtype= ("f8", "S10", "f8", "f8", "f8", "f8", "S10", "i4"))
+    rows_to_add = Table(names = ["date", "filt", "exptime", "RA", "dec", "orient", "instr", "SNind", "tier"],
+                        dtype= ("f8", "S10", "f8", "f8", "f8", "f8", "S10", "i4", "S30"))
 
     SN_data["time_remaining_values"] = [[(current_date, total_time_left, total_time_left, current_trigger_scaling)]]
 
@@ -503,7 +503,7 @@ def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, ground_dept
         rows_to_add = plan_and_add_cadence(SN_data = SN_data, wfi_time_left = wfi_time_left, current_date = current_date,
                                            rows_to_add = rows_to_add,
                                            cadence = cadence,
-                                           tier_filters = tier_filters, tier_exptimes = tier_exptimes, tier_dithers = dithers)
+                                           tier_filters = tier_filters, tier_exptimes = tier_exptimes, tier_dithers = dithers, tier = tier)
             
         
         
@@ -647,7 +647,7 @@ def make_SNe(square_degrees, cadence, survey_duration, hours_per_visit,
             print("Observing ", tier_filters, tier_exptimes)
 
 
-    SN_data = run_survey(SN_data = SN_data, square_degrees = square_degrees, tier_filters = tier_filters, tier_exptimes = tier_exptimes,
+    SN_data = run_survey(SN_data = SN_data, square_degrees = square_degrees, tier_filters = tier_filters, tier_exptimes = tier_exptimes, tier = survey_fields,
                          ground_depths = ground_depths, dithers = dithers, cadence = cadence,
                          total_survey_time = total_survey_time, hours_per_visit = hours_per_visit, survey_duration = survey_duration)
     
