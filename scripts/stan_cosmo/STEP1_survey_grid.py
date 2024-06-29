@@ -44,9 +44,10 @@ def make_survey(total_survey_years, widepercent, medpercent, deeppercent, widepe
     square_degrees = 5000*(nnearby/800.)
     
     f.write("""total_survey_time,%.4f,,,,,
-targeted_parallels,TRUE,,,,,
 SN_rates,SN_rates.txt,,,,,
 survey_duration,4,,,,,
+total_FoV,0.82034*0.37628,
+active_FoV,0.281*0.99,
 grizY_30s_ground_depths,24.47,24.16,23.4,22.23,21.57,
 hours_per_visit,30,,,,,
 __________________________________________,,,,,,
