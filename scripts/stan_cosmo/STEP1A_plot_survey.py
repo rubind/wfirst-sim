@@ -520,21 +520,22 @@ def make_SNR_vs_z(SN_data, working_dir, nsne, plt):
 def get_cadence_stops(SN_data):
     print(SN_data["observation_table"])
     
-    survey_fields = array(SN_data["observation_table"]["survey_fields"])
+    survey_fields = array(SN_data["observation_table"]["tier"])
     
     
-    cadence_stops = []
+    
+    cadence_stops = {}
 
-    for i in range(int(survey_fields.max())+1):
+    for tier_name in SN_data["survey_parameters"]["tier_parameters"]["tier_name"]:
         last_date = 1e10
         
         for filt in unique(SN_data["observation_table"]["filt"]):
-            inds = where((survey_fields == i)*(SN_data["observation_table"]["filt"] == filt))
+            inds = where((survey_fields == tier_name)*(SN_data["observation_table"]["filt"] == filt))
             if len(inds[0]) > 0:
                 dmax = SN_data["observation_table"]["date"][inds].max()
-                print("filt ", filt, "tier ", i, dmax)
+                print("filt ", filt, "tier ", tier_name, dmax)
                 last_date = min(last_date, dmax)
-        cadence_stops.append(last_date)
+        cadence_stops[tier_name] = last_date
     print("cadence_stops", cadence_stops)
     return cadence_stops
 
@@ -548,7 +549,7 @@ def make_lc_sampling(SN_data, working_dir, nsne, n_tiers, cadence_stops, plt):
 
     for i, tier_name in enumerate(SN_data["survey_parameters"]["tier_parameters"]["tier_name"] + ["All"]*extra_tier):
         plt.subplot(n_tiers+1, 1, i+1)
-        this_useful_redshift_mask = (SN_data["SN_table"]["daymaxes"] < cadence_stops[i] - 20*(1. + SN_data["SN_table"]["redshifts"]))
+        this_useful_redshift_mask = (SN_data["SN_table"]["daymaxes"] < cadence_stops[tier_name] - 20*(1. + SN_data["SN_table"]["redshifts"]))
         inds = where((survey_fields == tier_name)*(stacked_SNRs[SNR_key] >= SNR_thresh)*this_useful_redshift_mask)
         
     
@@ -698,13 +699,13 @@ def collection_of_plots(pickle_to_read):
                                 this_useful_redshift_mask *= has_IFS_mask
 
                             if tier_name != "All":
-                                this_useful_redshift_mask *= (SN_data["SN_table"]["daymaxes"] < cadence_stops[i] - 20*(1. + SN_data["SN_table"]["redshifts"]))
+                                this_useful_redshift_mask *= (SN_data["SN_table"]["daymaxes"] < cadence_stops[tier_name] - 20*(1. + SN_data["SN_table"]["redshifts"]))
                                 inds = where((survey_fields == tier_name)*(stacked_SNRs[SNR_key] >= SNR_thresh)*this_useful_redshift_mask)
                                 print("inds", inds)
                             else:
                                 good_date = SN_data["SN_table"]["daymaxes"]*0
                                 for j, tmp_tier_name in enumerate(SN_data["survey_parameters"]["tier_parameters"]["tier_name"]):
-                                    good_date += (survey_fields == tmp_tier_name)*(SN_data["SN_table"]["daymaxes"] < cadence_stops[j] - 20*(1. + SN_data["SN_table"]["redshifts"]))
+                                    good_date += (survey_fields == tmp_tier_name)*(SN_data["SN_table"]["daymaxes"] < cadence_stops[tmp_tier_name] - 20*(1. + SN_data["SN_table"]["redshifts"]))
 
                                 inds = where((stacked_SNRs[SNR_key] >= SNR_thresh)*good_date)
 
@@ -784,7 +785,7 @@ def collection_of_plots(pickle_to_read):
                 print(tier_name)
                 print("survey_mask", survey_mask)
                 
-                inds = where((SN_data["SN_table"]["redshifts"] == z_set[j])*(survey_mask)*(SN_data["SN_table"]["daymaxes"] < cadence_stops[i] - 20*(1. + z_set[j])))[0]
+                inds = where((SN_data["SN_table"]["redshifts"] == z_set[j])*(survey_mask)*(stacked_SNRs["All"] > 1)*(SN_data["SN_table"]["daymaxes"] < cadence_stops[tier_name] - 20*(1. + z_set[j])))[0]
                 #print((SN_data["SN_table"]["redshifts"] == z_set[j]))
                 #print((SN_data["SN_table"]["daymaxes"] < cadence_stops[i] - 20*(1. + z_set[j])))
                 #print((SN_data["SN_table"]["redshifts"] == z_set[j])*(survey_mask)*(SN_data["SN_table"]["daymaxes"] < cadence_stops[i] - 20*(1. + z_set[j])))
@@ -829,7 +830,7 @@ def collection_of_plots(pickle_to_read):
         xlim = [1e7, -1e7]
         for i, tier_name in enumerate(SN_data["survey_parameters"]["tier_parameters"]["tier_name"]):
             survey_mask = [item == tier_name for item in survey_fields]
-            inds = where(isclose(SN_data["SN_table"]["redshifts"], this_z)*(survey_mask)*(SN_data["SN_table"]["daymaxes"] < cadence_stops[i] - 20*(1. + this_z)))[0]
+            inds = where(isclose(SN_data["SN_table"]["redshifts"], this_z)*(survey_mask)*(SN_data["SN_table"]["daymaxes"] < cadence_stops[tier_name] - 20*(1. + this_z)))[0]
             print(inds)
 
             S_to_N_inds = []
