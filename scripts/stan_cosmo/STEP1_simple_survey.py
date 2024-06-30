@@ -90,6 +90,7 @@ def read_csv(csv_file):
 
     # Start with global parameters
     for key in ["total_survey_time", "survey_duration", "hours_per_visit", "SN_rates",
+                "total_FoV", "active_FoV",
                 "slew_table", "zodiacal_background", "telescope_temperature", "PSFs", "WFI_PSFs", "interpixel_capacitance",
                 "WFI_dark_current", "WFI_read_noise_floor", "WFI_read_noise_white", "WFI_pixel_scale",
                 "IFU_min_wave", "IFU_max_wave", "IFU_effective_area", "IFU_resolution", "IFU_pixel_scale", "IFU_slice_in_pixels", "IFU_dark_current", "IFU_read_noise_floor", "IFU_read_noise_white", "bad_pixel_rate"]:
@@ -318,10 +319,10 @@ def run_observation_through_ETC(SN_data, row_to_add, current_date):
         for ind in inds:
             #args = cp.deepcopy(WFI_args)
             if row_to_add["filt"] != "P100":
-                if np.random.random() < 0.875: # Approximate fill factor:
+                if np.random.random() < survey_parameters["active_FoV"]/survey_parameters["total_FoV"]: # Approximate fill factor:
                     SN_data = imaging_ETC_wrapper(SN_data = SN_data, ind = ind, row_to_add = row_to_add, current_date = current_date)
             else:
-                if np.random.random() <	0.875:
+                if np.random.random() <	survey_parameters["active_FoV"]/survey_parameters["total_FoV"]:
                     SN_data = prism_ETC_wrapper(SN_data = SN_data, ind = ind, row_to_add = row_to_add, current_date = current_date)
 
 
@@ -373,7 +374,7 @@ def quantize_time(t):
     return np.ceil(np.array(t)/3.04001)*3.04 # The ...01 is for numerical accuracy.
 
 def get_slew_time(square_degrees):
-    pointings = square_degrees/0.281
+    pointings = square_degrees/survey_parameters["total_FoV"]
     return pointings*52.
 
 def add_observations_to_sndata(SN_data, rows_to_add, current_date, ground_depths, square_degrees):
@@ -402,7 +403,7 @@ def add_observations_to_sndata(SN_data, rows_to_add, current_date, ground_depths
         for ind in inds:
             # For this filter, for current_date, for row "ind"
             if rows_to_add["instr"][ind] != "ground":
-                time_used += quantize_time(rows_to_add["exptime"][ind])*(square_degrees/0.281)
+                time_used += quantize_time(rows_to_add["exptime"][ind])*(square_degrees/survey_parameters["total_FoV"])
                 SN_data = run_observation_through_ETC(SN_data, rows_to_add[ind], current_date)
             else:
                 #print("ground_depths", ground_depths)

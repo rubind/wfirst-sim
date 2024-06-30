@@ -404,6 +404,20 @@ print("parsed_uncs", parsed_uncs)
 rest_2D = rest_model_1D_to_2D(parsed["coeff"], other_data = other_data)
 rest_2D_mag_uncs = rest_model_1D_to_2D(parsed_uncs["coeff"], other_data = other_data)
 
+
+rest_mag_uncs_max = rest_2D_mag_uncs[other_data["phase0_ind"], :]
+
+assert len(rest_mag_uncs_max) == len(other_data["model_rest"])
+
+for i in range(len(other_data["model_rest"])):
+    print("model_unc ", ("%05i" % int(other_data["model_rest"][i])), rest_mag_uncs_max[i])
+
+
+for i in range(len(other_data["filt_names"])):
+    print("ZP_unc ", other_data["filt_names"][i], parsed_uncs["dZPs"][i])
+    
+
+
 save_img(rest_2D, "rest_2D.fits")
 rest_2D_flux = 10.**(-0.4*rest_2D)
 save_img(rest_2D_flux, "rest_2D_flux.fits")

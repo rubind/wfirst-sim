@@ -8,7 +8,7 @@ from scipy.stats import scoreatpercentile
 
 colors = {"R062": (1, 0.5, 1), "Z087": 'm', "Y106": 'b', "J129": 'g', "H158": 'orange', "F184": 'r', "K193": 'r', "Ground_g": 'm', "Ground_r": 'b', "Ground_i": 'c', "Ground_z": 'g', "Ground_Y": 'orange', "g": 'm', "r": 'b', "i": 'c', "z": 'g', "Y": 'orange', "W146": 'orange', "Euclid_Y": 'b', "Euclid_J": 'g', "Euclid_H": 'orange', "P100": 'k'}
 
-def plot_a_SN(lc_data, daymax, plot_to_make, phase_not_date, redshift, plt, flc = None):
+def plot_a_SN(lc_data, daymax, plot_to_make, phase_not_date, redshift, plt, stacked_SNRs, SN_ind, flc = None):
 
 
     filts_used = unique(lc_data["filts"])
@@ -24,7 +24,7 @@ def plot_a_SN(lc_data, daymax, plot_to_make, phase_not_date, redshift, plt, flc 
         else:
             xvals = array(lc_data["dates"])[inds]
         if plot_to_make == "LC":
-            plt.errorbar(xvals, array(lc_data["fluxes"])[inds] + (len(filt) == 1)*3, yerr = array(lc_data["dfluxes"])[inds], fmt = '.', capsize = 0, color = colors[filt], label = "$" + filt.replace("Ground_", "") + "$")
+            plt.errorbar(xvals, array(lc_data["fluxes"])[inds] + (len(filt) == 1)*3, yerr = array(lc_data["dfluxes"])[inds], fmt = '.', capsize = 0, color = colors[filt], label = "$" + filt.replace("Ground_", "") + "$: %.1f" % stacked_SNRs[filt[0]][SN_ind])
             if flc != None:
                 for i in range(len(xvals)):
                     flc.write("%.3f  %.3f  %.3f  %s  %.3f\n" % (xvals[i], array(lc_data["fluxes"])[inds][i], array(lc_data["dfluxes"])[inds][i], filt, redshift))
@@ -643,11 +643,27 @@ def collection_of_plots(pickle_to_read):
         inds = where(SNRs > 0)
         total_SNR = sqrt(dot(SNRs[inds], SNRs[inds]))
         stacked_SNRs["RZYJHFK"].append(total_SNR)
+        
+        for filt in set(SN_data["SN_observations"][i]["filts"]):
+            if not filt[0] in stacked_SNRs:
+                stacked_SNRs[filt[0]] = []
 
+    for i in range(nsne):
+        for filt in stacked_SNRs:
+            if len(filt) == 1:
+                IRinds = where(np.array([item[0] for item in SN_data["SN_observations"][i]["filts"]]) == filt)
+                SNRs = np.array(SN_data["SN_observations"][i]["fluxes"][IRinds])/np.array(SN_data["SN_observations"][i]["dfluxes"][IRinds])
+                inds = np.where(SNRs > 0)
+                total_SNR = np.sqrt(np.dot(SNRs[inds], SNRs[inds]))
 
+                stacked_SNRs[filt[0]].append(total_SNR)
+            
+        
 
     for key in stacked_SNRs:
         stacked_SNRs[key] = array(stacked_SNRs[key])
+
+    print("stacked_SNRs", stacked_SNRs)
 
 
     survey_fields = array(SN_data["SN_table"]["survey_fields"])
@@ -813,7 +829,7 @@ def collection_of_plots(pickle_to_read):
                     plt.title(label_items, size = 7)
                     if plot_to_make == "LC":
                         flc.write("_"*42 + '\n')
-                    plot_a_SN(SN_data["SN_observations"][ind], SN_data["SN_table"]["daymaxes"][ind], plot_to_make = plot_to_make, phase_not_date = 1, redshift = z_set[j], plt = plt, flc = flc)
+                    plot_a_SN(SN_data["SN_observations"][ind], SN_data["SN_table"]["daymaxes"][ind], plot_to_make = plot_to_make, phase_not_date = 1, redshift = z_set[j], plt = plt, flc = flc, stacked_SNRs = stacked_SNRs, SN_ind = ind)
                     plt.xticks(fontsize = 6)
                     plt.yticks(fontsize = 6)
                     plt.ylim(0, plt.ylim()[1])
@@ -843,7 +859,7 @@ def collection_of_plots(pickle_to_read):
             ind = S_to_N_inds[int(len(S_to_N_inds)/2.)][1]
 
             plt.subplot(n_tiers, len(z_to_plot), len(z_to_plot)*i+1 + j)
-            plot_a_SN(SN_data["SN_observations"][ind], SN_data["SN_table"]["daymaxes"][ind], plot_to_make = "LC", phase_not_date = 1, redshift = z_set[j], plt = plt)
+            plot_a_SN(SN_data["SN_observations"][ind], SN_data["SN_table"]["daymaxes"][ind], plot_to_make = "LC", phase_not_date = 1, redshift = z_set[j], plt = plt, stacked_SNRs = stacked_SNRs, SN_ind = ind)
             plt.xticks(fontsize = 8)
             plt.yticks(fontsize = 8)
             plt.ylim(0, plt.ylim()[1])
