@@ -37,9 +37,23 @@ max_z,%.2f,\n""" % (tier_name, tier_percent/100., square_degrees,
     
 
     
-def make_survey(total_survey_years, widepercent, medpercent, deeppercent, widepercent_prism, deeppercent_prism, nnearby,
-                wide_filts, med_filts, deep_filts, suffix):
-    wd = location + "/yr=%.3f_w=%03i_m=%03i_d=%03i_wp=%03i_dp=%03i_nnearby=%05i_%s+%s+%s_%s" % (total_survey_years, widepercent, medpercent, deeppercent, widepercent_prism, deeppercent_prism, nnearby, wide_filts, med_filts, deep_filts, suffix)
+def make_survey(total_survey_years, widepercent, medpercent, widepercent_prism, medpercent_prism, deeppercent_prism,
+                nnearby, wide_filts, med_filts, deep_filts, suffix = "0"):
+
+    deeppercent = 100 - (widepercent + medpercent)
+
+    if widepercent < 0 or widepercent > 100:
+        return 0
+
+    if medpercent < 0 or medpercent > 100:
+        return 0
+    
+    if deeppercent < 0 or deeppercent > 100:
+        return 0
+
+    
+    wd = location + "/yr=%.3f_w=%03i_m=%03i_d=%03i_wp=%03i_mp=%03i_dp=%03i_nnearby=%05i_%s+%s+%s_%s" % (total_survey_years, widepercent, medpercent, deeppercent, widepercent_prism, medpercent_prism, deeppercent_prism,
+                                                                                                        nnearby, wide_filts, med_filts, deep_filts, suffix)
     getoutput("mkdir -p " + wd)
 
     f = open(wd + "/paramfile.csv", 'w')
@@ -105,7 +119,8 @@ max_z,0.1,
     exp_times_dict = dict(R = 152.9, Z = 67.6, Y = 75.3, J = 92.2, H = 187.9, F = 390.4, P = 1800.)
     exp_times = [exp_times_dict[item] for item in med_filts]
 
-    write_tier(f, total_survey_years = total_survey_years, tier_name = "MediumNoPrism", tier_percent = medpercent, exp_times = exp_times, cadence = 5, filters = med_filts, max_z = 2.0)
+    write_tier(f, total_survey_years = total_survey_years, tier_name = "MediumNoPrism", tier_percent = medpercent*(1. - medpercent_prism/100.), exp_times = exp_times, cadence = 5, filters = med_filts, max_z = 2.0)
+    write_tier(f, total_survey_years = total_survey_years, tier_name = "MediumPrism", tier_percent = medpercent*medpercent_prism/100., exp_times = exp_times + [exp_times_dict["P"]], cadence = 5, filters = med_filts + "P", max_z = 2.0)
 
 
     exp_times_dict = dict(R = 152.9, Z = 152.9, Y = 235.4, J = 246.3, H = 336.7, F = 1017.6, P = 3600.)
@@ -143,6 +158,7 @@ pip install sep
     f.close()
 
     print(getoutput("cd " + wd + "\n sbatch run.sh"))
+    return 1
 
 
 def make_survey_wrap(*args, **kwargs):
@@ -150,26 +166,42 @@ def make_survey_wrap(*args, **kwargs):
         kwargs["suffix"] = "%02i" % realization
         make_survey(*args, **kwargs)
 
+    
         
 wide_exp_times = [] # RZYJHF, z=0.5
 med_exp_times = [] # RZYJHF, z=1.0
 deep_exp_times = [] # RZYJHF, z=1.7
 
+grid_vals = dict(widepercent = np.arange(0, 101, 5),
+                 medpercent = np.arange(0, 101, 5),
+                 total_survey_years = [0.5],
+                 nnearby = [800],
+                 wide_filts = ["RZYJHF", "RZYJH", "RZYJ", "RZY", "RZJ", "RZH"],
+                 med_filts = ["RZYJHF", "ZYJHF", "YJHF", "RZYJH", "RZYJ", "ZYJH"],
+	         deep_filts = ["RZYJHF", "ZYJHF", "YJHF", "RZYJH", "ZYJH"],
+                 widepercent_prism = np.arange(0, 41, 2),
+                 medpercent_prism = np.arange(0, 101, 5),
+                 deeppercent_prism = np.arange(0, 101, 5))
+                 
+
+                 
 grid_type = sys.argv[1]
 location = sys.argv[2]
 n_real = int(sys.argv[3])
 
 getoutput("rm -fr " + location)
 
+
+
+
 if grid_type == "tier_fraction":
-    for widepercent in np.arange(0, 101, 5):
-        for medpercent in np.arange(0, 101, 5):
-            if widepercent + medpercent <= 100:
-                deeppercent = 100 - (widepercent + medpercent)
-                
-                print("widepercent", widepercent, "medpercent", medpercent, "deeppercent", deeppercent)
-                
-                make_survey(total_survey_years = 0.5, widepercent = widepercent, medpercent = medpercent, deeppercent = deeppercent, nnearby = 800, widepercent_prism = 0, deeppercent_prism = 25)
+    for widepercent in grid_vals["widepercent"]:
+        for medpercent in grid_vals["medpercent"]:
+            deeppercent = 100 - (widepercent + medpercent)
+            
+            print("widepercent", widepercent, "medpercent", medpercent, "deeppercent", deeppercent)
+            
+            make_survey(total_survey_years = 0.5, widepercent = widepercent, medpercent = medpercent, nnearby = 800, widepercent_prism = 0, deeppercent_prism = 25)
 
 elif grid_type == "total_time":
     for total_survey_years in np.arange(0.05, 1.01, 0.025):
@@ -196,7 +228,15 @@ elif grid_type == "prism_fraction":
             print("widepercent_prism", widepercent_prism, "deeppercent_prism", deeppercent_prism, "widepercent", widepercent, "deeppercent", deeppercent)
             make_survey(total_survey_years = 0.5, widepercent = widepercent, medpercent = 0, deeppercent = deeppercent, nnearby = 800, widepercent_prism = widepercent_prism, deeppercent_prism = deeppercent_prism)
             
-
+elif grid_type == "random":
+    good_surveys = 0
+    while good_surveys < n_real:
+        these_pars = {}
+        for key in grid_vals:
+            these_pars[key] = np.random.choice(grid_vals[key])
+        print(these_pars)
+        good_surveys += make_survey(**these_pars)
+        print("good_surveys", good_surveys)
 
 else:
-    print("Unknown grid type! want: tier_fraction total_time prism_fraction filt_choice or nnearby")
+    print("Unknown grid type! want: tier_fraction total_time prism_fraction filt_choice nnearby or random")
