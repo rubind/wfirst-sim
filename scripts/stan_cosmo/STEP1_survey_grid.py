@@ -8,6 +8,8 @@ def write_tier(f, total_survey_years, tier_name, tier_percent, exp_times, filter
     if tier_percent == 0:
         return 0
 
+    assert len(filters) == len(exp_times)
+
     cadence_steps = 365.24*2/cadence
     exp_times_w_overhead_seconds = sum(np.array(exp_times) + 52.)
     number_of_pointings_per_visit = (0.01*tier_percent*total_survey_years*86400*365.24)/(exp_times_w_overhead_seconds*cadence_steps)
@@ -35,8 +37,9 @@ max_z,%.2f,\n""" % (tier_name, tier_percent/100., square_degrees,
     
 
     
-def make_survey(total_survey_years, widepercent, medpercent, deeppercent, widepercent_prism, deeppercent_prism, nnearby):
-    wd = location + "/yr=%.3f_w=%03i_m=%03i_d=%03i_wp=%03i_dp=%03i_nnearby=%05i" % (total_survey_years, widepercent, medpercent, deeppercent, widepercent_prism, deeppercent_prism, nnearby)
+def make_survey(total_survey_years, widepercent, medpercent, deeppercent, widepercent_prism, deeppercent_prism, nnearby,
+                wide_filts, med_filts, deep_filts):
+    wd = location + "/yr=%.3f_w=%03i_m=%03i_d=%03i_wp=%03i_dp=%03i_nnearby=%05i_%s+%s+%s" % (total_survey_years, widepercent, medpercent, deeppercent, widepercent_prism, deeppercent_prism, nnearby, wide_filts, med_filts, deep_filts)
     getoutput("mkdir -p " + wd)
 
     f = open(wd + "/paramfile.csv", 'w')
@@ -90,13 +93,26 @@ max_z,0.1,
 """ % (square_degrees, nnearby))
 
 
-
+    
+    
         
-    write_tier(f, total_survey_years = total_survey_years, tier_name = "WideNoPrism", tier_percent = widepercent*(1. - widepercent_prism/100.), exp_times = [24.6, 31.4, 42.8, 61.8, 94, 175.4], filters = "RZYJHF", cadence = 10, max_z = 1.0)
-    write_tier(f, total_survey_years = total_survey_years, tier_name = "WidePrism", tier_percent = widepercent*widepercent_prism/100., exp_times = [24.6, 31.4, 42.8, 61.8, 94, 175.4, 1800.], filters = "RZYJHFP", cadence = 10, max_z = 1.0)
-    write_tier(f, total_survey_years = total_survey_years, tier_name = "MediumNoPrism", tier_percent = medpercent, exp_times = [152.9, 67.6, 75.3, 92.2, 187.9, 390.4], cadence = 5, filters = "RZYJHF", max_z = 2.0)
-    write_tier(f, total_survey_years = total_survey_years, tier_name = "DeepNoPrism", tier_percent = deeppercent*(1. - deeppercent_prism/100.), exp_times = [152.9, 152.9, 235.4, 246.3, 336.7, 1017.6], cadence = 5, filters = "RZYJHF", max_z = 2.5)
-    write_tier(f, total_survey_years = total_survey_years, tier_name = "DeepPrism", tier_percent = deeppercent*deeppercent_prism/100., exp_times = [152.9, 152.9, 235.4, 246.3, 336.7, 1017.6, 3600.], cadence = 5, filters = "RZYJHFP", max_z = 2.5)
+    exp_times_dict = dict(R = 24.6, Z = 31.4, Y = 42.8, J = 61.8, H = 94, F = 175.4, P = 1800.) # Note, cadence is 10
+    exp_times = [exp_times_dict[item] for item in wide_filts]
+    
+    write_tier(f, total_survey_years = total_survey_years, tier_name = "WideNoPrism", tier_percent = widepercent*(1. - widepercent_prism/100.), exp_times = exp_times, filters = wide_filts, cadence = 10, max_z = 1.0)
+    write_tier(f, total_survey_years = total_survey_years, tier_name = "WidePrism", tier_percent = widepercent*widepercent_prism/100., exp_times = exp_times, filters = wide_filts, cadence = 10, max_z = 1.0)
+
+    exp_times_dict = dict(R = 152.9, Z = 67.6, Y = 75.3, J = 92.2, H = 187.9, F = 390.4, P = 1800.)
+    exp_times = [exp_times_dict[item] for item in med_filts]
+
+    write_tier(f, total_survey_years = total_survey_years, tier_name = "MediumNoPrism", tier_percent = medpercent, exp_times = exp_times, cadence = 5, filters = med_filts, max_z = 2.0)
+
+
+    exp_times_dict = dict(R = 152.9, Z = 152.9, Y = 235.4, J = 246.3, H = 336.7, F = 1017.6, P = 3600.)
+    exp_times = [exp_times_dict[item] for item in deep_filts]
+
+    write_tier(f, total_survey_years = total_survey_years, tier_name = "DeepNoPrism", tier_percent = deeppercent*(1. - deeppercent_prism/100.), exp_times = exp_times, cadence = 5, filters = deep_filts, max_z = 2.5)
+    write_tier(f, total_survey_years = total_survey_years, tier_name = "DeepPrism", tier_percent = deeppercent*deeppercent_prism/100., exp_times = exp_times, cadence = 5, filters = deep_filts, max_z = 2.5)
 
     f.close()
 
@@ -156,6 +172,14 @@ elif grid_type == "nnearby":
     for nnearby in np.arange(0, 3001, 200):
         make_survey(total_survey_years = 0.375, widepercent = 70, medpercent = 0, deeppercent = 30, nnearby = int(nnearby))
 
+elif grid_type == "filt_choice":
+    for wide_filts in ["RZYJHF", "RZYJH", "RZYJ", "RZY", "RZJ", "RZH"]:
+        for deep_filts in ["RZYJHF", "ZYJHF", "YJHF"]:
+            make_survey(total_survey_years = 0.5, widepercent = 70, medpercent = 0, deeppercent = 30, nnearby = 800, widepercent_prism = 0, deeppercent_prism = 25,
+                        wide_filts = wide_filts, med_filts = "RZYJHF", deep_filts = deep_filts)
+
+
+
 elif grid_type == "prism_fraction":
     for widepercent_prism in np.arange(0, 21, 1):
         for deeppercent_prism in np.arange(0, 101, 5):
@@ -168,4 +192,4 @@ elif grid_type == "prism_fraction":
 
 
 else:
-    print("Unknown grid type! want: tier_fraction total_time prism_fraction or nnearby")
+    print("Unknown grid type! want: tier_fraction total_time prism_fraction filt_choice or nnearby")
