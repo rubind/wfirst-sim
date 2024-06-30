@@ -100,7 +100,7 @@ max_z,0.1,
     exp_times = [exp_times_dict[item] for item in wide_filts]
     
     write_tier(f, total_survey_years = total_survey_years, tier_name = "WideNoPrism", tier_percent = widepercent*(1. - widepercent_prism/100.), exp_times = exp_times, filters = wide_filts, cadence = 10, max_z = 1.0)
-    write_tier(f, total_survey_years = total_survey_years, tier_name = "WidePrism", tier_percent = widepercent*widepercent_prism/100., exp_times = exp_times + exp_times_dict["P"], filters = wide_filts + "P", cadence = 10, max_z = 1.0)
+    write_tier(f, total_survey_years = total_survey_years, tier_name = "WidePrism", tier_percent = widepercent*widepercent_prism/100., exp_times = exp_times + [exp_times_dict["P"]], filters = wide_filts + "P", cadence = 10, max_z = 1.0)
 
     exp_times_dict = dict(R = 152.9, Z = 67.6, Y = 75.3, J = 92.2, H = 187.9, F = 390.4, P = 1800.)
     exp_times = [exp_times_dict[item] for item in med_filts]
@@ -112,7 +112,7 @@ max_z,0.1,
     exp_times = [exp_times_dict[item] for item in deep_filts]
 
     write_tier(f, total_survey_years = total_survey_years, tier_name = "DeepNoPrism", tier_percent = deeppercent*(1. - deeppercent_prism/100.), exp_times = exp_times, cadence = 5, filters = deep_filts, max_z = 2.5)
-    write_tier(f, total_survey_years = total_survey_years, tier_name = "DeepPrism", tier_percent = deeppercent*deeppercent_prism/100., exp_times = exp_times + exp_times_dict["P"], cadence = 5, filters = deep_filts + "P", max_z = 2.5)
+    write_tier(f, total_survey_years = total_survey_years, tier_name = "DeepPrism", tier_percent = deeppercent*deeppercent_prism/100., exp_times = exp_times + [exp_times_dict["P"]], cadence = 5, filters = deep_filts + "P", max_z = 2.5)
 
     f.close()
 
