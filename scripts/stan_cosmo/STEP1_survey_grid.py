@@ -38,8 +38,8 @@ max_z,%.2f,\n""" % (tier_name, tier_percent/100., square_degrees,
 
     
 def make_survey(total_survey_years, widepercent, medpercent, deeppercent, widepercent_prism, deeppercent_prism, nnearby,
-                wide_filts, med_filts, deep_filts):
-    wd = location + "/yr=%.3f_w=%03i_m=%03i_d=%03i_wp=%03i_dp=%03i_nnearby=%05i_%s+%s+%s" % (total_survey_years, widepercent, medpercent, deeppercent, widepercent_prism, deeppercent_prism, nnearby, wide_filts, med_filts, deep_filts)
+                wide_filts, med_filts, deep_filts, suffix):
+    wd = location + "/yr=%.3f_w=%03i_m=%03i_d=%03i_wp=%03i_dp=%03i_nnearby=%05i_%s+%s+%s_%s" % (total_survey_years, widepercent, medpercent, deeppercent, widepercent_prism, deeppercent_prism, nnearby, wide_filts, med_filts, deep_filts, suffix)
     getoutput("mkdir -p " + wd)
 
     f = open(wd + "/paramfile.csv", 'w')
@@ -143,14 +143,21 @@ pip install sep
     f.close()
 
     print(getoutput("cd " + wd + "\n sbatch run.sh"))
-    
 
+
+def make_survey_wrap(*args, **kwargs):
+    for realization in range(n_real):
+        kwargs["suffix"] = "%02i" % realization
+        make_survey(*args, **kwargs)
+
+        
 wide_exp_times = [] # RZYJHF, z=0.5
 med_exp_times = [] # RZYJHF, z=1.0
 deep_exp_times = [] # RZYJHF, z=1.7
 
 grid_type = sys.argv[1]
 location = sys.argv[2]
+n_real = int(sys.argv[3])
 
 getoutput("rm -fr " + location)
 
@@ -174,9 +181,9 @@ elif grid_type == "nnearby":
 
 elif grid_type == "filt_choice":
     for wide_filts in ["RZYJHF", "RZYJH", "RZYJ", "RZY", "RZJ", "RZH"]:
-        for deep_filts in ["RZYJHF", "ZYJHF", "YJHF"]:
-            make_survey(total_survey_years = 0.5, widepercent = 70, medpercent = 0, deeppercent = 30, nnearby = 800, widepercent_prism = 0, deeppercent_prism = 25,
-                        wide_filts = wide_filts, med_filts = "RZYJHF", deep_filts = deep_filts)
+        for deep_filts in ["RZYJHF", "ZYJHF", "YJHF", "RZYJH", "ZYJH"]:
+            make_survey_wrap(total_survey_years = 0.5, widepercent = 70, medpercent = 0, deeppercent = 30, nnearby = 800, widepercent_prism = 0, deeppercent_prism = 25,
+                             wide_filts = wide_filts, med_filts = "RZYJHF", deep_filts = deep_filts)
 
 
 
