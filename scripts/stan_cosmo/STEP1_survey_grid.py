@@ -155,6 +155,8 @@ pip install sep
     f.write("python $WFIRST/scripts/stan_cosmo/STEP1_simple_survey.py paramfile.csv survey.pickle > log.txt\n")
     f.write("python $WFIRST/scripts/stan_cosmo/STEP2_Analytic_Fisher.py survey.pickle > fisher_log.txt\n")
     f.write("python $WFIRST/scripts/stan_cosmo/FoM.py comb_mat.fits > FoM.txt\n")
+    f.write("python $WFIRST/scripts/stan_cosmo/FoM.py comb_mat_no_model.fits > FoM_no_model.txt\n")
+    f.write("python $WFIRST/scripts/stan_cosmo/FoM.py comb_mat_stat_only.fits > FoM_stat_only.txt\n")
     f.close()
 
     print(getoutput("cd " + wd + "\n sbatch run.sh"))
