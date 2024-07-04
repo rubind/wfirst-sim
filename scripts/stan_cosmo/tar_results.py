@@ -4,7 +4,7 @@ import sys
 dr = sys.argv[1]
 tfl = dr.replace("/", "") + ".tar"
 
-cmd = "tar -cvf " + tfl + " " + dr + "/*/param* " + dr + "/*/fisher_log.txt " + dr + "/*/*FoM*"
+cmd = "tar -cvf " + tfl + " " + dr + "/*/param* " + dr + "/*/fisher_log.txt " + dr + "/*/*FoM* " + dr + "/*/*sh"
 print(cmd)
 print(subprocess.getoutput(cmd))
 print(subprocess.getoutput("gzip " + tfl))
