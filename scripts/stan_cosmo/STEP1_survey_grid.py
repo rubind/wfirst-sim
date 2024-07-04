@@ -44,7 +44,7 @@ def make_survey(total_survey_years, widepercent, medpercent, widepercent_prism, 
                 exp_times_dict_med = dict(R = 152.9, Z = 67.6, Y = 75.3, J = 92.2, H = 187.9, F = 390.4, P = 1800.),
                 exp_times_dict_deep = dict(R = 152.9, Z = 152.9, Y = 235.4, J = 246.3, H = 336.7, F = 1017.6, P = 3600.),
                 wide_cadence = 10, med_cadence = 5, deep_cadence = 5,
-                SN_rates = "SN_rates.txt"):
+                SN_rates = "SN_rates.txt", SNRMax = 0):
 
     deeppercent = 100 - (widepercent + medpercent)
 
@@ -170,7 +170,7 @@ pip install sep
 """)
     f.write("cd " + pwd + "/" + wd + '\n')
     f.write("python $WFIRST/scripts/stan_cosmo/STEP1_simple_survey.py paramfile.csv survey.pickle > log.txt\n")
-    f.write("python $WFIRST/scripts/stan_cosmo/STEP2_Analytic_Fisher.py survey.pickle > fisher_log.txt\n")
+    f.write("python $WFIRST/scripts/stan_cosmo/STEP2_Analytic_Fisher.py survey.pickle --SNRMax %i > fisher_log.txt\n" % SNRMax)
     f.write("python $WFIRST/scripts/stan_cosmo/FoM.py comb_mat.fits > FoM.txt\n")
     f.write("python $WFIRST/scripts/stan_cosmo/FoM.py comb_mat_no_model.fits > FoM_no_model.txt\n")
     f.write("python $WFIRST/scripts/stan_cosmo/FoM.py comb_mat_stat_only.fits > FoM_stat_only.txt\n")
@@ -215,7 +215,7 @@ def read_csv():
         
         make_survey(total_survey_years = 0.375, widepercent = 100.*tot_wide/(tot_wide + tot_deep), medpercent = 0., widepercent_prism = 0., medpercent_prism = 0., deeppercent_prism = 0., nnearby = 800.,
                     wide_filts = wide_filts[i], med_filts = "", deep_filts = deep_filts[i], exp_times_dict_wide = exp_times_dict_wide, exp_times_dict_deep = exp_times_dict_deep,
-                    wd = survey_name[i].replace(" ", "_"), wide_cadence = wide_cadence[i], deep_cadence = deep_cadence[i], SN_rates = "SN_rates_powerlaw.txt")
+                    wd = survey_name[i].replace(" ", "_"), wide_cadence = wide_cadence[i], deep_cadence = deep_cadence[i], SN_rates = "SN_rates_powerlaw.txt", SNRMax = 1)
         
         
 wide_exp_times = [] # RZYJHF, z=0.5
