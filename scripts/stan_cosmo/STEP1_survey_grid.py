@@ -43,8 +43,8 @@ def make_survey(total_survey_years, widepercent, medpercent, widepercent_prism, 
                 exp_times_dict_wide = dict(R = 24.6, Z = 31.4, Y = 42.8, J = 61.8, H = 94, F = 175.4, P = 1800.), # Note, cadence is 10
                 exp_times_dict_med = dict(R = 152.9, Z = 67.6, Y = 75.3, J = 92.2, H = 187.9, F = 390.4, P = 1800.),
                 exp_times_dict_deep = dict(R = 152.9, Z = 152.9, Y = 235.4, J = 246.3, H = 336.7, F = 1017.6, P = 3600.),
-                wide_cadence = 10, med_cadence = 5, deep_cadence = 5
-                ):
+                wide_cadence = 10, med_cadence = 5, deep_cadence = 5,
+                SN_rates = "SN_rates.txt"):
 
     deeppercent = 100 - (widepercent + medpercent)
 
@@ -72,7 +72,7 @@ def make_survey(total_survey_years, widepercent, medpercent, widepercent_prism, 
     square_degrees = 5000*(nnearby/800.)
     
     f.write("""total_survey_time,%.4f,,,,,
-SN_rates,SN_rates.txt,,,,,
+SN_rates,%s,,,,,
 survey_duration,4,,,,,
 total_FoV,0.82034*0.37628,
 active_FoV,0.281*0.99,
@@ -100,7 +100,7 @@ IFU_pixel_scale,0.11,,,,,
 IFU_slice_in_pixels,5,,,,,
 IFU_dark_current,1.2,,,,,
 bad_pixel_rate,0.01,,,,,
-""" % (total_survey_years))
+""" % (total_survey_years, SN_rates))
     
     if nnearby > 0:
         f.write("""__________________________________________,,,,,,
@@ -215,7 +215,7 @@ def read_csv():
         
         make_survey(total_survey_years = 0.375, widepercent = 100.*tot_wide/(tot_wide + tot_deep), medpercent = 0., widepercent_prism = 0., medpercent_prism = 0., deeppercent_prism = 0., nnearby = 800.,
                     wide_filts = wide_filts[i], med_filts = "", deep_filts = deep_filts[i], exp_times_dict_wide = exp_times_dict_wide, exp_times_dict_deep = exp_times_dict_deep,
-                    wd = survey_name[i].replace(" ", "_"), wide_cadence = wide_cadence[i], deep_cadence = deep_cadence[i])
+                    wd = survey_name[i].replace(" ", "_"), wide_cadence = wide_cadence[i], deep_cadence = deep_cadence[i], SN_rates = "SN_rates_powerlaw.txt")
         
         
 wide_exp_times = [] # RZYJHF, z=0.5
