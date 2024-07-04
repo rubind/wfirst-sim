@@ -90,7 +90,7 @@ def read_csv(csv_file):
 
     # Start with global parameters
     for key in ["total_survey_time", "survey_duration", "hours_per_visit", "SN_rates",
-                "total_FoV", "active_FoV",
+                "total_FoV", "active_FoV", "sn_model",
                 "slew_table", "zodiacal_background", "telescope_temperature", "PSFs", "WFI_PSFs", "interpixel_capacitance",
                 "WFI_dark_current", "WFI_read_noise_floor", "WFI_read_noise_white", "WFI_pixel_scale",
                 "IFU_min_wave", "IFU_max_wave", "IFU_effective_area", "IFU_resolution", "IFU_pixel_scale", "IFU_slice_in_pixels", "IFU_dark_current", "IFU_read_noise_floor", "IFU_read_noise_white", "bad_pixel_rate"]:
@@ -258,6 +258,8 @@ def imaging_ETC_wrapper(SN_data, ind, row_to_add, current_date):
     print("row_to_add", row_to_add)
     print("current_date", current_date)
     
+
+
     
     f_lamb_SN = SN_data["SN_observations"][ind]["sncosmo_model"].flux(current_date, WFI_args["waves"])
     WFI_args["mdl"] = f_lamb_SN
@@ -375,7 +377,7 @@ def quantize_time(t):
 
 def get_slew_time(square_degrees):
     pointings = square_degrees/survey_parameters["total_FoV"]
-    return pointings*52.
+    return pointings*55.
 
 def add_observations_to_sndata(SN_data, rows_to_add, current_date, ground_depths, square_degrees):
     rows_added = Table(names = ["date", "filt", "exptime", "RA", "dec", "orient", "instr", "SNind", "tier"],
@@ -394,7 +396,6 @@ def add_observations_to_sndata(SN_data, rows_to_add, current_date, ground_depths
         print(inds)
         if len(inds) > 0 and rows_to_add["instr"][inds[0]] != "ground":
             tmp_slew_time = get_slew_time(square_degrees)
-            tmp_slew_time += quantize_time(3. * 120./7.) # 51 seconds for changing filters (three changes)
 
 
             time_used += tmp_slew_time
@@ -614,11 +615,19 @@ def make_SNe(square_degrees, cadence, survey_duration, hours_per_visit,
     # I'm going to put the SN LC information into the per-SN dictionary list, as it needs to contain items like an SNCosmo model
 
     gal_backgrounds = make_galaxy_spectrum(redshifts)
-    source = sncosmo.SALT2Source(modeldir=wfirst_data_path + "/salt2_extended/")
 
+    if survey_parameters["sn_model"] == "salt2_extended":
+        source = sncosmo.SALT2Source(modeldir=wfirst_data_path + "/salt2_extended/")
+    elif survey_parameters["sn_model"] == "SALT3.NIR_WAVEEXT":
+        source = sncosmo.SALT3Source(modeldir=wfirst_data_path + "/SALT3.NIR_WAVEEXT/")
+    else:
+        assert 0, "Unknown sn_model " + survey_parameters["sn_model"]
+        
     for i in tqdm.trange(nsne):
         MV, x1, c, host_mass, sncosmo_model = realize_SN(redshifts[i], daymaxes[i], source = source)
-        
+
+        if i == 0:
+            print(sncosmo_model)
 
         SN_data["SN_observations"].append(dict(
             MV = MV, x1 = x1, c = c, host_mass = host_mass, sncosmo_model = sncosmo_model, gal_background = gal_backgrounds[i],
@@ -748,7 +757,7 @@ if __name__ == "__main__":
     redshift_step = 0.05
     redshift_set = arange(0.075, 2.475 + redshift_step/10., redshift_step)
 
-    source = sncosmo.SALT2Source(modeldir=wfirst_data_path + "/salt2_extended/")
+    #source = sncosmo.SALT2Source(modeldir=wfirst_data_path + "/salt2_extended/")
 
     SN_data = {}
 

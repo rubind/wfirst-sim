@@ -3,16 +3,16 @@ multiprocessing.set_start_method("fork")
 import pystan
 import numpy as np
 import pickle
-import sys
 import matplotlib.pyplot as plt
 import extinction
 from DavidsNM import save_img, miniLM_new
 from scipy.interpolate import RectBivariateSpline, interp1d
 import tqdm
+import argparse
 
 
 def load_data():
-    SN_data = pickle.load(open(sys.argv[1], 'rb'))
+    SN_data = pickle.load(open(opts.pickle, 'rb'))
 
     for key in SN_data:
         print("SN_data", key)
@@ -134,8 +134,31 @@ def get_stan_data(SN_data):
         
         SNRs = SN_LC["true_fluxes"][good_inds] / (SN_LC["dfluxes"][good_inds])
         NPts = len(SN_LC["dates"][good_inds])
-                   
-        if NPts > 10 and np.sqrt(sum(SNRs**2.)) > 40:
+
+
+        if opts.SNRMax == 0:
+            good_LC = (NPts > 10)*(np.sqrt(sum(SNRs**2.)) > 40)
+        else:
+            unique_filts = np.unique(SN_LC["filts"][good_inds])
+            SNR_maxes = []
+            for unique_filt in unique_filts:
+                SNR_rest_lambs = np.array([other_data["lambs_dict"][item]/(1. + this_z) for item in SN_LC["filts"]])
+                SNR_inds = np.where((SNR_rest_lambs > other_data["model_rest"][0])*
+                                    (SNR_rest_lambs < other_data["model_rest"][-1])*
+                                    (1 - np.isnan(SN_LC["true_fluxes"]))*
+                                    (SN_LC["true_fluxes"] > 0)*(SN_LC["filts"] == unique_filt)
+                                    )
+                SNR_tmps = SN_LC["true_fluxes"][SNR_inds] / (SN_LC["dfluxes"][SNR_inds])
+                SNR_maxes.append(np.max(SNR_tmps))
+            SNR_maxes.sort()
+            SNR_maxes = SNR_maxes[::-1]
+
+            if len(SNR_maxes) > 2:
+                good_LC = (SNR_maxes[0] >= 10)*(SNR_maxes[2] >= 5)
+            else:
+                good_LC = 0
+                
+        if good_LC:
             stan_data["mags"].append(-2.5*np.log10(SN_LC["true_fluxes"][good_inds]))
             stan_data["dmags"].append((2.5/np.log(10.)) * np.abs(SN_LC["dfluxes"][good_inds]/SN_LC["true_fluxes"][good_inds]))
             stan_data["d_mag_d_filt"].append(np.zeros([NPts, stan_data["NFilt"]], dtype=np.float64))
@@ -379,7 +402,17 @@ def run_fit(fit_coeff, fitdZP, outputsuffix):
 
 
 direct_inverse = False # Invert cmat rather than use Woodbury matrix identity
-prism_bins = 25
+
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument("pickle")
+parser.add_argument("--prism_bins", help="Number of prism bins in wavelength", default = 25, type=int)
+parser.add_argument("--SNRMax", help="Use > 10 > 5 > 5 for LC selection, rather than total S/N", default = False, type=bool)
+opts = parser.parse_args()
+
+prism_bins = opts.prism_bins
+
 
 
 SN_data = load_data()

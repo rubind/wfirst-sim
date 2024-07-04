@@ -572,6 +572,40 @@ def write_pointings(SN_data, working_dir):
     f.close()
 
 
+def make_SNRMAX_plots(SN_data, working_dir, plt, pickle_to_read):
+    nsne = SN_data["nsne"]
+    SNR_pass = []
+
+
+
+    for i in range(nsne):
+        SNRs = array(SN_data["SN_observations"][i]["fluxes"])/array(SN_data["SN_observations"][i]["dfluxes"])
+        SNR_max_by_filt = []
+        for filt in np.unique(SN_data["SN_observations"][i]["filts"]):
+            inds = where(SN_data["SN_observations"][i]["filts"] == filt)            
+
+            SNR_max_by_filt.append(np.max(SNRs[inds]))
+
+        SNR_max_by_filt.sort()
+        SNR_max_by_filt = SNR_max_by_filt[::-1]
+        #print("SNR_max_by_filt", SNR_max_by_filt)
+
+        if len(SNR_max_by_filt) > 2:
+            if SNR_max_by_filt[0] >= 10 and SNR_max_by_filt[2] >= 5:
+                SNR_pass.append(1)
+            else:
+                SNR_pass.append(0)
+        else:
+            SNR_pass.append(0)
+            
+
+    assert len(SN_data["SN_table"]["redshifts"]) == len(SNR_pass)
+
+    SNR_pass = np.array(SNR_pass)
+    
+    plt.hist(SN_data["SN_table"]["redshifts"][np.where(SNR_pass == 1)], bins = np.arange(0, 2.51, 0.1))
+    plt.title(pickle_to_read)
+    plt.savefig(working_dir + "/redshift_SNRPEAK.pdf", bbox_inches = 'tight')
 
 def collection_of_plots(pickle_to_read):
     from matplotlib import use
@@ -618,6 +652,8 @@ def collection_of_plots(pickle_to_read):
     plt.ylabel("Date of Maximum")
     plt.savefig(working_dir + "/" + outputname + "_" + "daymax_vs_redshift.pdf")
     plt.close()
+
+    make_SNRMAX_plots(SN_data, working_dir, plt, pickle_to_read = pickle_to_read)
 
     z_set = list(set(list(SN_data["SN_table"]["redshifts"])))
     z_set.sort()

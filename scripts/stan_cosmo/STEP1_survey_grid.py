@@ -2,6 +2,7 @@ import numpy as np
 from subprocess import getoutput
 import tqdm
 import sys
+from FileRead import readcol
 
 
 def write_tier(f, total_survey_years, tier_name, tier_percent, exp_times, filters, cadence, max_z):
@@ -38,7 +39,12 @@ max_z,%.2f,\n""" % (tier_name, tier_percent/100., square_degrees,
 
     
 def make_survey(total_survey_years, widepercent, medpercent, widepercent_prism, medpercent_prism, deeppercent_prism,
-                nnearby, wide_filts, med_filts, deep_filts, suffix = "0"):
+                nnearby, wide_filts, med_filts, deep_filts, suffix = "0", wd = "",
+                exp_times_dict_wide = dict(R = 24.6, Z = 31.4, Y = 42.8, J = 61.8, H = 94, F = 175.4, P = 1800.), # Note, cadence is 10
+                exp_times_dict_med = dict(R = 152.9, Z = 67.6, Y = 75.3, J = 92.2, H = 187.9, F = 390.4, P = 1800.),
+                exp_times_dict_deep = dict(R = 152.9, Z = 152.9, Y = 235.4, J = 246.3, H = 336.7, F = 1017.6, P = 3600.),
+                wide_cadence = 10, med_cadence = 5, deep_cadence = 5
+                ):
 
     deeppercent = 100 - (widepercent + medpercent)
 
@@ -51,9 +57,14 @@ def make_survey(total_survey_years, widepercent, medpercent, widepercent_prism, 
     if deeppercent < 0 or deeppercent > 100:
         return 0
 
-    
-    wd = location + "/yr=%.3f_w=%03i_m=%03i_d=%03i_wp=%03i_mp=%03i_dp=%03i_nnearby=%05i_%s+%s+%s_%s" % (total_survey_years, widepercent, medpercent, deeppercent, widepercent_prism, medpercent_prism, deeppercent_prism,
-                                                                                                        nnearby, wide_filts, med_filts, deep_filts, suffix)
+
+    if wd == "":
+        wd = location + "/yr=%.3f_w=%03i_m=%03i_d=%03i_wp=%03i_mp=%03i_dp=%03i_nnearby=%05i_%s+%s+%s_cad=%02i+%02i+%02i_%s" % (total_survey_years, widepercent, medpercent, deeppercent, widepercent_prism, medpercent_prism, deeppercent_prism,
+                                                                                                                               nnearby, wide_filts, med_filts, deep_filts, wide_cadence, med_cadence, deep_cadence, suffix)
+    else:
+        wd = location + "/" + wd
+
+        
     getoutput("mkdir -p " + wd)
 
     f = open(wd + "/paramfile.csv", 'w')
@@ -107,27 +118,32 @@ max_z,0.1,
 """ % (square_degrees, nnearby))
 
 
+
+    if not "P" in exp_times_dict_wide:
+        exp_times_dict_wide["P"] = 1800
+        assert widepercent_prism == 0
+    if not "P" in exp_times_dict_med:
+        exp_times_dict_med["P"] = 1800
+        assert medpercent_prism == 0
+    if not "P" in exp_times_dict_deep:
+        exp_times_dict_deep["P"] = 3600
+        assert deeppercent_prism == 0
+
+
+    exp_times = [exp_times_dict_wide[item] for item in wide_filts]
     
-    
-        
-    exp_times_dict = dict(R = 24.6, Z = 31.4, Y = 42.8, J = 61.8, H = 94, F = 175.4, P = 1800.) # Note, cadence is 10
-    exp_times = [exp_times_dict[item] for item in wide_filts]
-    
-    write_tier(f, total_survey_years = total_survey_years, tier_name = "WideNoPrism", tier_percent = widepercent*(1. - widepercent_prism/100.), exp_times = exp_times, filters = wide_filts, cadence = 10, max_z = 1.0)
-    write_tier(f, total_survey_years = total_survey_years, tier_name = "WidePrism", tier_percent = widepercent*widepercent_prism/100., exp_times = exp_times + [exp_times_dict["P"]], filters = wide_filts + "P", cadence = 10, max_z = 1.0)
+    write_tier(f, total_survey_years = total_survey_years, tier_name = "WideNoPrism", tier_percent = widepercent*(1. - widepercent_prism/100.), exp_times = exp_times, filters = wide_filts, cadence = wide_cadence, max_z = 1.0)
+    write_tier(f, total_survey_years = total_survey_years, tier_name = "WidePrism", tier_percent = widepercent*widepercent_prism/100., exp_times = exp_times + [exp_times_dict_wide["P"]], filters = wide_filts + "P", cadence = wide_cadence, max_z = 1.0)
 
-    exp_times_dict = dict(R = 152.9, Z = 67.6, Y = 75.3, J = 92.2, H = 187.9, F = 390.4, P = 1800.)
-    exp_times = [exp_times_dict[item] for item in med_filts]
+    exp_times = [exp_times_dict_med[item] for item in med_filts]
 
-    write_tier(f, total_survey_years = total_survey_years, tier_name = "MediumNoPrism", tier_percent = medpercent*(1. - medpercent_prism/100.), exp_times = exp_times, cadence = 5, filters = med_filts, max_z = 2.0)
-    write_tier(f, total_survey_years = total_survey_years, tier_name = "MediumPrism", tier_percent = medpercent*medpercent_prism/100., exp_times = exp_times + [exp_times_dict["P"]], cadence = 5, filters = med_filts + "P", max_z = 2.0)
+    write_tier(f, total_survey_years = total_survey_years, tier_name = "MediumNoPrism", tier_percent = medpercent*(1. - medpercent_prism/100.), exp_times = exp_times, cadence = med_cadence, filters = med_filts, max_z = 2.0)
+    write_tier(f, total_survey_years = total_survey_years, tier_name = "MediumPrism", tier_percent = medpercent*medpercent_prism/100., exp_times = exp_times + [exp_times_dict_med["P"]], cadence = med_cadence, filters = med_filts + "P", max_z = 2.0)
 
+    exp_times = [exp_times_dict_deep[item] for item in deep_filts]
 
-    exp_times_dict = dict(R = 152.9, Z = 152.9, Y = 235.4, J = 246.3, H = 336.7, F = 1017.6, P = 3600.)
-    exp_times = [exp_times_dict[item] for item in deep_filts]
-
-    write_tier(f, total_survey_years = total_survey_years, tier_name = "DeepNoPrism", tier_percent = deeppercent*(1. - deeppercent_prism/100.), exp_times = exp_times, cadence = 5, filters = deep_filts, max_z = 2.5)
-    write_tier(f, total_survey_years = total_survey_years, tier_name = "DeepPrism", tier_percent = deeppercent*deeppercent_prism/100., exp_times = exp_times + [exp_times_dict["P"]], cadence = 5, filters = deep_filts + "P", max_z = 2.5)
+    write_tier(f, total_survey_years = total_survey_years, tier_name = "DeepNoPrism", tier_percent = deeppercent*(1. - deeppercent_prism/100.), exp_times = exp_times, cadence = deep_cadence, filters = deep_filts, max_z = 2.5)
+    write_tier(f, total_survey_years = total_survey_years, tier_name = "DeepPrism", tier_percent = deeppercent*deeppercent_prism/100., exp_times = exp_times + [exp_times_dict_deep["P"]], cadence = deep_cadence, filters = deep_filts + "P", max_z = 2.5)
 
     f.close()
 
@@ -168,7 +184,38 @@ def make_survey_wrap(*args, **kwargs):
         kwargs["suffix"] = "%02i" % realization
         make_survey(*args, **kwargs)
 
-    
+
+def read_csv():
+    # 2TIER_PRISM25_4bands a00-t00-z00,SHALLOW,RZYJ,0.5,91,25.72,242,3,R:30.0;Z:30.0;Y:33.0;J:47.2,DEEP,YJHF,1.2,22,6.43,146,5,Y:101.3;J:109.1;H:201.0;F:471.5
+
+    [survey_name, tier_name, wide_filts, NA, NA, wide_square_degrees, wide_nvisit, wide_cadence, wide_exptimes,
+     tier_name, deep_filts, NA, NA, deep_square_degrees, deep_nvisit, deep_cadence, deep_exptimes] = readcol("params.csv", "aaa,ff,fff,a,,aa,ff,fff,a", splitchar = ",")
+
+    for i in range(len(survey_name)):
+        exp_times_dict_wide = {}
+        exp_times_dict_deep = {}
+        
+        for item in wide_exptimes[i].split(";"):
+            exp_times_dict_wide[item.split(":")[0]] = float(item.split(":")[1])
+
+        for item in deep_exptimes[i].split(";"):
+            exp_times_dict_deep[item.split(":")[0]] = float(item.split(":")[1])
+
+        print(exp_times_dict_wide)
+        print(exp_times_dict_deep)
+
+        tot_wide = sum([exp_times_dict_wide[item] + 55. for item in exp_times_dict_wide])
+        tot_deep = sum([exp_times_dict_deep[item] + 55. for item in exp_times_dict_deep])
+
+        tot_wide *= wide_nvisit[i]*wide_square_degrees[i]/0.28
+        tot_deep *= deep_nvisit[i]*deep_square_degrees[i]/0.28
+
+        print("total ", (tot_wide + tot_deep)/(86400*365.24))
+        
+        make_survey(total_survey_years = 0.375, widepercent = 100.*tot_wide/(tot_wide + tot_deep), medpercent = 0., widepercent_prism = 0., medpercent_prism = 0., deeppercent_prism = 0., nnearby = 800.,
+                    wide_filts = wide_filts[i], med_filts = "", deep_filts = deep_filts[i], exp_times_dict_wide = exp_times_dict_wide, exp_times_dict_deep = exp_times_dict_deep,
+                    wd = survey_name[i].replace(" ", "_"), wide_cadence = wide_cadence[i], deep_cadence = deep_cadence[i])
+        
         
 wide_exp_times = [] # RZYJHF, z=0.5
 med_exp_times = [] # RZYJHF, z=1.0
@@ -240,5 +287,9 @@ elif grid_type == "random":
         good_surveys += make_survey(**these_pars)
         print("good_surveys", good_surveys)
 
+elif grid_type == "read_csv":
+    read_csv()
+    
+        
 else:
-    print("Unknown grid type! want: tier_fraction total_time prism_fraction filt_choice nnearby or random")
+    print("Unknown grid type! want: tier_fraction total_time prism_fraction filt_choice nnearby read_csv or random")
