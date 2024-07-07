@@ -113,8 +113,8 @@ def make_IFS_date_plot(SN_data, working_dir, nsne, outputname, plt):
 
     if len(all_IFS_dates) > 0:
         plt.hist(all_IFS_dates, bins = arange(min(all_IFS_dates) - 0.5,
-                                              max(all_IFS_dates) + SN_data["survey_parameters"]["tier_parameters"]["cadence"][0],
-                                              SN_data["survey_parameters"]["tier_parameters"]["cadence"][0]), linewidth = 0)
+                                              max(all_IFS_dates) + SN_data["survey_parameters"]["tier_parameters"]["cadences"][0][0],
+                                              SN_data["survey_parameters"]["tier_parameters"]["cadences"][0][0]), linewidth = 0)
     plt.savefig(working_dir + "/IFS_dates_%s.pdf" % outputname, bbox_inches = 'tight')
     plt.close()
 
@@ -732,9 +732,9 @@ def collection_of_plots(pickle_to_read):
     survey_fields = array([str(item).split("'")[1] for item in survey_fields])
     print("survey_fields", survey_fields)
 
-    for use_malm in (0,1):
-        for cumulative in (0,1):
-            for has_IFS in (0,1):
+    for use_malm in [0,1]:
+        for cumulative in [0]:
+            for has_IFS in [0]:
                 for SNR_key in stacked_SNRs:
                     plt.figure(figsize=(6,1+3.5*n_tiers + 3.5*extra_tier))
 
@@ -836,7 +836,7 @@ def collection_of_plots(pickle_to_read):
                 survey_mask = [item == tier_name for item in survey_fields]
                 print(survey_fields)
                 print(tier_name)
-                print("survey_mask", survey_mask)
+                #print("survey_mask", survey_mask)
                 
                 inds = where((SN_data["SN_table"]["redshifts"] == z_set[j])*(survey_mask)*(stacked_SNRs["All"] > 1)*(SN_data["SN_table"]["daymaxes"] < cadence_stops[tier_name] - 20*(1. + z_set[j])))[0]
                 #print((SN_data["SN_table"]["redshifts"] == z_set[j]))

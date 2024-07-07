@@ -190,14 +190,15 @@ max_z,0.1,
 
     f.close()
 
-    memory_needed = 12 + 12*(deeppercent_prism + widepercent_prism > 0)
+    memory_needed = 12 + 16*(deeppercent_prism + widepercent_prism > 0)
+
     
     pwd = getoutput("pwd")
     f = open(wd + "/run.sh", 'w')
     f.write("""#!/bin/bash
 #SBATCH --job-name=sim
 #SBATCH --partition=shared
-#SBATCH --time=0-05:00:00 ## time format is DD-HH:MM:SS
+#SBATCH --time=0-08:00:00 ## time format is DD-HH:MM:SS
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=""" + str(memory_needed) + """G # Memory per node my job requires
@@ -268,7 +269,7 @@ grid_vals = dict(widepercent = np.arange(0, 101, 5),
                  medpercent = np.arange(0, 101, 5),
                  total_survey_years = [0.5],
                  nnearby = [800],
-                 wide_filts = ["RZYJHF", "RZYJH", "RZYJ", "RZY", "RZJ", "RZH", "Y", "J", "H", "F"],
+                 wide_filts = ["RZYJHF", "RZYJH", "RZYJ", "RZY", "RZJ", "RZH", "ZYJ", "ZYJH", "ZJH", "ZHF", "ZYH"],
                  med_filts = ["RZYJHF", "ZYJHF", "YJHF", "RZYJH", "RZYJ", "ZYJH"],
 	         deep_filts = ["RZYJHF", "ZYJHF", "YJHF", "RZYJH", "ZYJH"],
                  widepercent_prism = np.arange(0, 41, 2),
