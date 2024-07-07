@@ -274,8 +274,7 @@ grid_vals = dict(widepercent = np.arange(0, 101, 5),
 	         deep_filts = ["RZYJHF", "ZYJHF", "YJHF", "RZYJH", "ZYJH"],
                  widepercent_prism = np.arange(0, 41, 2),
                  medpercent_prism = np.arange(0, 101, 5),
-                 deeppercent_prism = np.arange(0, 101, 5),
-                 wide_rubin = [0, 1])
+                 deeppercent_prism = np.arange(0, 101, 5))
                  
 
                  
@@ -328,9 +327,12 @@ elif grid_type == "random":
         these_pars = {}
         for key in grid_vals:
             these_pars[key] = np.random.choice(grid_vals[key])
-        print(these_pars)
-        good_surveys += make_survey(**these_pars)
-        print("good_surveys", good_surveys)
+
+        for wide_rubin in [0,1]:
+            these_pars["wide_rubin"] = wide_rubin
+            print(these_pars)
+            good_surveys += make_survey(**these_pars)
+            print("good_surveys", good_surveys)
 
 elif grid_type == "read_csv":
     read_csv()
