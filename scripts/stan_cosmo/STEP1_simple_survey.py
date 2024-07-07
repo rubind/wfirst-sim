@@ -107,8 +107,8 @@ def read_csv(csv_file):
     print("n_tiers ", n_tiers)
     
 
-    single_keys = ["tier_name", "square_degrees", "cadence", "max_z", "max_SNe", "tier_fraction_time"]
-    list_keys = ["filters", "exp_times_per_dither", "dithers_per_filter"]
+    single_keys = ["tier_name", "square_degrees", "max_z", "max_SNe", "tier_fraction_time"]
+    list_keys = ["filters", "exp_times_per_dither", "dithers_per_filter", "cadences", "cadence_offsets"]
     survey_parameters["tier_parameters"] = {}
     for key in single_keys + list_keys:
         survey_parameters["tier_parameters"][key] = []
@@ -214,10 +214,6 @@ def realize_SN(redshift, daymax, source):
 def round_to_cadence(vals, cadence):
     return cadence*around(vals/float(cadence))
 
-def date_to_roll_angle(the_date):
-    even_step = float(isclose(the_date % 2, 0)) # Assumes cadence is odd!!!!!!
-    delta_angle = even_step*0.35 - 0.175
-    return (the_date*2.*pi/365.24 + delta_angle) % (2.*pi)
 
 def compress_lc_data(SN_data, current_date, filt):
     """If more than one observation per day, bin."""
@@ -255,8 +251,8 @@ def compress_lc_data(SN_data, current_date, filt):
 
 
 def imaging_ETC_wrapper(SN_data, ind, row_to_add, current_date):
-    print("row_to_add", row_to_add)
-    print("current_date", current_date)
+    #print("row_to_add", row_to_add)
+    #print("current_date", current_date)
     
 
 
@@ -311,6 +307,8 @@ def prism_ETC_wrapper(SN_data, ind, row_to_add, current_date):
 
 
 def run_observation_through_ETC(SN_data, row_to_add, current_date):
+    print("Observing", row_to_add, current_date)
+    
     phases = (current_date - SN_data["SN_table"]["daymaxes"])/(1. + SN_data["SN_table"]["redshifts"])
 
     active_SN_mask = (phases >= -15.)*(phases <= 45.)
@@ -397,7 +395,7 @@ def add_observations_to_sndata(SN_data, rows_to_add, current_date, ground_depths
         if len(inds) > 0 and rows_to_add["instr"][inds[0]] != "ground":
             tmp_slew_time = get_slew_time(square_degrees)
 
-
+            
             time_used += tmp_slew_time
             slew_time += tmp_slew_time
         
@@ -431,17 +429,19 @@ def find_SNe(SN_data, current_date):
     return SN_data
 
 
-def plan_and_add_cadence(SN_data, wfi_time_left, current_date, rows_to_add,
-                         cadence,
+def plan_and_add_cadence(SN_data, wfi_time_left, next_date, rows_to_add,
+                         tier_cadences, tier_cadence_offsets,
                          tier_filters, tier_exptimes, tier_dithers, tier):
 
 
-    for filt, expt, dith in zip(tier_filters, tier_exptimes, tier_dithers):
+    for filt, expt, dith, cadence, cadence_offset in zip(tier_filters, tier_exptimes, tier_dithers, tier_cadences, tier_cadence_offsets):
+        dates_for_this_filt = np.arange(cadence_offset, 10000, cadence)
         if len(filt) > 1:
             # If WFI, not ground
             if wfi_time_left:
                 for j in range(dith):
-                        rows_to_add.add_row((current_date + cadence, filt, expt,
+                    if np.min(np.abs(dates_for_this_filt - next_date)) < 0.001:
+                        rows_to_add.add_row((next_date, filt, expt,
                                              0.0, # RA
                                              0.0, # Dec
                                              0.0, # Angle
@@ -451,12 +451,14 @@ def plan_and_add_cadence(SN_data, wfi_time_left, current_date, rows_to_add,
             else:
                 pass # Out of time, nothing to add
         else:
-            rows_to_add.add_row((current_date + cadence, filt, 0, 0, 0, 0, "ground", -1, tier))
+            # Cadence offsets don't work here
+            assert cadence_offset == 0
+            rows_to_add.add_row((next_date, filt, 0, 0, 0, 0, "ground", -1, tier))
 
     return rows_to_add
 
 
-def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, tier, ground_depths, dithers, cadence, total_survey_time, hours_per_visit, survey_duration):
+def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, tier, ground_depths, dithers, tier_cadences, tier_cadence_offsets, total_survey_time, hours_per_visit, survey_duration):
 
     starting_time = 31557000*total_survey_time  # Seconds in total_survey_time years
     total_time_left = starting_time
@@ -473,20 +475,33 @@ def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, tier, groun
     # RA is x, Dec is y
 
     print(observation_table)
-    current_date = 0.
-    current_trigger_scaling = 1.
+
 
     # Start with empty table
     rows_to_add = Table(names = ["date", "filt", "exptime", "RA", "dec", "orient", "instr", "SNind", "tier"],
                         dtype= ("f8", "S10", "f8", "f8", "f8", "f8", "S10", "i4", "S30"))
 
-    SN_data["time_remaining_values"] = [[(current_date, total_time_left, total_time_left, current_trigger_scaling)]]
 
-    while (len(rows_to_add["filt"]) > 0 or current_date == 0) and (current_date < 365.24*survey_duration):
+
+    possible_cadence_steps = []
+    for i in range(len(tier_cadences)):
+        possible_cadence_steps += list(np.arange(tier_cadence_offsets[i], 365.24*survey_duration + 100, tier_cadences[i]))
+    possible_cadence_steps = list(set(possible_cadence_steps))
+    possible_cadence_steps.sort()
+
+    print(possible_cadence_steps)
+    
+    
+    assert possible_cadence_steps[0] == 0
+    current_date = possible_cadence_steps[0]
+    SN_data["time_remaining_values"] = [[(current_date, total_time_left, total_time_left)]]
+
+    while (len(rows_to_add["filt"]) > 0 or current_date == 0) and (current_date < 365.24*survey_duration) and (total_time_left >= 0): # The >= 0 is important for ground-based tiers with no Roman
 
         # Step 1: Add previously planned observations
-        SN_data, rows_to_add, rows_added, time_used, slew_time = add_observations_to_sndata(SN_data = SN_data, rows_to_add = rows_to_add, current_date = current_date, square_degrees = square_degrees,
-                                                                                                         ground_depths = ground_depths)
+        SN_data, rows_to_add, rows_added, time_used, slew_time = add_observations_to_sndata(SN_data = SN_data, rows_to_add = rows_to_add,
+                                                                                            current_date = current_date, square_degrees = square_degrees,
+                                                                                            ground_depths = ground_depths)
         for i in range(len(rows_added)):
             observation_table.add_row(rows_added[i])
         total_time_left -= time_used
@@ -502,17 +517,19 @@ def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, tier, groun
         wfi_time_left = estimated_time_left > 0
         # This is an approximate ending condition; we'll see how close total_time_left comes to zero.
             
-        rows_to_add = plan_and_add_cadence(SN_data = SN_data, wfi_time_left = wfi_time_left, current_date = current_date,
+        rows_to_add = plan_and_add_cadence(SN_data = SN_data, wfi_time_left = wfi_time_left, next_date = possible_cadence_steps[1],
                                            rows_to_add = rows_to_add,
-                                           cadence = cadence,
+                                           tier_cadences = tier_cadences, tier_cadence_offsets = tier_cadence_offsets,
                                            tier_filters = tier_filters, tier_exptimes = tier_exptimes, tier_dithers = dithers, tier = tier)
             
-        
+
+        print(current_date, "rows_to_add", rows_to_add)
         
         print("\nEnd of day", current_date, "time left", total_time_left, time.asctime(), '\n')
 
-        current_date += cadence
-        SN_data["time_remaining_values"][0].append((current_date, total_time_left, estimated_time_left, current_trigger_scaling))
+        del possible_cadence_steps[0]
+        current_date = possible_cadence_steps[0]
+        SN_data["time_remaining_values"][0].append((current_date, total_time_left, estimated_time_left))
     
         print("date ", current_date, "total_time_left ", total_time_left)
 
@@ -534,7 +551,7 @@ def make_random_positions(inner_radius, outer_radius, nsne):
     return RAs, Decs
 
 
-def make_SNe(square_degrees, cadence, survey_duration, hours_per_visit,
+def make_SNe(square_degrees, tier_cadences, tier_cadence_offsets, survey_duration, hours_per_visit,
              rates_fn, redshift_set, tier_filters, tier_exptimes, ground_depths, dithers,
              total_survey_time, max_z, max_SNe, redshift_step = 0.05, salt2_model = True, verbose = False, phase_buffer = 20, survey_fields = "None"):
     #assert square_degrees <= 5000, "Should use more accurate formula for large surveys!"
@@ -658,7 +675,7 @@ def make_SNe(square_degrees, cadence, survey_duration, hours_per_visit,
 
 
     SN_data = run_survey(SN_data = SN_data, square_degrees = square_degrees, tier_filters = tier_filters, tier_exptimes = tier_exptimes, tier = survey_fields,
-                         ground_depths = ground_depths, dithers = dithers, cadence = cadence,
+                         ground_depths = ground_depths, dithers = dithers, tier_cadences = tier_cadences, tier_cadence_offsets = tier_cadence_offsets,
                          total_survey_time = total_survey_time, hours_per_visit = hours_per_visit, survey_duration = survey_duration)
     
             
@@ -769,7 +786,8 @@ if __name__ == "__main__":
 
 
         this_SN_data = make_SNe(square_degrees = survey_parameters["tier_parameters"]["square_degrees"][i],
-                                cadence = survey_parameters["tier_parameters"]["cadence"][i],
+                                tier_cadences = survey_parameters["tier_parameters"]["cadences"][i],
+                                tier_cadence_offsets = survey_parameters["tier_parameters"]["cadence_offsets"][i],
                                 hours_per_visit = survey_parameters["hours_per_visit"],
                                 survey_duration = survey_parameters["survey_duration"], rates_fn = rates_fn,
                                 redshift_set = redshift_set,

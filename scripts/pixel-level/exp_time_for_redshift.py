@@ -188,6 +188,7 @@ parser.add_argument("--nsne", help="Number of SNe", type=int, default = 400)
 parser.add_argument("--SNRpeaktarg", help="S/N per point at peak", type=float, default = 10)
 parser.add_argument("--SNRpeakred", help="S/N per point at this redshift", type=float, default = 1)
 parser.add_argument("--addhost", type=int, default = 1)
+parser.add_argument("--SNmodel", type=str)
 
 
 opts = parser.parse_args()
@@ -248,12 +249,18 @@ if 1:
             phases = [-10, -8, -6, 0]
 
     exp_times = 10**np.arange(0.5, 5.01, 0.05)
-    source = sncosmo.SALT2Source(modeldir=wfirst_data_path + "/salt2_extended/")
+    if opts.SNmodel == "salt2_extended":
+        source = sncosmo.SALT2Source(modeldir=wfirst_data_path + "/salt2_extended/")
+    elif opts.SNmodel == "SALT3.NIR_WAVEEXT":
+        source = sncosmo.SALT3Source(modeldir=wfirst_data_path + "/SALT3.NIR_WAVEEXT/")
+    else:
+        assert 0
+        
     effective_meters2_fl = file_to_fn(wfirst_data_path + "/pixel-level/input/" + opts.filt + ".txt")
 
     for sqrtt in [0]:
         plt.figure(figsize = (6*len(redshifts), 4*len(phases)))
-        pltname = "StoN_vs_exptime_%s_TTel_%.1f_%s%s_%s_dark=%.3f_rnf=%.1f_rnw=%.1f_SNRtarg=%.2f@%.2f_addhost=%i_zlots=%.1f" % (opts.filt, opts.ttel, psfnm, "_sqrtt"*sqrtt, opts.zodi, opts.wfcdark, opts.wfcrnf, opts.wfcrnw, opts.SNRpeaktarg, opts.SNRpeakred, opts.addhost, opts.zlots)
+        pltname = "StoN_vs_exptime_%s_TTel_%.1f_%s%s_%s_dark=%.3f_rnf=%.1f_rnw=%.1f_SNRtarg=%.2f@%.2f_addhost=%i_mod=%s_zlots=%.1f" % (opts.filt, opts.ttel, psfnm, "_sqrtt"*sqrtt, opts.zodi, opts.wfcdark, opts.wfcrnf, opts.wfcrnw, opts.SNRpeaktarg, opts.SNRpeakred, opts.addhost, opts.SNmodel, opts.zlots)
 
         if not sqrtt:
             fres = open(pltname + ".txt", 'w')
@@ -383,7 +390,13 @@ else:
 
     exp_time = float(sys.argv[4])
 
-    source = sncosmo.SALT2Source(modeldir=wfirst_data_path + "/salt2_extended/")
+
+    if opts.SNmodel == "salt2_extended":
+        source = sncosmo.SALT2Source(modeldir=wfirst_data_path + "/salt2_extended/")
+    elif opts.SNmodel == "SALT3.NIR_WAVEEXT":
+        source = sncosmo.SALT3Source(modeldir=wfirst_data_path + "/SALT3.NIR_WAVEEXT/")
+    else:
+        assert 0
 
     plt.figure(figsize = (6*len(redshifts), 4*6))
     pltname = "StoN_vs_phase_TTel_%.1f_exp=%.1f_%s" % (TTel, exp_time, psfnm)

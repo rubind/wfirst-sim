@@ -623,6 +623,7 @@ def collection_of_plots(pickle_to_read):
 
     outputname = pickle_to_read.split("/")[-1].replace("_pickle", "").replace("pickle", "").replace(".txt", "")
     print("outputname ", outputname)
+    subprocess.getoutput("rm -fr " + working_dir)
     subprocess.getoutput("mkdir " + working_dir)
 
     for i in range(10):
@@ -855,7 +856,7 @@ def collection_of_plots(pickle_to_read):
                     plt.subplot(3, n_tiers, n_tiers*k+1 + i)
 
                     label_items = tier_name + " z=%.3f SNRs" %  z_set[j]
-                    for key in stacked_SNRs:
+                    for key in ["All"]:#stacked_SNRs:
                         label_items += " " + key + "=%.1f" % stacked_SNRs[key][ind]
 
                     label_items += '\n'
