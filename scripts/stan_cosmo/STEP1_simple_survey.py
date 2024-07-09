@@ -90,7 +90,7 @@ def read_csv(csv_file):
 
     # Start with global parameters
     for key in ["total_survey_time", "survey_duration", "hours_per_visit", "SN_rates",
-                "total_FoV", "active_FoV", "sn_model",
+                "total_FoV", "active_FoV", "sn_model", "SN_number_poisson",
                 "slew_table", "zodiacal_background", "telescope_temperature", "PSFs", "WFI_PSFs", "interpixel_capacitance",
                 "WFI_dark_current", "WFI_read_noise_floor", "WFI_read_noise_white", "WFI_pixel_scale",
                 "IFU_min_wave", "IFU_max_wave", "IFU_effective_area", "IFU_resolution", "IFU_pixel_scale", "IFU_slice_in_pixels", "IFU_dark_current", "IFU_read_noise_floor", "IFU_read_noise_white", "bad_pixel_rate"]:
@@ -552,7 +552,7 @@ def make_random_positions(inner_radius, outer_radius, nsne):
 
 
 def make_SNe(square_degrees, tier_cadences, tier_cadence_offsets, survey_duration, hours_per_visit,
-             rates_fn, redshift_set, tier_filters, tier_exptimes, ground_depths, dithers,
+             rates_fn, redshift_set, tier_filters, tier_exptimes, ground_depths, dithers, SN_number_poisson,
              total_survey_time, max_z, max_SNe, redshift_step = 0.05, salt2_model = True, verbose = False, phase_buffer = 20, survey_fields = "None"):
     #assert square_degrees <= 5000, "Should use more accurate formula for large surveys!"
 
@@ -570,7 +570,13 @@ def make_SNe(square_degrees, tier_cadences, tier_cadence_offsets, survey_duratio
     if verbose:
         print(SNe_in_survey_field, sum(SNe_in_survey_field))
 
-    SNe_actual = [random.poisson(SNe_in_survey_field[i]) for i in range(len(redshift_set)) if redshift_set[i] <= max_z]
+    print("SN_number_poisson", SN_number_poisson)
+    
+    if SN_number_poisson:
+        SNe_actual = [random.poisson(SNe_in_survey_field[i]) for i in range(len(redshift_set)) if redshift_set[i] <= max_z]
+    else:
+        SNe_actual = [int(np.around((SNe_in_survey_field[i])) for i in range(len(redshift_set)) if redshift_set[i] <= max_z]
+
     if verbose:
         print(SNe_actual, sum(SNe_actual))
     redshifts = []
@@ -791,6 +797,7 @@ if __name__ == "__main__":
                                 hours_per_visit = survey_parameters["hours_per_visit"],
                                 survey_duration = survey_parameters["survey_duration"], rates_fn = rates_fn,
                                 redshift_set = redshift_set,
+                                SN_number_poisson = survey_parameters["SN_number_poisson"],
                                 tier_filters = survey_parameters["tier_parameters"]["filters"][i],
                                 tier_exptimes = quantize_time(survey_parameters["tier_parameters"]["exp_times_per_dither"][i]),
                                 dithers = survey_parameters["tier_parameters"]["dithers_per_filter"][i],

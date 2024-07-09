@@ -66,7 +66,7 @@ max_z,%.2f,\n""" % (tier_name, tier_percent/100., square_degrees,
 
     
 def make_survey(total_survey_years, widepercent, medpercent, widepercent_prism, medpercent_prism, deeppercent_prism,
-                nnearby, wide_filts, med_filts, deep_filts, suffix = "0", wd = "",
+                nnearby, wide_filts, med_filts, deep_filts, SN_number_poisson, suffix = "0", wd = "",
                 exp_times_dict_wide = dict(R = 24.6, Z = 31.4, Y = 42.8, J = 61.8, H = 94, F = 175.4, P = 1800., g = 30., r = 30., i = 30., z = 30.), # Note, cadence is 10
                 exp_times_dict_med = dict(R = 152.9, Z = 67.6, Y = 75.3, J = 92.2, H = 187.9, F = 390.4, P = 1800.),
                 exp_times_dict_deep = dict(R = 152.9, Z = 152.9, Y = 235.4, J = 246.3, H = 336.7, F = 1017.6, P = 3600.),
@@ -117,6 +117,7 @@ active_FoV,0.281*0.99,
 grizY_30s_ground_depths,24.47,24.16,23.4,22.23,21.57,
 hours_per_visit,30,,,,,
 sn_model,SALT3.NIR_WAVEEXT,
+SN_number_poisson,%i,
 __________________________________________,,,,,,
 slew_table,slew50.txt,,,,,
 zodiacal_background,aldering.txt,,,,,
@@ -138,7 +139,7 @@ IFU_pixel_scale,0.11,,,,,
 IFU_slice_in_pixels,5,,,,,
 IFU_dark_current,1.2,,,,,
 bad_pixel_rate,0.01,,,,,
-""" % (total_survey_years, SN_rates))
+""" % (total_survey_years, SN_rates, SN_number_poisson))
     
     if nnearby > 0:
         f.write("""__________________________________________,,,,,,
@@ -293,8 +294,11 @@ if grid_type == "tier_fraction":
             deeppercent = 100 - (widepercent + medpercent)
             
             print("widepercent", widepercent, "medpercent", medpercent, "deeppercent", deeppercent)
-            
-            make_survey(total_survey_years = 0.5, widepercent = widepercent, medpercent = medpercent, nnearby = 800, widepercent_prism = 0, deeppercent_prism = 25)
+
+            for SN_number_poisson in [0, 1]:
+                make_survey(total_survey_years = 0.5, widepercent = widepercent, medpercent = medpercent, nnearby = 800, widepercent_prism = 0, medpercent_prism = 0, deeppercent_prism = 25,
+                            wide_filts = "RZYJ", med_filts = "ZYJH", deep_filts = "ZYJHF", SN_number_poisson = SN_number_poisson)
+                                    
 
 elif grid_type == "total_time":
     for total_survey_years in np.arange(0.05, 1.01, 0.025):
