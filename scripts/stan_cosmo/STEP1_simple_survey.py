@@ -575,7 +575,7 @@ def make_SNe(square_degrees, tier_cadences, tier_cadence_offsets, survey_duratio
     if SN_number_poisson:
         SNe_actual = [random.poisson(SNe_in_survey_field[i]) for i in range(len(redshift_set)) if redshift_set[i] <= max_z]
     else:
-        SNe_actual = [int(np.around((SNe_in_survey_field[i])) for i in range(len(redshift_set)) if redshift_set[i] <= max_z]
+        SNe_actual = [int(np.around(SNe_in_survey_field[i])) for i in range(len(redshift_set)) if redshift_set[i] <= max_z]
 
     if verbose:
         print(SNe_actual, sum(SNe_actual))
