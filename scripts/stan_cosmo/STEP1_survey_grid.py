@@ -97,8 +97,8 @@ def make_survey(total_survey_years, widepercent, medpercent, widepercent_prism, 
         return 0
     
     if wd == "":
-        wd = location + "/yr=%.3f_w=%03i_m=%03i_d=%03i_wp=%03i_mp=%03i_dp=%03i_nnearby=%05i_%s+%s+%s_cad=%02i+%02i+%02i_%s" % (total_survey_years, widepercent, medpercent, deeppercent, widepercent_prism, medpercent_prism, deeppercent_prism,
-                                                                                                                               nnearby, wide_filts, med_filts, deep_filts, wide_cadence, med_cadence, deep_cadence, suffix)
+        wd = location + "/yr=%.3f_w=%03i_m=%03i_d=%03i_wp=%03i_mp=%03i_dp=%03i_nnearby=%05i_%s+%s+%s_cad=%02i+%02i+%02i_PN=%i_%s" % (total_survey_years, widepercent, medpercent, deeppercent, widepercent_prism, medpercent_prism, deeppercent_prism,
+                                                                                                                                     nnearby, wide_filts, med_filts, deep_filts, wide_cadence, med_cadence, deep_cadence, SN_number_poisson, suffix)
     else:
         wd = location + "/" + wd
 
