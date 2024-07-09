@@ -753,7 +753,7 @@ def collection_of_plots(pickle_to_read):
 
                             if tier_name != "All":
                                 this_useful_redshift_mask *= (SN_data["SN_table"]["daymaxes"] < cadence_stops[tier_name] - 20*(1. + SN_data["SN_table"]["redshifts"]))
-                                inds = where((survey_fields == tier_name)*(stacked_SNRs[SNR_key] >= SNR_thresh)*this_useful_redshift_mask)
+                                inds = where((survey_fields == tier_name)*(stacked_SNRs[SNR_key] > SNR_thresh)*this_useful_redshift_mask)
                                 print("inds", inds)
                             else:
                                 good_date = SN_data["SN_table"]["daymaxes"]*0
