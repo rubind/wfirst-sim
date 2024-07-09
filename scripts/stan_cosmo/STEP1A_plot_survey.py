@@ -740,7 +740,7 @@ def collection_of_plots(pickle_to_read):
 
                     for i, tier_name in enumerate(SN_data["survey_parameters"]["tier_parameters"]["tier_name"] + ["All"]*extra_tier):
                         plt.subplot(n_tiers+1, 1, i+1)
-                        for SNR_thresh, SNR_color in zip((0., 20., 40., 80., 120., 160), ['r', "orange", 'g', 'c',  'b', 'm']):
+                        for SNR_thresh, SNR_color in zip((0., 20., 30., 40., 80., 120., 160), ['r', "orange", (0.5, 1, 0), 'g', 'c',  'b', 'm']):
 
                             if use_malm:
                                 this_useful_redshift_mask = 1
@@ -760,7 +760,7 @@ def collection_of_plots(pickle_to_read):
                                 for j, tmp_tier_name in enumerate(SN_data["survey_parameters"]["tier_parameters"]["tier_name"]):
                                     good_date += (survey_fields == tmp_tier_name)*(SN_data["SN_table"]["daymaxes"] < cadence_stops[tmp_tier_name] - 20*(1. + SN_data["SN_table"]["redshifts"]))
 
-                                inds = where((stacked_SNRs[SNR_key] >= SNR_thresh)*good_date)
+                                inds = where((stacked_SNRs[SNR_key] > SNR_thresh)*good_date)
 
                             if len(inds[0]) > 0:
                                 plt.hist(SN_data["SN_table"]["redshifts"][inds], bins = arange(0., 2.6, 0.1), color = SNR_color, label = "SNR>%.0f: %i"% (SNR_thresh, len(inds[0])), cumulative=cumulative)
