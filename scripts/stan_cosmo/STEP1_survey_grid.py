@@ -295,10 +295,14 @@ if grid_type == "tier_fraction":
             
             print("widepercent", widepercent, "medpercent", medpercent, "deeppercent", deeppercent)
 
-            for SN_number_poisson in [0, 1]:
-                make_survey(total_survey_years = 0.5, widepercent = widepercent, medpercent = medpercent, nnearby = 800, widepercent_prism = 0, medpercent_prism = 0, deeppercent_prism = 25,
-                            wide_filts = "RZYJ", med_filts = "ZYJH", deep_filts = "ZYJHF", SN_number_poisson = SN_number_poisson)
-                                    
+    
+            make_survey(total_survey_years = 0.5, widepercent = widepercent, medpercent = medpercent, nnearby = 800, widepercent_prism = 0, medpercent_prism = 0, deeppercent_prism = 25,
+                        wide_filts = "RZYJ", med_filts = "ZYJH", deep_filts = "ZYJHF", SN_number_poisson = 0)
+
+elif grid_type == "poisson":
+    for SN_number_poisson in [0, 1]:
+        make_survey_wrap(total_survey_years = 0.5, widepercent = 60, medpercent = 10, nnearby = 800, widepercent_prism = 0, medpercent_prism = 0, deeppercent_prism = 25,
+                         wide_filts = "RZYJ", med_filts = "ZYJH", deep_filts = "ZYJHF", SN_number_poisson = SN_number_poisson)
 
 elif grid_type == "total_time":
     for total_survey_years in np.arange(0.05, 1.01, 0.025):
@@ -343,4 +347,4 @@ elif grid_type == "read_csv":
     
         
 else:
-    print("Unknown grid type! want: tier_fraction total_time prism_fraction filt_choice nnearby read_csv or random")
+    print("Unknown grid type! want: tier_fraction total_time prism_fraction filt_choice nnearby read_csv poisson or random")
