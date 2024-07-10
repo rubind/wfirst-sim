@@ -111,7 +111,7 @@ def make_survey(total_survey_years, widepercent, medpercent, widepercent_prism, 
     
     f.write("""total_survey_time,%.4f,,,,,
 SN_rates,%s,,,,,
-survey_duration,3,,,,,
+survey_duration,2.5,,,,,
 total_FoV,0.82034*0.37628,
 active_FoV,0.281*0.99,
 grizY_30s_ground_depths,24.47,24.16,23.4,22.23,21.57,
