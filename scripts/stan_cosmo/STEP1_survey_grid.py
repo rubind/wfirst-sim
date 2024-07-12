@@ -66,13 +66,15 @@ max_z,%.2f,\n""" % (tier_name, tier_percent/100., square_degrees,
 
     
 def make_survey(total_survey_years, widepercent, medpercent, widepercent_prism, medpercent_prism, deeppercent_prism,
-                nnearby, wide_filts, med_filts, deep_filts, SN_number_poisson, suffix = "0", wd = "",
-                exp_times_dict_wide = dict(R = 24.6, Z = 31.4, Y = 42.8, J = 61.8, H = 94, F = 175.4, P = 1800., g = 30., r = 30., i = 30., z = 30.), # Note, cadence is 10
-                exp_times_dict_med = dict(R = 152.9, Z = 67.6, Y = 75.3, J = 92.2, H = 187.9, F = 390.4, P = 1800.),
-                exp_times_dict_deep = dict(R = 152.9, Z = 152.9, Y = 235.4, J = 246.3, H = 336.7, F = 1017.6, P = 3600.),
+                nnearby, wide_filts, med_filts, deep_filts, SN_number_poisson,
+                exp_times_dict_wide,
+                exp_times_dict_med,
+                exp_times_dict_deep,
+                suffix = "0", wd = "",
                 wide_cadence = 10, med_cadence = 5, deep_cadence = 5,
                 SN_rates = "SN_rates.txt", SNRMax = 0, wide_rubin = 0):
 
+    
     deeppercent = 100 - (widepercent + medpercent)
 
     if widepercent < 0 or widepercent > 100:
@@ -178,9 +180,9 @@ max_z,0.1,
     exp_times = [exp_times_dict_med[item] for item in med_filts]
 
     write_tier(f, total_survey_years = total_survey_years, tier_name = "MediumNoPrism", tier_percent = medpercent*(1. - medpercent_prism/100.), exp_times = exp_times, cadence = med_cadence, filters = med_filts,
-               max_z = 2.0)
+               max_z = 2.5)
     write_tier(f, total_survey_years = total_survey_years, tier_name = "MediumPrism", tier_percent = medpercent*medpercent_prism/100., exp_times = exp_times + [exp_times_dict_med["P"]], cadence = med_cadence, filters = med_filts + "P",
-               max_z = 2.0)
+               max_z = 2.5)
 
     exp_times = [exp_times_dict_deep[item] for item in deep_filts]
 
@@ -191,7 +193,7 @@ max_z,0.1,
 
     f.close()
 
-    memory_needed = 12 + 16*(deeppercent_prism + widepercent_prism > 0)
+    memory_needed = 16 + 16*(deeppercent_prism + widepercent_prism > 0)
 
     
     pwd = getoutput("pwd")
@@ -278,7 +280,13 @@ grid_vals = dict(widepercent = np.arange(0, 101, 5),
                  deeppercent_prism = np.arange(0, 101, 5))
                  
 
-                 
+
+exp_times_dict_wide = dict(R = 24.6, Z = 31.4, Y = 42.8, J = 61.8, H = 94, F = 175.4, P = 1800., g = 30., r = 30., i = 30., z = 30.) # Note, cadence is 10                            
+exp_times_dict_med = dict(R = 152.9, Z = 67.6, Y = 75.3, J = 92.2, H = 187.9, F = 390.4, P = 1800.)
+exp_times_dict_deep = dict(R = 152.9, Z = 152.9, Y = 235.4, J = 246.3, H = 336.7, F = 1017.6, P = 3600.)
+
+
+
 grid_type = sys.argv[1]
 location = sys.argv[2]
 n_real = int(sys.argv[3])
@@ -328,7 +336,26 @@ elif grid_type == "prism_fraction":
 
             print("widepercent_prism", widepercent_prism, "deeppercent_prism", deeppercent_prism, "widepercent", widepercent, "deeppercent", deeppercent)
             make_survey(total_survey_years = 0.5, widepercent = widepercent, medpercent = 0, deeppercent = deeppercent, nnearby = 800, widepercent_prism = widepercent_prism, deeppercent_prism = deeppercent_prism)
-            
+
+
+elif grid_type == "prism_exp":
+    for widepercent in [40., 50., 60., 70.]:
+        for medpercent in np.arange(0., 101., 5.):
+            for deeppercent_prism in np.arange(0., 101., 5.):
+                
+                for key in exp_times_dict_deep:
+                    exp_times_dict_med[key] = exp_times_dict_deep[key]
+
+                exp_times_dict_med["P"] = 900.
+                exp_times_dict_deep["P"] = 3600.
+
+                
+                make_survey_wrap(total_survey_years = 0.5, widepercent = widepercent, medpercent = medpercent, nnearby = 800, widepercent_prism = 0, medpercent_prism = 100., deeppercent_prism = deeppercent_prism,
+                                 wide_filts = "RZYJ", med_filts = "ZYJHF", deep_filts = "ZYJHF",
+                                 exp_times_dict_wide = exp_times_dict_wide, exp_times_dict_med = exp_times_dict_med, exp_times_dict_deep = exp_times_dict_deep,
+                                 SN_number_poisson = 0)
+
+
 elif grid_type == "random":
     good_surveys = 0
     while good_surveys < n_real:
@@ -347,4 +374,4 @@ elif grid_type == "read_csv":
     
         
 else:
-    print("Unknown grid type! want: tier_fraction total_time prism_fraction filt_choice nnearby read_csv poisson or random")
+    print("Unknown grid type! want: tier_fraction total_time prism_fraction filt_choice nnearby read_csv poisson prism_exp or random")
