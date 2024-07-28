@@ -77,7 +77,7 @@ def bin_by_wave(x, y, sigy, bin_edges):
 def get_stan_data(SN_data):
     other_data = dict(filt_names = ["R062", "Z087", "Y106", "J129", "H158", "F184", "K213", "g", "r", "i", "z"],
                       lambs_dict = dict(R062 = 6200., Z087 = 8700., Y106 = 10600., J129 = 12900., H158 = 15800., F184 = 18400., K213 = 21300., g = 4800., r = 6200., i = 7700., z = 8700.),
-                      milliz_list = [], model_phase = np.linspace(-15., 45., 10), model_rest = np.exp(np.linspace(np.log(3000.), np.log(16000.), 9)))
+                      milliz_list = [], model_phase = np.linspace(-15., 45., 10), model_rest = np.exp(np.linspace(np.log(3000.), np.log(16000.), opts.model_res)))
 
     other_data["phase0_ind"] = np.argmin(np.abs(other_data["model_phase"]))
     other_data["restB_ind"] = np.argmin(np.abs(other_data["model_rest"] - 4400.))
@@ -409,6 +409,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("pickle")
 parser.add_argument("--prism_bins", help="Number of prism bins in wavelength", default = 25, type=int)
 parser.add_argument("--SNRMax", help="Use > 10 > 5 > 5 for LC selection, rather than total S/N", default = False, type=bool)
+parser.add_argument("--model_res", help="Model wavelength resolution", default = 9, type=int)
 opts = parser.parse_args()
 
 prism_bins = opts.prism_bins
