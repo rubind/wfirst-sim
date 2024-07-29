@@ -11,7 +11,6 @@ for pfl in glob.glob("*/*pickle"):
     if glob.glob(dr + "/FoM.txt") == []:
         print("Redo ", dr)
         
-
         f = open(dr + "/redo.sh", 'w')
         f.write("""#!/bin/bash
 #SBATCH --job-name=sim

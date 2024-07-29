@@ -20,10 +20,10 @@ export WFIRST_SIM_DATA=/home/drubin/wfirst-sim-data/
 pip install sncosmo
 pip install sep
 
-cd %s/%s
+cd """ + pwd + "/" + dr + """
 python $WFIRST/scripts/stan_cosmo/STEP2_Analytic_Fisher.py survey.pickle --SNRMax 0 --model_res 9 --gray_disp 0.08 > fisher_log.txt
-python $WFIRST/scripts/stan_cosmo/FoM.py comb_mat*fits""" % (pwd, dr))
+python $WFIRST/scripts/stan_cosmo/FoM.py comb_mat*fits""")
     f.close()
 
-    print(getoutput("batch tmp.sh"))
+    print(getoutput("sbatch tmp.sh"))
     
