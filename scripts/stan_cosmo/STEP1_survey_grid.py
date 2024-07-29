@@ -326,7 +326,7 @@ def read_csv():
 
         print("total ", (tot_wide + tot_deep)/(86400*365.24))
         
-        make_survey(total_survey_years = 0.375, widepercent = 100.*tot_wide/(tot_wide + tot_deep), medpercent = 0., widepercent_prism = 0., medpercent_prism = 0., deeppercent_prism = 0., nnearby = 800.,
+        make_survey(total_survey_years = 0.375, widepercent_imaging = 100.*tot_wide/(tot_wide + tot_deep), medpercent = 0., widepercent_prism = 0., medpercent_prism = 0., deeppercent_prism = 0., nnearby = 800.,
                     wide_filts = wide_filts[i], med_filts = "", deep_filts = deep_filts[i], exp_times_dict_wide = exp_times_dict_wide, exp_times_dict_deep = exp_times_dict_deep,
                     wd = survey_name[i].replace(" ", "_"), wide_cadence = wide_cadence[i], deep_cadence = deep_cadence[i], SN_rates = "SN_rates_powerlaw.txt", SNRMax = 1)
         
@@ -368,14 +368,14 @@ getoutput("rm -fr " + location)
 
 
 if grid_type == "tier_fraction":
-    for widepercent in grid_vals["widepercent"]:
-        for medpercent in grid_vals["medpercent"]:
-            deeppercent = 100 - (widepercent + medpercent)
+    for widepercent_imaging in grid_vals["widepercent_imaging"]:
+        for medpercent_imaging in grid_vals["medpercent_imaging"]:
+            deeppercent_imaging = 100 - (widepercent_imaging + medpercent_imaging)
             
-            print("widepercent", widepercent, "medpercent", medpercent, "deeppercent", deeppercent)
+            print("widepercent_imaging", widepercent_imaging, "medpercent_imaging", medpercent_imaging, "deeppercent", deeppercent_imaging)
 
     
-            make_survey(total_survey_years = 0.5, widepercent = widepercent, medpercent = medpercent, nnearby = 800, widepercent_prism = 0, medpercent_prism = 0, deeppercent_prism = 25,
+            make_survey(total_survey_years = 0.5, widepercent_imaging = widepercent_imaging, medpercent_imaging = medpercent_imaging, nnearby = 800, widepercent_prism = 0, medpercent_prism = 0, deeppercent_prism = 25,
                         wide_filts = "RZYJ", med_filts = "ZYJH", deep_filts = "ZYJHF", SN_number_poisson = 0)
 
 elif grid_type == "poisson":
@@ -410,21 +410,17 @@ elif grid_type == "prism_fraction":
 
 
 elif grid_type == "prism_exp":
-    for widepercent in [40., 50., 60., 70.]:
-        for medpercent in np.arange(0., 101., 5.):
-            for deeppercent_prism in np.arange(0., 101., 5.):
+    for widepercent_imaging in [50.]:#[40., 50., 60.]:
+        for widepercent_prism in tqdm.tqdm(np.arange(0., 25., 1.)):
+            for deeppercent_prism in np.arange(0., 25., 1.):
                 
-                for key in exp_times_dict_deep:
-                    exp_times_dict_med[key] = exp_times_dict_deep[key]
-
-                exp_times_dict_med["P"] = 900.
-                exp_times_dict_deep["P"] = 3600.
-
-                
-                make_survey_wrap(total_survey_years = 0.5, widepercent = widepercent, medpercent = medpercent, nnearby = 800, widepercent_prism = 0, medpercent_prism = 100., deeppercent_prism = deeppercent_prism,
+                                
+                make_survey_wrap(total_survey_years = 0.5, widepercent_imaging = widepercent_imaging, medpercent_imaging = 0., nnearby = 800, widepercent_prism = widepercent_prism, medpercent_prism = 0., deeppercent_prism = deeppercent_prism,
                                  wide_filts = "RZYJ", med_filts = "ZYJHF", deep_filts = "ZYJHF",
                                  exp_times_dict_wide = exp_times_dict_wide, exp_times_dict_med = exp_times_dict_med, exp_times_dict_deep = exp_times_dict_deep,
                                  SN_number_poisson = 0)
+
+                
 elif grid_type == "model_res":
     make_survey_wrap(total_survey_years = 0.375, widepercent = 50., medpercent = 0.0, nnearby = 800, widepercent_prism = 0, medpercent_prism = 0.,
                      deeppercent_prism = 0.0,

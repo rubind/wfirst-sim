@@ -408,13 +408,15 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument("pickle")
 parser.add_argument("--prism_bins", help="Number of prism bins in wavelength", default = 25, type=int)
-parser.add_argument("--SNRMax", help="Use > 10 > 5 > 5 for LC selection, rather than total S/N", default = False, type=bool)
+parser.add_argument("--SNRMax", help="Use >10 & >5 & >5 for LC selection, rather than total S/N", default = False, type=bool)
 parser.add_argument("--model_res", help="Model wavelength resolution", default = 9, type=int)
+parser.add_argument("--gray_disp", help="Gray dispersion", default = 0.1, type=float)
+
 opts = parser.parse_args()
 
 prism_bins = opts.prism_bins
 
-
+suffix = "SNRMax=%i_res=%02i_bins=%03i_disp=%.3f" % (opts.SNRMax, opts.model_res, opts.prism_bins, opts.gray_disp)
 
 SN_data = load_data()
 stan_data, other_data = get_stan_data(SN_data)
@@ -469,8 +471,8 @@ comb_mat[0] /= 1000.
 
 comb_mat[1:] = mu_mat
 
-save_img(comb_mat, "comb_mat.fits")
+save_img(comb_mat, "comb_mat_" + suffix + ".fits")
 
 
-run_fit(fit_coeff = 0, fitdZP = 1, outputsuffix = "_no_model")
-run_fit(fit_coeff = 0, fitdZP = 0, outputsuffix = "_stat_only")
+#run_fit(fit_coeff = 0, fitdZP = 1, outputsuffix = suffix + "_no_model")
+#run_fit(fit_coeff = 0, fitdZP = 0, outputsuffix = suffix + "_stat_only")

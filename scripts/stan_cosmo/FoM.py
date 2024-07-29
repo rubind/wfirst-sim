@@ -18,13 +18,16 @@ for item in sys.argv[1:]:
     print("z_list", z_list)
 
 
-
+    f = open("FoM_" + item.replace(".fits", ".txt"), 'w')
     FoM = get_FoM(cmat, z_list, shift_constraint = 0.0035)[0]
-    print("FoM_0.35 ", item, FoM)
+    f.write("FoM_0.35 " + str(item) + " " + str(FoM) + '\n')
 
     FoM = get_FoM(cmat, z_list, shift_constraint = 0.0026)[0]
     print("FoM_0.26 ", item, FoM)
-    
+    f.write("FoM_0.26 " + str(item) + " " + str(FoM) + '\n')
+
     FoM = get_FoM(cmat, z_list, shift_constraint = 0.002)[0]
     print("FoM_0.2 ", item, FoM)
-        
+    f.write("FoM_0.2 " + str(item) + " " + str(FoM) + '\n')
+    f.close()
+    
