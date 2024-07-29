@@ -3,8 +3,8 @@ from subprocess import getoutput
 
 pwd = getoutput("pwd")
 
-for dr in glob.glob("*"):
-    f = open("tmp.sh", 'w')
+for dr in glob.glob("*nnearby*"):
+    f = open(dr + "/tmp.sh", 'w')
     f.write("""#!/bin/bash
 #SBATCH --job-name=sim
 #SBATCH --partition=shared
@@ -21,9 +21,9 @@ pip install sncosmo
 pip install sep
 
 cd """ + pwd + "/" + dr + """
-python $WFIRST/scripts/stan_cosmo/STEP2_Analytic_Fisher.py survey.pickle --SNRMax 0 --model_res 9 --gray_disp 0.08 > fisher_log.txt
+python $WFIRST/scripts/stan_cosmo/STEP2_Analytic_Fisher.py survey.pickle --SNRMax 0 --model_res 9 --gray_disp 0.1 > fisher_log.txt
 python $WFIRST/scripts/stan_cosmo/FoM.py comb_mat*fits""")
     f.close()
 
-    print(getoutput("sbatch tmp.sh"))
+    print(getoutput("cd " + dr + "\nsbatch tmp.sh"))
     

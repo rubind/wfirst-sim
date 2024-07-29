@@ -340,7 +340,7 @@ def residfn(P, wrapped_data):
     for i in tqdm.trange(stan_data["NSNe"]):
         if direct_inverse:
             cmat = np.diag(stan_data["dmags"][i]**2.)
-            cmat += 0.1**2.
+            cmat += opts.gray_disp**2.
             cmat += np.outer(stan_data["color_law"][i]*0.5, stan_data["color_law"][i]*0.5) # +- 0.5 mag E(B-V)
         
             for filt in np.unique(stan_data["filt_inds"][i]):
@@ -355,7 +355,7 @@ def residfn(P, wrapped_data):
             Ainv = np.diag(stan_data["dmags"][i]**(-2.))
             unique_filt_inds = np.unique(stan_data["filt_inds"][i])
             Umat = np.zeros([len(stan_data["dmags"][i]), len(unique_filt_inds) + 2], dtype=np.float64)
-            Umat[:, 0] = 0.1
+            Umat[:, 0] = opts.gray_disp
             Umat[:, 1] = stan_data["color_law"][i]*0.5
 
             next_ind = 2
@@ -408,7 +408,7 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument("pickle")
 parser.add_argument("--prism_bins", help="Number of prism bins in wavelength", default = 25, type=int)
-parser.add_argument("--SNRMax", help="Use >10 & >5 & >5 for LC selection, rather than total S/N", default = False, type=bool)
+parser.add_argument("--SNRMax", help="Use >10 & >5 & >5 for LC selection, rather than total S/N", default = 0, type=int)
 parser.add_argument("--model_res", help="Model wavelength resolution", default = 9, type=int)
 parser.add_argument("--gray_disp", help="Gray dispersion", default = 0.1, type=float)
 
