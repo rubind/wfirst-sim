@@ -2,6 +2,9 @@ import numpy as np
 from astropy.io import fits
 import os
 import sys
+import matplotlib.pyplot as plt
+
+
 wfirst_path = os.environ["WFIRST"]
 sys.path.append(wfirst_path + "/scripts/cosmo/")
 from astro_functions import get_FoM
@@ -18,7 +21,9 @@ for item in sys.argv[1:]:
     print("z_list", z_list)
 
 
-    f = open("FoM_" + item.replace(".fits", ".txt"), 'w')
+
+
+    f = open(item.replace(".fits", ".txt").replace("comb_mat", "FoM_comb_mat"), 'w')
     FoM = get_FoM(cmat, z_list, shift_constraint = 0.0035)[0]
     f.write("FoM_0.35 " + str(item) + " " + str(FoM) + '\n')
 
@@ -26,8 +31,15 @@ for item in sys.argv[1:]:
     print("FoM_0.26 ", item, FoM)
     f.write("FoM_0.26 " + str(item) + " " + str(FoM) + '\n')
 
+    plt.plot(z_list, np.sqrt(np.diag(cmat)), label = item + "\nFoM_0.26: %.1f" % FoM)
+
+    
     FoM = get_FoM(cmat, z_list, shift_constraint = 0.002)[0]
     print("FoM_0.2 ", item, FoM)
     f.write("FoM_0.2 " + str(item) + " " + str(FoM) + '\n')
     f.close()
+
     
+plt.legend(loc = 'best')
+plt.savefig("dmu_vs_z.pdf", bbox_inches = 'tight')
+plt.close()

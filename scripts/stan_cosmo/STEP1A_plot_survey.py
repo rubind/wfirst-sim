@@ -51,7 +51,7 @@ def plot_a_SN(lc_data, daymax, plot_to_make, phase_not_date, redshift, plt, stac
 def get_useful_redshifts(z_set, tier_set, redshifts, stacked_SNRs, survey_fields, suffix, working_dir, plt):
     useful_redshift_mask = {}
 
-    for SNR_thresh, plot_color in zip((0., 20., 40., 80., 120., 160), ['r', "orange", 'g', 'c',  'b', 'm']):
+    for SNR_thresh, plot_color in zip((0., 20., 30., 40., 80., 120., 160), ['r', "orange", (0.5, 1, 0), 'g', 'c',  'b', 'm']):
         useful_redshifts = {}
 
         for tier in tier_set:

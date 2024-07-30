@@ -411,12 +411,17 @@ parser.add_argument("--prism_bins", help="Number of prism bins in wavelength", d
 parser.add_argument("--SNRMax", help="Use >10 & >5 & >5 for LC selection, rather than total S/N", default = 0, type=int)
 parser.add_argument("--model_res", help="Model wavelength resolution", default = 9, type=int)
 parser.add_argument("--gray_disp", help="Gray dispersion", default = 0.1, type=float)
+parser.add_argument("--train", help="Include Model Training", default = 1, type=int)
+parser.add_argument("--calib", help="Include Calibration", default = 1, type=int)
+
 
 opts = parser.parse_args()
 
 prism_bins = opts.prism_bins
 
-suffix = "SNRMax=%i_res=%02i_bins=%03i_disp=%.3f" % (opts.SNRMax, opts.model_res, opts.prism_bins, opts.gray_disp)
+suffix = "_" + ( "notrain"*(opts.train == 0) + "nocalib"*(opts.calib == 0) ) + "SNRMax=%i_res=%02i_bins=%03i_disp=%.3f" % (opts.SNRMax, opts.model_res, opts.prism_bins, opts.gray_disp)
+
+
 
 SN_data = load_data()
 stan_data, other_data = get_stan_data(SN_data)
@@ -425,40 +430,42 @@ stan_data, other_data = get_stan_data(SN_data)
 
 
 P, F, Cmat = miniLM_new(ministart = np.zeros(stan_data["NCoeff"] + stan_data["Nz"] + stan_data["NFilt"], dtype=np.float64),
-                        miniscale = np.ones(stan_data["NCoeff"] + stan_data["Nz"] + stan_data["NFilt"], dtype=np.float64),
+                        miniscale = unparseP(dict(coeff = [opts.train]*stan_data["NCoeff"], mu_bins = [1.]*stan_data["Nz"], dZPs = [opts.calib]*stan_data["NFilt"])),
                         residfn = residfn,
                         passdata = stan_data,
                         verbose = True, maxiter = 1)
 
 parsed = parseP(P, stan_data)
-parsed_uncs = parseP(np.sqrt(np.diag(Cmat)), stan_data)
 
-print("parsed", parsed)
-print("parsed_uncs", parsed_uncs)
-
-
-rest_2D = rest_model_1D_to_2D(parsed["coeff"], other_data = other_data)
-rest_2D_mag_uncs = rest_model_1D_to_2D(parsed_uncs["coeff"], other_data = other_data)
+if opts.train and opts.calib:
+    parsed_uncs = parseP(np.sqrt(np.diag(Cmat)), stan_data)
+    
+    print("parsed", parsed)
+    print("parsed_uncs", parsed_uncs)
 
 
-rest_mag_uncs_max = rest_2D_mag_uncs[other_data["phase0_ind"], :]
-
-assert len(rest_mag_uncs_max) == len(other_data["model_rest"])
-
-for i in range(len(other_data["model_rest"])):
-    print("model_unc ", ("%05i" % int(other_data["model_rest"][i])), rest_mag_uncs_max[i])
+    rest_2D = rest_model_1D_to_2D(parsed["coeff"], other_data = other_data)
+    rest_2D_mag_uncs = rest_model_1D_to_2D(parsed_uncs["coeff"], other_data = other_data)
 
 
-for i in range(len(other_data["filt_names"])):
-    print("ZP_unc ", other_data["filt_names"][i], parsed_uncs["dZPs"][i])
+    rest_mag_uncs_max = rest_2D_mag_uncs[other_data["phase0_ind"], :]
+    
+    assert len(rest_mag_uncs_max) == len(other_data["model_rest"])
+    
+    for i in range(len(other_data["model_rest"])):
+        print("model_unc ", ("%05i" % int(other_data["model_rest"][i])), rest_mag_uncs_max[i])
+
+
+    for i in range(len(other_data["filt_names"])):
+        print("ZP_unc ", other_data["filt_names"][i], parsed_uncs["dZPs"][i])
     
 
 
-save_img(rest_2D, "rest_2D.fits")
-rest_2D_flux = 10.**(-0.4*rest_2D)
-save_img(rest_2D_flux, "rest_2D_flux.fits")
+    save_img(rest_2D, "rest_2D.fits")
+    rest_2D_flux = 10.**(-0.4*rest_2D)
+    save_img(rest_2D_flux, "rest_2D_flux.fits")
 
-save_img(rest_2D_mag_uncs, "rest_2D_mag_uncs.fits")
+    save_img(rest_2D_mag_uncs, "rest_2D_mag_uncs.fits")
 
 
 mu_mat = Cmat[:stan_data["Nz"], :stan_data["Nz"]]
