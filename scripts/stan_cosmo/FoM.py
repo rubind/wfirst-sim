@@ -3,13 +3,14 @@ from astropy.io import fits
 import os
 import sys
 import matplotlib.pyplot as plt
+import tqdm
 
 
 wfirst_path = os.environ["WFIRST"]
 sys.path.append(wfirst_path + "/scripts/cosmo/")
 from astro_functions import get_FoM
 
-for item in sys.argv[1:]:
+for item in tqdm.tqdm(sys.argv[1:]):
     f = fits.open(item)
     combmat = f[0].data
     print(combmat.shape)
@@ -31,7 +32,8 @@ for item in sys.argv[1:]:
     print("FoM_0.26 ", item, FoM)
     f.write("FoM_0.26 " + str(item) + " " + str(FoM) + '\n')
 
-    plt.plot(z_list, np.sqrt(np.diag(cmat)), label = item + "\nFoM_0.26: %.1f" % FoM)
+    if len(sys.argv) < 20:
+        plt.plot(z_list, np.sqrt(np.diag(cmat)), label = item + "\nFoM_0.26: %.1f" % FoM)
 
     
     FoM = get_FoM(cmat, z_list, shift_constraint = 0.002)[0]
@@ -39,7 +41,7 @@ for item in sys.argv[1:]:
     f.write("FoM_0.2 " + str(item) + " " + str(FoM) + '\n')
     f.close()
 
-    
-plt.legend(loc = 'best')
-plt.savefig("dmu_vs_z.pdf", bbox_inches = 'tight')
-plt.close()
+if len(sys.argv) < 20:
+    plt.legend(loc = 'best')
+    plt.savefig("dmu_vs_z.pdf", bbox_inches = 'tight')
+    plt.close()

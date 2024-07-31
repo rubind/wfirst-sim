@@ -346,7 +346,9 @@ def residfn(P, wrapped_data):
             for filt in np.unique(stan_data["filt_inds"][i]):
                 if filt != -1:
                     filt_mask = (stan_data["filt_inds"][i] == filt)
-                    cmat += np.outer(filt_mask*0.03, filt_mask*0.03)
+                    opt_mask = (stan_data["rest_lambs"][i] < 9000.)
+                    cmat += np.outer(filt_mask*opt_mask*opts.color_scatter_opt, filt_mask*opt_mask*opts.color_scatter_opt)
+                    cmat += np.outer(filt_mask*opt_mask*opts.color_scatter_nir, filt_mask*opt_mask*opts.color_scatter_nir)
 
             wmat = np.linalg.inv(cmat)
         else:
@@ -362,7 +364,9 @@ def residfn(P, wrapped_data):
             for filt in unique_filt_inds:
                 if filt != -1:
                     filt_mask = (stan_data["filt_inds"][i] == filt)
-                    Umat[:, next_ind] = filt_mask*0.03
+                    opt_mask = (stan_data["rest_lambs"][i] < 9000.)
+                    Umat[:, next_ind] = filt_mask*opt_mask*opts.color_scatter_opt
+                    Umat[:, next_ind] = filt_mask*(1 - opt_mask)*opts.color_scatter_nir
                     next_ind += 1
             Vmat = Umat.T
 
@@ -411,6 +415,8 @@ parser.add_argument("--prism_bins", help="Number of prism bins in wavelength", d
 parser.add_argument("--SNRMax", help="Use >10 & >5 & >5 for LC selection, rather than total S/N", default = 0, type=int)
 parser.add_argument("--model_res", help="Model wavelength resolution", default = 9, type=int)
 parser.add_argument("--gray_disp", help="Gray dispersion", default = 0.1, type=float)
+parser.add_argument("--color_scatter_opt", help="Color scatter optical", default = 0.03, type=float)
+parser.add_argument("--color_scatter_nir", help="Color scatter nir", default = 0.03, type=float)
 parser.add_argument("--train", help="Include Model Training", default = 1, type=int)
 parser.add_argument("--calib", help="Include Calibration", default = 1, type=int)
 
@@ -419,7 +425,7 @@ opts = parser.parse_args()
 
 prism_bins = opts.prism_bins
 
-suffix = "_" + ( "notrain"*(opts.train == 0) + "nocalib"*(opts.calib == 0) ) + "SNRMax=%i_res=%02i_bins=%03i_disp=%.3f" % (opts.SNRMax, opts.model_res, opts.prism_bins, opts.gray_disp)
+suffix = "_" + ( "notrain"*(opts.train == 0) + "nocalib"*(opts.calib == 0) ) + "SNRMax=%i_res=%02i_bins=%03i_disp=%.3f_scatopt=%.3f_scatnir=%.3f" % (opts.SNRMax, opts.model_res, opts.prism_bins, opts.gray_disp, opts.color_scatter_opt, opts.color_scatter_nir)
 
 
 

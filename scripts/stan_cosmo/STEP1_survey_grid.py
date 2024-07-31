@@ -335,7 +335,7 @@ wide_exp_times = [] # RZYJHF, z=0.5
 med_exp_times = [] # RZYJHF, z=1.0
 deep_exp_times = [] # RZYJHF, z=1.7
 
-grid_vals = dict(widepercent_imaging = np.arange(0, 151, 5),
+grid_vals = dict(widepercent_imaging = np.arange(100, 251, 5),
                  medpercent_imaging = np.arange(0, 101, 5),
                  deeppercent_imaging = np.arange(0, 101, 5),
                  total_survey_years = [0.5],
