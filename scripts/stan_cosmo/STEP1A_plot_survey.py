@@ -732,7 +732,7 @@ def collection_of_plots(pickle_to_read):
     survey_fields = array([str(item).split("'")[1] for item in survey_fields])
     print("survey_fields", survey_fields)
 
-    for use_malm in [0,1]:
+    for use_malm in [1]:
         for cumulative in [0]:
             for has_IFS in [0]:
                 for SNR_key in stacked_SNRs:
@@ -874,7 +874,7 @@ def collection_of_plots(pickle_to_read):
 
             pdf.savefig(plt.gcf())
         pdf.close()
-    plot_field(SN_data, working_dir, nsne, outputname, plt = plt)
+    #plot_field(SN_data, working_dir, nsne, outputname, plt = plt)
     flc.close()
 
     z_to_plot = [0.475, 1.025, 1.475, 2.025]
@@ -893,21 +893,23 @@ def collection_of_plots(pickle_to_read):
                 S_to_N_inds.append((sqrt(sum(SNRs**2.)), ind))
             S_to_N_inds.sort()
             print("S_to_N_inds", S_to_N_inds)
-            ind = S_to_N_inds[int(len(S_to_N_inds)/2.)][1]
 
-            plt.subplot(n_tiers, len(z_to_plot), len(z_to_plot)*i+1 + j)
-            plot_a_SN(SN_data["SN_observations"][ind], SN_data["SN_table"]["daymaxes"][ind], plot_to_make = "LC", phase_not_date = 1, redshift = z_set[j], plt = plt, stacked_SNRs = stacked_SNRs, SN_ind = ind)
-            plt.xticks(fontsize = 8)
-            plt.yticks(fontsize = 8)
-            plt.ylim(0, plt.ylim()[1])
-
-            xlim[0] = min(xlim[0], plt.xlim()[0])
-            xlim[1] = max(xlim[1], plt.xlim()[1])
-            plt.title(tier_name.replace("Medium", "Wide") + " z=%.2f" % this_z)
-            if j == 0:
-                plt.ylabel("Flux")
-            if i == len(SN_data["survey_parameters"]["tier_parameters"]["tier_name"]) - 1:
-                plt.xlabel("Relative Date (Observer-Frame)")
+            if len(S_to_N_inds) > 0:
+                ind = S_to_N_inds[int(len(S_to_N_inds)/2.)][1]
+                
+                plt.subplot(n_tiers, len(z_to_plot), len(z_to_plot)*i+1 + j)
+                plot_a_SN(SN_data["SN_observations"][ind], SN_data["SN_table"]["daymaxes"][ind], plot_to_make = "LC", phase_not_date = 1, redshift = z_set[j], plt = plt, stacked_SNRs = stacked_SNRs, SN_ind = ind)
+                plt.xticks(fontsize = 8)
+                plt.yticks(fontsize = 8)
+                plt.ylim(0, plt.ylim()[1])
+                
+                xlim[0] = min(xlim[0], plt.xlim()[0])
+                xlim[1] = max(xlim[1], plt.xlim()[1])
+                plt.title(tier_name.replace("Medium", "Wide") + " z=%.2f" % this_z)
+                if j == 0:
+                    plt.ylabel("Flux")
+                if i == len(SN_data["survey_parameters"]["tier_parameters"]["tier_name"]) - 1:
+                    plt.xlabel("Relative Date (Observer-Frame)")
 
         for i in range(len(SN_data["survey_parameters"]["tier_parameters"]["tier_name"])):
             plt.subplot(n_tiers, len(z_to_plot), len(z_to_plot)*i+1 + j)

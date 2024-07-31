@@ -348,7 +348,7 @@ def residfn(P, wrapped_data):
                     filt_mask = (stan_data["filt_inds"][i] == filt)
                     opt_mask = (stan_data["rest_lambs"][i] < 9000.)
                     cmat += np.outer(filt_mask*opt_mask*opts.color_scatter_opt, filt_mask*opt_mask*opts.color_scatter_opt)
-                    cmat += np.outer(filt_mask*opt_mask*opts.color_scatter_nir, filt_mask*opt_mask*opts.color_scatter_nir)
+                    cmat += np.outer(filt_mask*(1 - opt_mask)*opts.color_scatter_nir, filt_mask*(1 - opt_mask)*opts.color_scatter_nir)
 
             wmat = np.linalg.inv(cmat)
         else:
@@ -365,8 +365,8 @@ def residfn(P, wrapped_data):
                 if filt != -1:
                     filt_mask = (stan_data["filt_inds"][i] == filt)
                     opt_mask = (stan_data["rest_lambs"][i] < 9000.)
-                    Umat[:, next_ind] = filt_mask*opt_mask*opts.color_scatter_opt
-                    Umat[:, next_ind] = filt_mask*(1 - opt_mask)*opts.color_scatter_nir
+                    Umat[:, next_ind] += filt_mask*opt_mask*opts.color_scatter_opt
+                    Umat[:, next_ind] += filt_mask*(1 - opt_mask)*opts.color_scatter_nir
                     next_ind += 1
             Vmat = Umat.T
 
