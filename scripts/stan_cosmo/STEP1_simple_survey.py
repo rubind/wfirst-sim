@@ -379,7 +379,7 @@ def get_slew_time(square_degrees):
 
 def add_observations_to_sndata(SN_data, rows_to_add, current_date, ground_depths, square_degrees):
     rows_added = Table(names = ["date", "filt", "exptime", "RA", "dec", "orient", "instr", "SNind", "tier"],
-                       dtype= ("f8", "S10", "f8", "f8", "f8", "f8", "S10", "i4", "S30"))
+                       dtype= ("f8", "S10", "f8", "f8", "f8", "f8", "S10", "i4", "S40"))
 
     filt_set = list(set(list(rows_to_add["filt"])))
     time_used = 0.
@@ -470,7 +470,7 @@ def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, tier, groun
     # RA, dec are WFI, not IFS
 
     observation_table = Table(names = ["date", "filt", "exptime", "RA", "dec", "orient", "instr", "SNind", "tier"],
-                              dtype= ("f8", "S10", "f8", "f8", "f8", "f8", "S10", "i4", "S30"))
+                              dtype= ("f8", "S10", "f8", "f8", "f8", "f8", "S10", "i4", "S40"))
 
     # RA is x, Dec is y
 
@@ -479,7 +479,7 @@ def run_survey(SN_data, square_degrees, tier_filters, tier_exptimes, tier, groun
 
     # Start with empty table
     rows_to_add = Table(names = ["date", "filt", "exptime", "RA", "dec", "orient", "instr", "SNind", "tier"],
-                        dtype= ("f8", "S10", "f8", "f8", "f8", "f8", "S10", "i4", "S30"))
+                        dtype= ("f8", "S10", "f8", "f8", "f8", "f8", "S10", "i4", "S40"))
 
 
 
@@ -628,10 +628,10 @@ def make_SNe(square_degrees, tier_cadences, tier_cadence_offsets, survey_duratio
 
     SN_data = {"nsne": nsne, "SN_table": Table([redshifts, RAs, Decs, daymaxes, [survey_fields]*nsne],
                                                names = ["redshifts", "RAs", "Decs", "daymaxes", "survey_fields"],
-                                               dtype= ("f8", "f8", "f8", "f8", "S20")), "SN_observations": [],
+                                               dtype= ("f8", "f8", "f8", "f8", "S40")), "SN_observations": [],
                "CC_table": Table([redshifts, RAs, Decs, daymaxes, [survey_fields]*nsne],
                                  names = ["redshifts", "RAs", "Decs", "daymaxes", "survey_fields"],
-                                 dtype= ("f8", "f8", "f8", "f8", "S20")), "SN_observations": [],
+                                 dtype= ("f8", "f8", "f8", "f8", "S40")), "SN_observations": [],
                "test_points": [test_points]}
 
     print("Getting SNCosmo models...")

@@ -731,6 +731,8 @@ def collection_of_plots(pickle_to_read):
     make_SNR_vs_z(SN_data, working_dir, nsne, plt)
     survey_fields = array([str(item).split("'")[1] for item in survey_fields])
     print("survey_fields", survey_fields)
+    print("unique survey_fields", np.unique(survey_fields))
+    
 
     for use_malm in [1]:
         for cumulative in [0]:
@@ -739,6 +741,7 @@ def collection_of_plots(pickle_to_read):
                     plt.figure(figsize=(6,1+3.5*n_tiers + 3.5*extra_tier))
 
                     for i, tier_name in enumerate(SN_data["survey_parameters"]["tier_parameters"]["tier_name"] + ["All"]*extra_tier):
+                        print("tier_name", tier_name)
                         plt.subplot(n_tiers+1, 1, i+1)
                         for SNR_thresh, SNR_color in zip((0., 20., 30., 40., 80., 120., 160), ['r', "orange", (0.5, 1, 0), 'g', 'c',  'b', 'm']):
 
@@ -754,7 +757,10 @@ def collection_of_plots(pickle_to_read):
                             if tier_name != "All":
                                 this_useful_redshift_mask *= (SN_data["SN_table"]["daymaxes"] < cadence_stops[tier_name] - 20*(1. + SN_data["SN_table"]["redshifts"]))
                                 inds = where((survey_fields == tier_name)*(stacked_SNRs[SNR_key] > SNR_thresh)*this_useful_redshift_mask)
-                                print("inds", inds)
+                                print(tier_name, "survey_fields == tier_name", sum(survey_fields == tier_name))
+                                print(tier_name, "stacked_SNRs[SNR_key] > SNR_thresh", sum(stacked_SNRs[SNR_key] > SNR_thresh))
+                                print(tier_name, "this_useful_redshift_mask", sum(this_useful_redshift_mask))
+                                print(tier_name, "inds", inds)
                             else:
                                 good_date = SN_data["SN_table"]["daymaxes"]*0
                                 for j, tmp_tier_name in enumerate(SN_data["survey_parameters"]["tier_parameters"]["tier_name"]):
