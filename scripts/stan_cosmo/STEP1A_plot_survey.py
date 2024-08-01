@@ -911,7 +911,7 @@ def collection_of_plots(pickle_to_read):
                 
                 xlim[0] = min(xlim[0], plt.xlim()[0])
                 xlim[1] = max(xlim[1], plt.xlim()[1])
-                plt.title(tier_name.replace("Medium", "Wide") + " z=%.2f" % this_z)
+                plt.title(tier_name + " z=%.2f" % this_z)
                 if j == 0:
                     plt.ylabel("Flux")
                 if i == len(SN_data["survey_parameters"]["tier_parameters"]["tier_name"]) - 1:
