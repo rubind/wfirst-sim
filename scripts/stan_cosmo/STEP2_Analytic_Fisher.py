@@ -111,6 +111,7 @@ def get_stan_data(SN_data):
                      rest_lambs = [],
                      true_phases = [],
                      color_law = [],
+                     gray_disp = [],
                      mags = [],
                      dmags = [],
                      z_inds = [],
@@ -190,7 +191,10 @@ def get_stan_data(SN_data):
             stan_data["color_law"].append(extinction.ccm89(this_rest_lambs, a_v = 3.1, r_v = 3.1))
 
 
+            total_SNR_squared = 0.
+
             if len(SN_LC["IFS_dates"]) > 1:
+                
                 for IFS_ind in range(len(SN_LC["IFS_dates"])):
                     #print(SN_LC)
                     
@@ -199,6 +203,8 @@ def get_stan_data(SN_data):
                                                          y = SN_LC["IFS_true_fluxes"][IFS_ind]/other_data["AB25"],
                                                          sigy = SN_LC["IFS_dfluxes"][IFS_ind]/other_data["AB25"],
                                                          bin_edges = other_data["wave_bin_edges"])
+
+                    total_SNR_squared += sum((bin_flux/bin_sig_flux)**2.)
 
                     
                     good_inds = np.where((bin_flux > 0)
@@ -246,7 +252,12 @@ def get_stan_data(SN_data):
                         stan_data["true_phases"][-1], [(SN_LC["IFS_dates"][IFS_ind] - this_daymax)/(1. + this_z)]*N_prism_waves
                         ))
                     
-                    
+                
+            if opts.twins == 0:
+                stan_data["gray_disp"].append(opts.gray_disp)
+            else:
+                this_gray_disp = np.sqrt(0.004138995017871641 + 12.627569849602615/(687.738490452654 + total_SNR_squared))
+                stan_data["gray_disp"].append(this_gray_disp)
 
             
             stan_data["NSNe"] += 1
@@ -304,6 +315,11 @@ def get_stan_data(SN_data):
     plt.savefig("redshifts_selected.pdf", bbox_inches = 'tight')
     plt.close()
 
+    plt.plot(stan_data["redshifts"], stan_data["gray_disp"], '.')
+    plt.savefig("gray_disp_vs_z.pdf", bbox_inches = 'tight')
+    plt.close()
+    
+
     f = open("redshifts_selected.txt", 'w')
     for redshift in np.sort(np.unique(stan_data["redshifts"])):
         f.write("%.3f  %i\n" % (redshift, sum(stan_data["redshifts"] == redshift)))
@@ -340,7 +356,7 @@ def residfn(P, wrapped_data):
     for i in tqdm.trange(stan_data["NSNe"]):
         if direct_inverse:
             cmat = np.diag(stan_data["dmags"][i]**2.)
-            cmat += opts.gray_disp**2.
+            cmat += stan_data["gray_disp"][i]**2.
             cmat += np.outer(stan_data["color_law"][i]*0.5, stan_data["color_law"][i]*0.5) # +- 0.5 mag E(B-V)
         
             for filt in np.unique(stan_data["filt_inds"][i]):
@@ -357,7 +373,7 @@ def residfn(P, wrapped_data):
             Ainv = np.diag(stan_data["dmags"][i]**(-2.))
             unique_filt_inds = np.unique(stan_data["filt_inds"][i])
             Umat = np.zeros([len(stan_data["dmags"][i]), len(unique_filt_inds) + 2], dtype=np.float64)
-            Umat[:, 0] = opts.gray_disp
+            Umat[:, 0] = stan_data["gray_disp"][i]
             Umat[:, 1] = stan_data["color_law"][i]*0.5
 
             next_ind = 2
@@ -415,6 +431,7 @@ parser.add_argument("--prism_bins", help="Number of prism bins in wavelength", d
 parser.add_argument("--SNRMax", help="Use >10 & >5 & >5 for LC selection, rather than total S/N", default = 0, type=int)
 parser.add_argument("--model_res", help="Model wavelength resolution", default = 9, type=int)
 parser.add_argument("--gray_disp", help="Gray dispersion", default = 0.1, type=float)
+parser.add_argument("--twins", help="Assume twins S/N scaling", default = 0, type=int)
 parser.add_argument("--color_scatter_opt", help="Color scatter optical", default = 0.03, type=float)
 parser.add_argument("--color_scatter_nir", help="Color scatter nir", default = 0.03, type=float)
 parser.add_argument("--train", help="Include Model Training", default = 1, type=int)
@@ -425,6 +442,12 @@ opts = parser.parse_args()
 
 prism_bins = opts.prism_bins
 
+if opts.twins == 1:
+    opts.gray_disp = -1
+    opts.color_scatter_opt = 0.001
+    opts.color_scatter_nir = 0.001
+
+    
 suffix = "_" + ( "notrain"*(opts.train == 0) + "nocalib"*(opts.calib == 0) ) + "SNRMax=%i_res=%02i_bins=%03i_disp=%.3f_scatopt=%.3f_scatnir=%.3f" % (opts.SNRMax, opts.model_res, opts.prism_bins, opts.gray_disp, opts.color_scatter_opt, opts.color_scatter_nir)
 
 
