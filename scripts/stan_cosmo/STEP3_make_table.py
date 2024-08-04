@@ -1,7 +1,7 @@
 from subprocess import getoutput
 import numpy as np
 
-grepout = getoutput("grep FoM_0.26 */FoM*res*=0.10*").split('\n')
+grepout = getoutput("grep FoM_0.26 */FoM*disp=0.100*").split('\n')
 FoM = [float(item.split(None)[-1]) for item in grepout]
 
 

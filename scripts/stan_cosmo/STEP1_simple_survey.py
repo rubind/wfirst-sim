@@ -814,7 +814,7 @@ if __name__ == "__main__":
             this_SN_data["SN_observations"][j]["sncosmo_model"] = None # Can't pickle SNCosmo model!
             print('this_SN_data["SN_observations"][j]["gal_background"]', this_SN_data["SN_observations"][j]["gal_background"])
             
-            this_SN_data["SN_observations"][j]["gal_background"] = this_SN_data["SN_observations"][j]["gal_background"](IFS_args["waves"])  # Can't pickle SNCosmo model!
+            this_SN_data["SN_observations"][j]["gal_background"] = this_SN_data["SN_observations"][j]["gal_background"](IFS_args["waves"][::10])  # Can't pickle SNCosmo model!
 
         SN_data = merge_SN_data(SN_data, this_SN_data)
 

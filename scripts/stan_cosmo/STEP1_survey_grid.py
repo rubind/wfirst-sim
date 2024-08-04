@@ -335,17 +335,26 @@ wide_exp_times = [] # RZYJHF, z=0.5
 med_exp_times = [] # RZYJHF, z=1.0
 deep_exp_times = [] # RZYJHF, z=1.7
 
-grid_vals = dict(widepercent_imaging = np.arange(100, 251, 5),
+percent_prism10000 = []
+for i in range(10000):
+    this_percent = 10000
+    while this_percent >= 99.9:
+        this_percent = np.random.exponential()*30
+    percent_prism10000.append(this_percent)
+    
+
+grid_vals = dict(widepercent_imaging = np.arange(0, 301, 5),
                  medpercent_imaging = np.arange(0, 101, 5),
                  deeppercent_imaging = np.arange(0, 101, 5),
                  total_survey_years = [0.5],
                  nnearby = [800],
-                 wide_filts = ["RZYJHF", "RZYJH", "RZYJ", "RZY", "RZJ", "RZH", "ZYJ", "ZYJH", "ZJH", "ZHF", "ZYH"],
+                 wide_filts = ["RZYJHF", "RZYJH", "RZYJ", "RZJH", "RZY", "RZJ", "RZH", "ZYJ", "ZYJH", "ZJH", "ZHF", "ZYH"],
                  med_filts = ["RZYJHF", "ZYJHF", "YJHF", "RZYJH", "RZYJ", "ZYJH"],
 	         deep_filts = ["RZYJHF", "ZYJHF", "YJHF", "RZYJH", "ZYJH"],
-                 widepercent_prism = np.arange(0, 41, 2),
-                 medpercent_prism = np.arange(0, 41, 2),
-                 deeppercent_prism = np.arange(0, 41, 2),
+                 widepercent_prism = np.arange(0, 41, 2), #[0],#np.arange(0, 41, 2),
+                 medpercent_prism = np.arange(0, 41, 2), #[0],#np.arange(0, 41, 2),
+                 deeppercent_prism = np.arange(0, 41, 2), #[0],#np.arange(0, 41, 2),
+                 percent_prism = np.array(percent_prism10000),
                  SN_number_poisson = [0])
                  
 
@@ -436,16 +445,23 @@ elif grid_type == "random":
         for key in grid_vals:
             these_pars[key] = np.random.choice(grid_vals[key])
 
+        
+        #tot_norm = these_pars["widepercent_imaging"] + these_pars["medpercent_imaging"] + these_pars["deeppercent_imaging"] + these_pars["widepercent_prism"] + these_pars["medpercent_prism"] + these_pars["deeppercent_prism"]
 
-        tot_norm = these_pars["widepercent_imaging"] + these_pars["medpercent_imaging"] + these_pars["deeppercent_imaging"] + these_pars["widepercent_prism"] + these_pars["medpercent_prism"] + these_pars["deeppercent_prism"]
-
+        im_norm = (100 - these_pars["percent_prism"])/(these_pars["widepercent_imaging"] + these_pars["medpercent_imaging"] + these_pars["deeppercent_imaging"])
+        pr_norm = these_pars["percent_prism"]/(these_pars["widepercent_prism"] + these_pars["medpercent_prism"] + these_pars["deeppercent_prism"])
+        
+        
         for key1 in ["wide", "med", "deep"]:
-            for key2 in ["imaging", "prism"]:
-                these_pars[key1 + "percent_" + key2] *= 100./tot_norm
-                these_pars[key1 + "percent_" + key2] = int(np.around(these_pars[key1 + "percent_" + key2]))
+            these_pars[key1 + "percent_imaging"] *= im_norm
+            these_pars[key1 + "percent_imaging"] = int(np.around(these_pars[key1 + "percent_imaging"]))
+
+            these_pars[key1 + "percent_prism"] *= pr_norm
+            these_pars[key1 + "percent_prism"] = int(np.around(these_pars[key1 + "percent_prism"]))
 
         del these_pars["deeppercent_imaging"]
- 
+        del these_pars["percent_prism"]
+        
         for wide_rubin in [0]: #,1]:
             these_pars["wide_rubin"] = wide_rubin
             print(these_pars)
