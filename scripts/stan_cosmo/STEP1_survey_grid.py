@@ -348,13 +348,13 @@ grid_vals = dict(widepercent_imaging = np.arange(0, 301, 5),
                  deeppercent_imaging = np.arange(0, 101, 5),
                  total_survey_years = [0.5],
                  nnearby = [800],
-                 wide_filts = ["RZYJHF", "RZYJH", "RZYJ", "RZJH", "RZY", "RZJ", "RZH", "ZYJ", "ZYJH", "ZJH", "ZHF", "ZYH"],
+                 wide_filts = ["RZYJHF"]*3 + ["RZYJH"]*3 + ["RZYJ", "RZJH"]*3 + ["RZY", "RZJ", "RZH", "ZYJ", "ZYJH", "ZJH", "ZHF", "ZYH"],
                  med_filts = ["RZYJHF", "ZYJHF", "YJHF", "RZYJH", "RZYJ", "ZYJH"],
 	         deep_filts = ["RZYJHF", "ZYJHF", "YJHF", "RZYJH", "ZYJH"],
                  widepercent_prism = np.arange(0, 41, 2), #[0],#np.arange(0, 41, 2),
                  medpercent_prism = np.arange(0, 41, 2), #[0],#np.arange(0, 41, 2),
                  deeppercent_prism = np.arange(0, 41, 2), #[0],#np.arange(0, 41, 2),
-                 percent_prism = np.array(percent_prism10000),
+                 percent_prism = np.arange(1, 11, 1.), #np.array(percent_prism10000), #np.arange(0, 16, 1.), #np.array(percent_prism10000),
                  SN_number_poisson = [0])
                  
 
