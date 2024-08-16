@@ -1,6 +1,3 @@
-import multiprocessing
-multiprocessing.set_start_method("fork")
-import pystan
 import numpy as np
 import pickle
 import matplotlib.pyplot as plt
