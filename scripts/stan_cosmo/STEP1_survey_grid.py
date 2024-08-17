@@ -3,8 +3,47 @@ from subprocess import getoutput
 import tqdm
 import sys
 from FileRead import readcol
+import os
+WFIRST = os.environ["WFIRST"]
 
 
+def get_per_visit_exposure_time(band, redshift, cadence):
+    f = open(WFIRST + "/scripts/pixel-level/StoN_vs_exptime_%s_TTel_264.0_WebbPSF_WFC_aldering_dark=0.015_rnf=5.0_rnw=16.0_SNRtarg=10.00@1.00_addhost=1_mod=SALT3.NIR_WAVEEXT_zlots=1.0.txt" % (band), 'r')
+    lines = f.read().split('\n')
+    f.close()
+
+    rest_wave_micron = dict(R062 = 0.62, Z087 = 0.87, Y106 = 1.06, J129 = 1.29, H158 = 1.58, F184 = 1.84, K213 = 2.13)[band]
+
+    redshift = min(redshift, rest_wave_micron/0.37 - 1.)
+    redshift = np.around(redshift, 1)
+
+    for line in lines:
+        if line.count("50.0: ") == 1:
+            if line.count("redshift=%.1f" % redshift) == 1:
+                if line.count("key=%.2f" % (10.*np.sqrt(   cadence/(2.5*(1. + redshift))   ))) == 1:
+                    exp_in_five_days = float(line.split("exp=")[-1])
+                    exp_per_visit = (exp_in_five_days/5.)*cadence
+                    exp_per_visit = max(exp_per_visit, 60.)
+                    return exp_per_visit
+                
+    assert 0, "Error reading " + str(band) + " " + str(redshift) + " " + str(cadence)
+
+"""
+for band in ["R062", "Z087", "Y106", "J129", "H158", "F184"]:
+    for redshift in np.arange(0.2, 2.1, 0.1):
+        print(band, "z=%.1f" % redshift, "%.2f s" % get_per_visit_exposure_time(band = band, redshift = redshift, cadence = 5.0))
+
+
+stop_here
+"""
+
+def get_exp_time_dict(redshift, cadence):
+    exp_time_dict = {}
+    
+    for band in ["R062", "Z087", "Y106", "J129", "H158", "F184"]:
+        exp_time_dict[band[0]] = get_per_visit_exposure_time(band = band, redshift = redshift, cadence = cadence)
+    return exp_time_dict
+    
 def get_square_degrees(cadence, filters, exp_times, tier_percent, total_survey_years, prism_cadence = 5.):
     if filters.count("g"):
         survey_duration = 0.6
@@ -81,18 +120,20 @@ max_z,%.2f,\n""" % (tier_name, tier_percent/100., square_degrees,
                     ",".join(cadences),
                     ",".join(cadence_offsets),
                     ",".join(["1"]*len(filters)),
-                    2.5))
+                    max_z))
     
 
     
 def make_survey(total_survey_years, widepercent_imaging, medpercent_imaging, widepercent_prism, medpercent_prism, deeppercent_prism,
                 nnearby, wide_filts, med_filts, deep_filts, SN_number_poisson,
-                exp_times_dict_wide,
-                exp_times_dict_med,
-                exp_times_dict_deep,
+                #exp_times_dict_wide,
+                #exp_times_dict_med,
+                #exp_times_dict_deep,
                 suffix = "0", wd = "",
+                add_Rubin_only_tier = 0,
                 wide_cadence = 10, med_cadence = 5, deep_cadence = 5,
-                SN_rates = "SN_rates.txt", SNRMax = 0, wide_rubin = 0, model_res_list = [9]):
+                wide_ztarg = 0.5, med_ztarg = 1.0, deep_ztarg = 1.7,
+                SN_rates = "SN_rate1.txt", SNRMax = 0, wide_rubin = 0, model_res_list = [9]):
 
     
     deeppercent_imaging = 100 - (widepercent_imaging + medpercent_imaging + widepercent_prism + medpercent_prism + deeppercent_prism)
@@ -119,10 +160,23 @@ def make_survey(total_survey_years, widepercent_imaging, medpercent_imaging, wid
 
     if len(deep_filts) < 3:
         return 0
+
+    if med_ztarg <= wide_ztarg:
+        return 0
+    if deep_ztarg <= wide_ztarg:
+        return 0
+    if deep_ztarg <= med_ztarg:
+        return 0
+
+
     
     if wd == "":
-        wd = location + "/yr=%.3f_wi=%03i_mi=%03i_di=%03i_wp=%03i_mp=%03i_dp=%03i_nnearby=%05i_%s+%s+%s_cad=%02i+%02i+%02i_PN=%i_%s" % (total_survey_years, widepercent_imaging, medpercent_imaging, deeppercent_imaging, widepercent_prism, medpercent_prism, deeppercent_prism,
-                                                                                                                                        nnearby, wide_filts, med_filts, deep_filts, wide_cadence, med_cadence, deep_cadence, SN_number_poisson, suffix)
+        wd = location + "/yr=%.3f_wi=%03i_mi=%03i_di=%03i_wp=%03i_mp=%03i_dp=%03i_nnearby=%05i_%s+%s+%s_cad=%02i+%02i+%02i_PN=%i_Ronly=%i_ztarg=%.1f+%.1f+%.1f_%s" % (total_survey_years, widepercent_imaging, medpercent_imaging, deeppercent_imaging,
+                                                                                                                                                                      widepercent_prism, medpercent_prism, deeppercent_prism,
+                                                                                                                                                                      nnearby, wide_filts, med_filts, deep_filts, wide_cadence, med_cadence, deep_cadence,
+                                                                                                                                                                      SN_number_poisson, add_Rubin_only_tier,
+                                                                                                                                                                      wide_ztarg, med_ztarg, deep_ztarg,
+                                                                                                                                                                      suffix)
     else:
         wd = location + "/" + wd
 
@@ -179,17 +233,33 @@ max_SNe,%i,
 max_z,0.1,
 """ % (square_degrees, nnearby))
 
+    if add_Rubin_only_tier:
+        f.write("""__________________________________________,,,,,,
+tier_name,RubinDDF,,,,,,
+tier_fraction_time,0.,,,,,,
+square_degrees,9.6*8,,,,,,
+filters,g,r,i,z,
+exp_times_per_dither,30,30,30,30,
+cadences,4,4,4,4,
+cadence_offsets,0,0,0,0,
+dithers_per_filter,1,1,1,1,
+max_SNe,100000,
+max_z,0.5,
+""")
+
+    exp_times_dict_wide = get_exp_time_dict(redshift = wide_ztarg, cadence = wide_cadence)
+    exp_times_dict_med = get_exp_time_dict(redshift = med_ztarg, cadence = med_cadence)
+    exp_times_dict_deep = get_exp_time_dict(redshift = deep_ztarg, cadence = deep_cadence)
 
 
+        
     if not "P" in exp_times_dict_wide:
         exp_times_dict_wide["P"] = 900
-        assert widepercent_prism == 0
     if not "P" in exp_times_dict_med:
         exp_times_dict_med["P"] = 1800
-        assert medpercent_prism == 0
     if not "P" in exp_times_dict_deep:
         exp_times_dict_deep["P"] = 3600
-        assert deeppercent_prism == 0
+
 
 
 
@@ -251,9 +321,9 @@ max_z,0.1,
                 
                 write_tier(f, total_survey_years = total_survey_years,
                            tier_name = im_name + pr_name, tier_percent = tier_percent, exp_times = exp_times, filters = filters,
-                           cadence = [5, 5, 10][ind_im],
+                           cadence = [deep_cadence, med_cadence, wide_cadence][ind_im],
                            prism_cadence = 5.,
-                           max_z = [2.5, 2.5, 1.0][ind_im])
+                           max_z = [3.0, 3.0, 3.0][ind_im])
     f.close()
     assert np.isclose(all_percent, 100)
             
@@ -283,7 +353,8 @@ pip install sep
     f.write("python $WFIRST/scripts/stan_cosmo/STEP1_simple_survey.py paramfile.csv survey.pickle > log.txt\n")
 
     for model_res in model_res_list:
-        f.write("python $WFIRST/scripts/stan_cosmo/STEP2_Analytic_Fisher.py survey.pickle --SNRMax %i --model_res %i > fisher_log.txt\n" % (SNRMax, model_res))
+        f.write("python $WFIRST/scripts/stan_cosmo/STEP2_Analytic_Fisher.py survey.pickle --SNRMax %i --model_res %i  --train 1 --calib 1 --color_scatter_opt 0.04 --color_scatter_nir 0.02 --gray_disp 0.08 > fisher_log.txt\n" % (SNRMax, model_res))
+        f.write("python $WFIRST/scripts/stan_cosmo/STEP1A_plot_survey.py survey.pickle\n")
         f.write("python $WFIRST/scripts/stan_cosmo/FoM.py comb_mat.fits > FoM_model_res=%02i.txt\n" % model_res)
         f.write("python $WFIRST/scripts/stan_cosmo/FoM.py comb_mat_no_model.fits > FoM_no_model_%02i.txt\n" % model_res)
         f.write("python $WFIRST/scripts/stan_cosmo/FoM.py comb_mat_stat_only.fits > FoM_stat_only_%02i.txt\n" % model_res)
@@ -343,27 +414,48 @@ for i in range(10000):
     percent_prism10000.append(this_percent)
     
 
-grid_vals = dict(widepercent_imaging = np.arange(0, 301, 5),
+grid_vals = dict(widepercent_imaging = np.arange(0, 201, 5),
                  medpercent_imaging = np.arange(0, 101, 5),
-                 deeppercent_imaging = np.arange(0, 101, 5),
+                 deeppercent_imaging = np.arange(0, 201, 5),
                  total_survey_years = [0.5],
                  nnearby = [800],
+                 add_Rubin_only_tier = [1],
                  wide_filts = ["RZYJHF"]*3 + ["RZYJH"]*3 + ["RZYJ", "RZJH"]*3 + ["RZY", "RZJ", "RZH", "ZYJ", "ZYJH", "ZJH", "ZHF", "ZYH"],
                  med_filts = ["RZYJHF", "ZYJHF", "YJHF", "RZYJH", "RZYJ", "ZYJH"],
 	         deep_filts = ["RZYJHF", "ZYJHF", "YJHF", "RZYJH", "ZYJH"],
                  widepercent_prism = np.arange(0, 41, 2), #[0],#np.arange(0, 41, 2),
                  medpercent_prism = np.arange(0, 41, 2), #[0],#np.arange(0, 41, 2),
                  deeppercent_prism = np.arange(0, 41, 2), #[0],#np.arange(0, 41, 2),
-                 percent_prism = np.arange(1, 11, 1.), #np.array(percent_prism10000), #np.arange(0, 16, 1.), #np.array(percent_prism10000),
+                 percent_prism = np.array(percent_prism10000), #np.arange(0, 16, 1.), #np.array(percent_prism10000),
                  SN_number_poisson = [0])
                  
+
+grid_vals = dict(widepercent_imaging = np.arange(0, 101, 5),
+                 medpercent_imaging = np.arange(0, 101, 5),
+                 deeppercent_imaging = np.arange(0, 101, 5),
+                 total_survey_years = [0.5],
+                 nnearby = [800],
+                 add_Rubin_only_tier = [1],
+                 wide_filts = ["RZJRHY"]*4 + ["RZYJHF"]*3 + ["RZYJH"]*3 +  ["RZYJ", "RZJH"]*2 + ["RZY", "RZJ", "RZH", "ZYJ", "ZYJH", "ZJH", "ZHF", "ZYH"],
+                 med_filts = ["RZYJHF", "ZYJHF", "YJHF", "RZYJH", "RZYJ", "ZYJH"],
+                 deep_filts = ["RZYJHF", "ZYJHF"],
+                 wide_cadence = [10],
+                 wide_ztarg = np.arange(0.3, 1.1, 0.1), med_ztarg = np.arange(0.8, 1.3, 0.1), deep_ztarg = np.arange(1.0, 2.4, 0.1),
+                 med_cadence = [4, 5, 6, 7, 8, 9, 10, 12, 15],
+                 deep_cadence = [4, 5, 6, 7, 8, 9, 10, 12, 15],
+                 widepercent_prism = np.arange(0, 41, 2), #[0],#np.arange(0, 41, 2),
+                 medpercent_prism = np.arange(0, 41, 2), #[0],#np.arange(0, 41, 2),
+                 deeppercent_prism = np.arange(0, 41, 2), #[0],#np.arange(0, 41, 2),
+                 percent_prism = np.array(percent_prism10000), #np.arange(0, 16, 1.), #np.array(percent_prism10000),                                                                                                                                 
+                 SN_number_poisson = [0])
+
 
 
 #exp_times_dict_wide = dict(R = 24.6, Z = 31.4, Y = 42.8, J = 61.8, H = 94, F = 175.4, P = 900., g = 30., r = 30., i = 30., z = 30.) # Note, cadence is 10 for imaging
 
-exp_times_dict_wide = dict(R = 60., Z = 60., Y = 60., J = 61.8, H = 94, F = 175.4, P = 900., g = 30., r = 30., i = 30., z = 30.) # Minimum 60s
-exp_times_dict_med = dict(R = 152.9, Z = 67.6, Y = 75.3, J = 92.2, H = 187.9, F = 390.4, P = 1800.)
-exp_times_dict_deep = dict(R = 152.9, Z = 152.9, Y = 235.4, J = 246.3, H = 336.7, F = 1017.6, P = 3600.)
+#exp_times_dict_wide = dict(R = 60., Z = 60., Y = 60., J = 61.8, H = 94, F = 175.4, P = 900., g = 30., r = 30., i = 30., z = 30.) # Minimum 60s
+#exp_times_dict_med = dict(R = 152.9, Z = 67.6, Y = 75.3, J = 92.2, H = 187.9, F = 390.4, P = 1800.)
+#exp_times_dict_deep = dict(R = 152.9, Z = 152.9, Y = 235.4, J = 246.3, H = 336.7, F = 1017.6, P = 3600.)
 
 
 
@@ -383,9 +475,10 @@ if grid_type == "tier_fraction":
             
             print("widepercent_imaging", widepercent_imaging, "medpercent_imaging", medpercent_imaging, "deeppercent", deeppercent_imaging)
 
-    
-            make_survey(total_survey_years = 0.5, widepercent_imaging = widepercent_imaging, medpercent_imaging = medpercent_imaging, nnearby = 800, widepercent_prism = 0, medpercent_prism = 0, deeppercent_prism = 25,
-                        wide_filts = "RZYJ", med_filts = "ZYJH", deep_filts = "ZYJHF", SN_number_poisson = 0)
+            for add_Rubin_only_tier in [0, 1]:
+                make_survey(total_survey_years = 0.5, widepercent_imaging = widepercent_imaging, medpercent_imaging = medpercent_imaging, nnearby = 800, widepercent_prism = 0, medpercent_prism = 10, deeppercent_prism = 10,
+                            wide_filts = "RZYJ", med_filts = "ZYJH", deep_filts = "ZYJHF", SN_number_poisson = 0, add_Rubin_only_tier = add_Rubin_only_tier,
+                            exp_times_dict_wide = exp_times_dict_wide, exp_times_dict_med = exp_times_dict_med, exp_times_dict_deep = exp_times_dict_deep)
 
 elif grid_type == "poisson":
     for SN_number_poisson in [0, 1]:
@@ -437,6 +530,27 @@ elif grid_type == "model_res":
                      exp_times_dict_wide = exp_times_dict_wide, exp_times_dict_med = exp_times_dict_med, exp_times_dict_deep = exp_times_dict_deep,
                      SN_number_poisson = 0, model_res_list = np.arange(7, 19))
 
+elif grid_type == "cadence":
+    for wide_cadence in np.arange(1., 16., 1.):
+        for deep_cadence in np.arange(1., 16., 1.):
+            exp_times_dict_wide = dict(R = get_per_visit_exposure_time(band = "R062", redshift = 0.5, cadence = wide_cadence),
+                                       Z = get_per_visit_exposure_time(band = "Z087", redshift = 0.5, cadence = wide_cadence),
+                                       Y = get_per_visit_exposure_time(band = "Y106", redshift = 0.5, cadence = wide_cadence),
+                                       J = get_per_visit_exposure_time(band = "J129", redshift = 0.5, cadence = wide_cadence))
+                                       
+            exp_times_dict_deep = dict(Y = get_per_visit_exposure_time(band = "Y106", redshift = 1.7, cadence = deep_cadence),
+                                       J = get_per_visit_exposure_time(band = "J129", redshift = 1.7, cadence = deep_cadence),
+                                       H = get_per_visit_exposure_time(band = "H158", redshift = 1.7, cadence = deep_cadence),
+                                       F = get_per_visit_exposure_time(band = "F184", redshift = 1.7, cadence = deep_cadence))
+
+            
+            make_survey_wrap(total_survey_years = 0.5, widepercent_imaging = 50., medpercent_imaging = 0.0, nnearby = 800, widepercent_prism = 0, medpercent_prism = 0.,
+                             deeppercent_prism = 0.0,
+                             wide_cadence = wide_cadence, med_cadence = 5, deep_cadence = deep_cadence,
+                             wide_filts = "RZYJ", med_filts = "ZYJHF", deep_filts = "YJHF",
+                             exp_times_dict_wide = exp_times_dict_wide, exp_times_dict_med = exp_times_dict_med, exp_times_dict_deep = exp_times_dict_deep,
+                             SN_number_poisson = 0)
+    
 
 elif grid_type == "random":
     good_surveys = 0
@@ -465,7 +579,7 @@ elif grid_type == "random":
         for wide_rubin in [0]: #,1]:
             these_pars["wide_rubin"] = wide_rubin
             print(these_pars)
-            good_surveys += make_survey(**these_pars, exp_times_dict_wide = exp_times_dict_wide, exp_times_dict_med = exp_times_dict_med, exp_times_dict_deep = exp_times_dict_deep)
+            good_surveys += make_survey(**these_pars)
             print("good_surveys", good_surveys)
 
 elif grid_type == "read_csv":
@@ -473,4 +587,4 @@ elif grid_type == "read_csv":
     
         
 else:
-    print("Unknown grid type! want: tier_fraction total_time prism_fraction filt_choice nnearby read_csv poisson prism_exp model_res or random")
+    print("Unknown grid type! want: tier_fraction total_time prism_fraction filt_choice nnearby read_csv poisson prism_exp model_res cadence or random")
