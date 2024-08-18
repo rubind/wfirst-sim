@@ -1,7 +1,16 @@
 from subprocess import getoutput
 import numpy as np
+import sys
 
-grepout = getoutput("grep FoM_0.26 */FoM*scatnir=0.02*").split('\n')
+
+
+#grepout = getoutput("grep FoM_0.26 */FoM*disp=0.100*").split('\n')
+
+grepout = getoutput("grep FoM_0.26 " + sys.argv[1] + " | grep 'scatnir\=0.02'").replace("FoM_0.26", "") # + " | grep scatter_nir\=0.02").split('\n')
+
+grepout = grepout.split('\n')
+#print(grepout[:4])
+
 FoM = [float(item.split(None)[-1]) for item in grepout]
 
 
