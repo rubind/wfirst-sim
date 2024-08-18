@@ -70,7 +70,7 @@ def get_useful_redshifts(z_set, tier_set, redshifts, stacked_SNRs, survey_fields
 
         print("useful_redshifts", useful_redshifts)
         print("survey_fields", survey_fields)
-        print("HACK!!!!!")
+        print("HACK on malmquist cut!!!!!")
         useful_redshift_mask[SNR_thresh] = ones(len(redshifts)) #array([useful_redshifts[(survey_fields[i], redshifts[i])] for i in range(len(redshifts))])
 
     plt.savefig(working_dir + "/efficiency_by_redshift_" + suffix + ".pdf", bbox_inches = 'tight')
@@ -743,7 +743,7 @@ def collection_of_plots(pickle_to_read):
                     for i, tier_name in enumerate(SN_data["survey_parameters"]["tier_parameters"]["tier_name"] + ["All"]*extra_tier):
                         print("tier_name", tier_name)
                         plt.subplot(n_tiers+1, 1, i+1)
-                        for SNR_thresh, SNR_color in zip((0., 20., 30., 40., 80., 120., 160), ['r', "orange", (0.5, 1, 0), 'g', 'c',  'b', 'm']):
+                        for SNR_thresh, SNR_color in zip((0., 10, 20., 30., 40., 80., 120., 160), ['k', 'r', "orange", (0.5, 1, 0), 'g', 'c',  'b', 'm']):
 
                             if use_malm:
                                 this_useful_redshift_mask = 1
@@ -769,7 +769,7 @@ def collection_of_plots(pickle_to_read):
                                 inds = where((stacked_SNRs[SNR_key] > SNR_thresh)*good_date)
 
                             if len(inds[0]) > 0:
-                                plt.hist(SN_data["SN_table"]["redshifts"][inds], bins = arange(0., 2.6, 0.1), color = SNR_color, label = "SNR>%.0f: %i"% (SNR_thresh, len(inds[0])), cumulative=cumulative)
+                                plt.hist(SN_data["SN_table"]["redshifts"][inds], bins = arange(0., 2.6, 0.1), color = SNR_color, label = "SNR Sum>%.0f: %i"% (SNR_thresh, len(inds[0])), cumulative=cumulative, histtype="step"*(SNR_thresh == 0) + "stepfilled"*(SNR_thresh > 0))
 
                         plt.title(outputname.replace("_", " ").replace(".", ":") + " " + tier_name)
                         plt.legend(loc = 'best', fontsize = 8)
@@ -883,7 +883,7 @@ def collection_of_plots(pickle_to_read):
     #plot_field(SN_data, working_dir, nsne, outputname, plt = plt)
     flc.close()
 
-    z_to_plot = [0.475, 1.025, 1.475, 2.025]
+    z_to_plot = [0.225, 0.475, 0.725, 1.025, 1.475, 2.025]
     plt.figure(figsize = (4*len(z_to_plot), 3*n_tiers))
     for j, this_z in enumerate(z_to_plot):
         xlim = [1e7, -1e7]
