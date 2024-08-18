@@ -769,11 +769,7 @@ def collection_of_plots(pickle_to_read):
                                 inds = where((stacked_SNRs[SNR_key] > SNR_thresh)*good_date)
 
                             if len(inds[0]) > 0:
-<<<<<<< HEAD
-                                plt.hist(SN_data["SN_table"]["redshifts"][inds], bins = arange(0., 3.01, 0.1), color = SNR_color, label = "SNR>%.0f: %i"% (SNR_thresh, len(inds[0])), cumulative=cumulative)
-=======
-                                plt.hist(SN_data["SN_table"]["redshifts"][inds], bins = arange(0., 2.6, 0.1), color = SNR_color, label = "SNR Sum>%.0f: %i"% (SNR_thresh, len(inds[0])), cumulative=cumulative, histtype="step"*(SNR_thresh == 0) + "stepfilled"*(SNR_thresh > 0))
->>>>>>> 3860fc3757b8a92fd239f3191a777c37838d559c
+                                plt.hist(SN_data["SN_table"]["redshifts"][inds], bins = arange(0., 3.01, 0.1), color = SNR_color, label = "SNR Sum>%.0f: %i"% (SNR_thresh, len(inds[0])), cumulative=cumulative, histtype="step"*(SNR_thresh == 0) + "stepfilled"*(SNR_thresh > 0))
 
                         plt.title(outputname.replace("_", " ").replace(".", ":") + " " + tier_name)
                         plt.legend(loc = 'best', fontsize = 8)

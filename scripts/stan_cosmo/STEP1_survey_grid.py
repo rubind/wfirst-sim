@@ -161,14 +161,34 @@ def make_survey(total_survey_years, widepercent_imaging, medpercent_imaging, wid
     if len(deep_filts) < 3:
         return 0
 
-    if med_ztarg <= wide_ztarg:
+    if med_ztarg <= wide_ztarg + 0.001:
         return 0
-    if deep_ztarg <= wide_ztarg:
+    if deep_ztarg <= wide_ztarg + 0.001:
         return 0
-    if deep_ztarg <= med_ztarg:
+    if deep_ztarg <= med_ztarg + 0.001:
         return 0
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
     
     if wd == "":
         wd = location + "/yr=%.3f_wi=%03i_mi=%03i_di=%03i_wp=%03i_mp=%03i_dp=%03i_nnearby=%05i_%s+%s+%s_cad=%02i+%02i+%02i_PN=%i_Ronly=%i_ztarg=%.1f+%.1f+%.1f_%s" % (total_survey_years, widepercent_imaging, medpercent_imaging, deeppercent_imaging,

@@ -778,7 +778,10 @@ if __name__ == "__main__":
 
 
     redshift_step = 0.05
-    redshift_set = arange(0.075, 2.475 + redshift_step/10., redshift_step)
+    max_max_z = max(survey_parameters["tier_parameters"]["max_z"])
+    print("max_max_z", max_max_z)
+    
+    redshift_set = arange(0.075, max_max_z + redshift_step/10., redshift_step)
 
     #source = sncosmo.SALT2Source(modeldir=wfirst_data_path + "/salt2_extended/")
 

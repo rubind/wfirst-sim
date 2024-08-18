@@ -17,6 +17,10 @@ FoM = [float(item.split(None)[-1]) for item in grepout]
 inds = np.argsort(FoM)
 
 
+parsed = grepout[0].replace("_", " ").replace("=", " ").split(None)
+for i, x in enumerate(parsed):
+    print(i, x)
+
 
 for ind in inds:
     parsed = grepout[ind].replace("_", " ").replace("=", " ").split(None)
@@ -28,6 +32,23 @@ for ind in inds:
     #for i, x in enumerate(parsed):
     #    print(i, x)
     #ffff
+
+    tier_percents = [int(parsed[3]), int(parsed[5]), int(parsed[7])]
+    filters = []
+    cadences = []
+    redshifts = []
+
+    for i in range(3):
+        if tier_percents[i] > 1:
+            filters.append(parsed[16].split("+")[i])
+            cadences.append(parsed[18].split("+")[i])
+            redshifts.append(parsed[24].split("+")[i])
+        else:
+            filters.append("-")
+            cadences.append("-")
+            redshifts.append("-")
+            
+    
     
     print("years: " + parsed[1] + ", % wide/medium/deep: " +  parsed[3] + "/" + parsed[5] + "/" + parsed[7] + ", % with prism wide/medium/deep: " + parsed[9] + "/" + parsed[11] + "/" + parsed[13] + (" (%02i total)" % (float(parsed[9]) + float(parsed[11]) + float(parsed[13])))  +
-          ", filters: " + parsed[16].replace("+", "/") + ", cadence: " + parsed[18].replace("+", "/") + ", targeting redshifts:", parsed[65].replace("+", "/") + ", FoM: %.1f" %  float(parsed[-1]))
+          ", filters: " + "/".join(filters) + ", cadence: " + "/".join(cadences) + ", targeting redshifts:", "/".join(redshifts) + ", FoM: %.1f" %  float(parsed[-1]))
