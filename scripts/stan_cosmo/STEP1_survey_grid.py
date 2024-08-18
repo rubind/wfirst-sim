@@ -170,32 +170,39 @@ def make_survey(total_survey_years, widepercent_imaging, medpercent_imaging, wid
 
 
 
+    exp_times_dict_wide = get_exp_time_dict(redshift = wide_ztarg, cadence = wide_cadence)
+    exp_times_dict_med = get_exp_time_dict(redshift = med_ztarg, cadence = med_cadence)
+    exp_times_dict_deep = get_exp_time_dict(redshift = deep_ztarg, cadence = deep_cadence)
+
+        
+    if not "P" in exp_times_dict_wide:
+        exp_times_dict_wide["P"] = 900
+    if not "P" in exp_times_dict_med:
+        exp_times_dict_med["P"] = 1800
+    if not "P" in exp_times_dict_deep:
+        exp_times_dict_deep["P"] = 3600
 
 
+    exp_times = [exp_times_dict_wide[item] for item in wide_filts]
+    sq_wide_imaging, NA = get_square_degrees(cadence = wide_cadence, filters = wide_filts, exp_times = exp_times, tier_percent = widepercent_imaging, total_survey_years = total_survey_years)
+    sq_wide_prism, NA = get_square_degrees(cadence = wide_cadence, filters = "P", exp_times = [exp_times_dict_wide["P"]], tier_percent = widepercent_prism, total_survey_years = total_survey_years)
 
+    exp_times = [exp_times_dict_med[item] for item in med_filts]
+    sq_med_imaging, NA = get_square_degrees(cadence = med_cadence, filters = med_filts, exp_times = exp_times, tier_percent = medpercent_imaging, total_survey_years = total_survey_years)
+    sq_med_prism, NA = get_square_degrees(cadence = med_cadence, filters = "P", exp_times = [exp_times_dict_med["P"]], tier_percent = medpercent_prism, total_survey_years = total_survey_years)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    exp_times = [exp_times_dict_deep[item] for item in deep_filts]
+    sq_deep_imaging, NA = get_square_degrees(cadence = deep_cadence, filters = deep_filts, exp_times = exp_times, tier_percent = deeppercent_imaging, total_survey_years = total_survey_years)
+    sq_deep_prism, NA = get_square_degrees(cadence = deep_cadence, filters = "P", exp_times = [exp_times_dict_deep["P"]], tier_percent = deeppercent_prism, total_survey_years = total_survey_years)
     
     
     if wd == "":
-        wd = location + "/yr=%.3f_wi=%03i_mi=%03i_di=%03i_wp=%03i_mp=%03i_dp=%03i_nnearby=%05i_%s+%s+%s_cad=%02i+%02i+%02i_PN=%i_Ronly=%i_ztarg=%.1f+%.1f+%.1f_%s" % (total_survey_years, widepercent_imaging, medpercent_imaging, deeppercent_imaging,
+        wd = location + "/yr=%.3f_wi=%03i_mi=%03i_di=%03i_wp=%03i_mp=%03i_dp=%03i_nnearby=%05i_%s+%s+%s_cad=%02i+%02i+%02i_PN=%i_Ronly=%i_ztarg=%.1f+%.1f+%.1f_sq=%.2g+%.2g+%.2g_%s" % (total_survey_years, widepercent_imaging, medpercent_imaging, deeppercent_imaging,
                                                                                                                                                                       widepercent_prism, medpercent_prism, deeppercent_prism,
                                                                                                                                                                       nnearby, wide_filts, med_filts, deep_filts, wide_cadence, med_cadence, deep_cadence,
                                                                                                                                                                       SN_number_poisson, add_Rubin_only_tier,
                                                                                                                                                                       wide_ztarg, med_ztarg, deep_ztarg,
+																				      sq_wide_imaging, sq_med_imaging, sq_deep_imaging,
                                                                                                                                                                       suffix)
     else:
         wd = location + "/" + wd
@@ -266,34 +273,6 @@ dithers_per_filter,1,1,1,1,
 max_SNe,100000,
 max_z,0.5,
 """)
-
-    exp_times_dict_wide = get_exp_time_dict(redshift = wide_ztarg, cadence = wide_cadence)
-    exp_times_dict_med = get_exp_time_dict(redshift = med_ztarg, cadence = med_cadence)
-    exp_times_dict_deep = get_exp_time_dict(redshift = deep_ztarg, cadence = deep_cadence)
-
-
-        
-    if not "P" in exp_times_dict_wide:
-        exp_times_dict_wide["P"] = 900
-    if not "P" in exp_times_dict_med:
-        exp_times_dict_med["P"] = 1800
-    if not "P" in exp_times_dict_deep:
-        exp_times_dict_deep["P"] = 3600
-
-
-
-
-    exp_times = [exp_times_dict_wide[item] for item in wide_filts]
-    sq_wide_imaging, NA = get_square_degrees(cadence = wide_cadence, filters = wide_filts, exp_times = exp_times, tier_percent = widepercent_imaging, total_survey_years = total_survey_years)
-    sq_wide_prism, NA = get_square_degrees(cadence = wide_cadence, filters = "P", exp_times = [exp_times_dict_wide["P"]], tier_percent = widepercent_prism, total_survey_years = total_survey_years)
-
-    exp_times = [exp_times_dict_med[item] for item in med_filts]
-    sq_med_imaging, NA = get_square_degrees(cadence = med_cadence, filters = med_filts, exp_times = exp_times, tier_percent = medpercent_imaging, total_survey_years = total_survey_years)
-    sq_med_prism, NA = get_square_degrees(cadence = med_cadence, filters = "P", exp_times = [exp_times_dict_med["P"]], tier_percent = medpercent_prism, total_survey_years = total_survey_years)
-
-    exp_times = [exp_times_dict_deep[item] for item in deep_filts]
-    sq_deep_imaging, NA = get_square_degrees(cadence = deep_cadence, filters = deep_filts, exp_times = exp_times, tier_percent = deeppercent_imaging, total_survey_years = total_survey_years)
-    sq_deep_prism, NA = get_square_degrees(cadence = deep_cadence, filters = "P", exp_times = [exp_times_dict_deep["P"]], tier_percent = deeppercent_prism, total_survey_years = total_survey_years)
 
 
     imaging_bins = [0.,
