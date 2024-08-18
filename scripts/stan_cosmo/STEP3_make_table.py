@@ -25,5 +25,9 @@ for ind in inds:
 
     #['yr', '0.500', 'w', '065', 'm', '005', 'd', '030', 'wp', '016', 'mp', '000', 'dp', '035', 'nnearby', '00800', 'RZJ+RZYJHF+ZYJH', 'cad', '10+05+05', 'PN', '0', '0/FoM', 'model', 'res', '09.txt:FoM', '0.26', 'comb', 'mat.fits', '288.7239454040043']
 
+    #for i, x in enumerate(parsed):
+    #    print(i, x)
+    #ffff
+    
     print("years: " + parsed[1] + ", % wide/medium/deep: " +  parsed[3] + "/" + parsed[5] + "/" + parsed[7] + ", % with prism wide/medium/deep: " + parsed[9] + "/" + parsed[11] + "/" + parsed[13] +
-          ", filters: " + parsed[16].replace("+", "/") + ", cadence: " + parsed[18].replace("+", "/") + ", FoM: %.1f" %  float(parsed[-1]))
+          ", filters: " + parsed[16].replace("+", "/") + ", cadence: " + parsed[18].replace("+", "/") + ", targeting redshifts:", parsed[65].replace("+", "/") + ", FoM: %.1f" %  float(parsed[-1]))
