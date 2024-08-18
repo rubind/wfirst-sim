@@ -403,8 +403,8 @@ def make_selection_figure(SN_data, working_dir, nsne, plt):
 
 
             if len(inds[0]) > 0:
-                plt.hist(SN_data["SN_table"]["redshifts"][all_inds], bins = arange(0., 2.6, 0.1), color = 'r')
-                n_list, bins_list, NA = plt.hist(SN_data["SN_table"]["redshifts"][inds], bins = arange(0., 2.6, 0.1), color = 'b', label = crit_list[j])
+                plt.hist(SN_data["SN_table"]["redshifts"][all_inds], bins = arange(0., 3.01, 0.1), color = 'r')
+                n_list, bins_list, NA = plt.hist(SN_data["SN_table"]["redshifts"][inds], bins = arange(0., 3.01, 0.1), color = 'b', label = crit_list[j])
                 plt.legend(loc = 'best', fontsize = 8)
 
                 if crit_list[j] == "stacked S/N per filter > 15" and tier_name == "All":
@@ -603,7 +603,7 @@ def make_SNRMAX_plots(SN_data, working_dir, plt, pickle_to_read):
 
     SNR_pass = np.array(SNR_pass)
     
-    plt.hist(SN_data["SN_table"]["redshifts"][np.where(SNR_pass == 1)], bins = np.arange(0, 2.51, 0.1))
+    plt.hist(SN_data["SN_table"]["redshifts"][np.where(SNR_pass == 1)], bins = np.arange(0, 3.01, 0.1))
     plt.title(pickle_to_read)
     plt.savefig(working_dir + "/redshift_SNRPEAK.pdf", bbox_inches = 'tight')
 
@@ -769,7 +769,7 @@ def collection_of_plots(pickle_to_read):
                                 inds = where((stacked_SNRs[SNR_key] > SNR_thresh)*good_date)
 
                             if len(inds[0]) > 0:
-                                plt.hist(SN_data["SN_table"]["redshifts"][inds], bins = arange(0., 2.6, 0.1), color = SNR_color, label = "SNR>%.0f: %i"% (SNR_thresh, len(inds[0])), cumulative=cumulative)
+                                plt.hist(SN_data["SN_table"]["redshifts"][inds], bins = arange(0., 3.01, 0.1), color = SNR_color, label = "SNR>%.0f: %i"% (SNR_thresh, len(inds[0])), cumulative=cumulative)
 
                         plt.title(outputname.replace("_", " ").replace(".", ":") + " " + tier_name)
                         plt.legend(loc = 'best', fontsize = 8)
@@ -807,7 +807,7 @@ def collection_of_plots(pickle_to_read):
         plt.subplot(len(SN_data["survey_parameters"]["tier_parameters"]["tier_name"]), 1, i+1)
         inds = where(survey_fields == tier_name)
         if len(inds[0]) > 0:
-            plt.hist(SN_data["SN_table"]["redshifts"][inds], bins = arange(0., 2.6, 0.1), color = 'r', label = str(len(inds[0])))
+            plt.hist(SN_data["SN_table"]["redshifts"][inds], bins = arange(0., 3.01, 0.1), color = 'r', label = str(len(inds[0])))
 
         mask = zeros(len(SN_data["SN_table"]["redshifts"]))
         for j in range(len(SN_data["SN_table"]["redshifts"])):
@@ -820,7 +820,7 @@ def collection_of_plots(pickle_to_read):
 
 
         inds = where(mask)
-        plt.hist(SN_data["SN_table"]["redshifts"][inds], bins = arange(0., 2.6, 0.1), color = 'b', label = str(len(inds[0])))
+        plt.hist(SN_data["SN_table"]["redshifts"][inds], bins = arange(0., 3.01, 0.1), color = 'b', label = str(len(inds[0])))
         plt.title(tier_name)
         plt.legend(loc = 'best', fontsize = 8)
     plt.savefig(working_dir + "/redshifts_for_trigger_" + outputname + ".pdf", bbox_inches = 'tight')
@@ -895,8 +895,11 @@ def collection_of_plots(pickle_to_read):
             S_to_N_inds = []
             for ind in inds:
                 SNRs = SN_data["SN_observations"][ind]["fluxes"]/SN_data["SN_observations"][ind]["dfluxes"]
-                SNRs = SNRs[where(SNRs > 5)]
-                S_to_N_inds.append((sqrt(sum(SNRs**2.)), ind))
+                SNRs = SNRs[where(SNRs > 2)]
+                this_SNR = sqrt(sum(SNRs**2.))
+
+                if this_SNR > 0:
+                    S_to_N_inds.append((sqrt(sum(SNRs**2.)), ind))
             S_to_N_inds.sort()
             print("S_to_N_inds", S_to_N_inds)
 

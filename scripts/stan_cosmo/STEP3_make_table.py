@@ -20,5 +20,5 @@ for ind in inds:
     #    print(i, x)
     #ffff
     
-    print("years: " + parsed[1] + ", % wide/medium/deep: " +  parsed[3] + "/" + parsed[5] + "/" + parsed[7] + ", % with prism wide/medium/deep: " + parsed[9] + "/" + parsed[11] + "/" + parsed[13] +
+    print("years: " + parsed[1] + ", % wide/medium/deep: " +  parsed[3] + "/" + parsed[5] + "/" + parsed[7] + ", % with prism wide/medium/deep: " + parsed[9] + "/" + parsed[11] + "/" + parsed[13] + (" (%02i total)" % (float(parsed[9]) + float(parsed[11]) + float(parsed[13])))  +
           ", filters: " + parsed[16].replace("+", "/") + ", cadence: " + parsed[18].replace("+", "/") + ", targeting redshifts:", parsed[65].replace("+", "/") + ", FoM: %.1f" %  float(parsed[-1]))
