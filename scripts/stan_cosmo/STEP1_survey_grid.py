@@ -8,7 +8,7 @@ import os
 WFIRST = os.environ["WFIRST"]
 
 minimum_exp_time = 60.
-minimum_rest_wave_target = 0.37 # microns
+minimum_rest_wave_target = 0.35 # microns
 
 
 def get_per_visit_exposure_time(band, redshift, cadence):
@@ -28,6 +28,8 @@ def get_per_visit_exposure_time(band, redshift, cadence):
                     exp_in_five_days = float(line.split("exp=")[-1])
                     exp_per_visit = (exp_in_five_days/5.)*cadence
                     exp_per_visit = max(exp_per_visit, minimum_exp_time)
+                    if redshift > 0.3:
+                        exp_per_visit = max(exp_per_visit, get_per_visit_exposure_time(band = band, redshift = redshift - 0.1, cadence = cadence))
                     return exp_per_visit
                 
     assert 0, "Error reading " + str(band) + " " + str(redshift) + " " + str(cadence)
@@ -50,7 +52,13 @@ f = open("all_exp_times.txt", 'r')
 lines = f.read()
 f.close()
 
-lines = "#Notes:\n" + ("#No exposure times under %.1fs are allowed.\n" % minimum_exp_time) + ("#The redshift targeted cannot go above a redshift where the filter goes bluer than rest-frame %.3f microns, e.g., z=%.2f for R062.\n" % (minimum_rest_wave_target, 0.62/minimum_rest_wave_target - 1.)) + "#In the Poisson regime, exposure time scales linearly with cadence when targeting a specific redshift, as it should.\n" + lines
+lines = ("#Notes:\n"
+         + ("#No exposure times under %.1fs are allowed.\n" % minimum_exp_time)
+         + ("#The redshift targeted cannot go above a redshift where the filter goes bluer than rest-frame %.3f microns, e.g., z=%.2f for R062.\n" % (minimum_rest_wave_target, 0.62/minimum_rest_wave_target - 1.))
+         + "#At the targeted redshift, the S/N target is 20 per ten rest-frame days around maximum for the median SN. I.e., S/N = 10*sqrt(cadence/(2.5*(1 + z))).\n"
+         + "#In the Poisson regime, exposure time per visit scales linearly with cadence when targeting a specific redshift, as it should.\n"
+         + "#Exposure times must be non-decreasing with increasing targeted redshift. I.e., targeting z=2.0 also targets z=1.9, 1.8...\n"
+         + lines)
 
 f = open("all_exp_times.txt", 'w')
 f.write(lines)
@@ -437,20 +445,6 @@ for i in range(10000):
     
 #percent_prism10000 = np.arange(15, 26, 1)
 
-grid_vals = dict(widepercent_imaging = np.arange(0, 201, 5),
-                 medpercent_imaging = np.arange(0, 101, 5),
-                 deeppercent_imaging = np.arange(0, 201, 5),
-                 total_survey_years = [0.5],
-                 nnearby = [800],
-                 add_Rubin_only_tier = [1],
-                 wide_filts = ["RZYJHF"]*3 + ["RZYJH"]*3 + ["RZYJ", "RZJH"]*3 + ["RZY", "RZJ", "RZH", "ZYJ", "ZYJH", "ZJH", "ZHF", "ZYH"],
-                 med_filts = ["RZYJHF", "ZYJHF", "YJHF", "RZYJH", "RZYJ", "ZYJH"],
-	         deep_filts = ["RZYJHF", "ZYJHF", "YJHF", "RZYJH", "ZYJH"],
-                 widepercent_prism = np.arange(0, 41, 2), #[0],#np.arange(0, 41, 2),
-                 medpercent_prism = np.arange(0, 41, 2), #[0],#np.arange(0, 41, 2),
-                 deeppercent_prism = np.arange(0, 41, 2), #[0],#np.arange(0, 41, 2),
-                 percent_prism = np.array(percent_prism10000), #np.arange(0, 16, 1.), #np.array(percent_prism10000),
-                 SN_number_poisson = [0])
                  
 
 grid_vals = dict(widepercent_imaging = np.arange(0, 101, 5),
@@ -459,17 +453,17 @@ grid_vals = dict(widepercent_imaging = np.arange(0, 101, 5),
                  total_survey_years = [0.5],
                  nnearby = [800],
                  add_Rubin_only_tier = [1],
-                 wide_filts = ["RZJRHY"]*4 + ["RZYJHF"]*3 + ["RZYJH"]*3 +  ["RZYJ", "RZJH"]*2 + ["RZY", "RZJ", "RZH", "ZYJ", "ZYJH", "ZJH", "ZHF", "ZYH"],
+                 wide_filts = ["RZJRHY"]*4 + ["RZYJHF"]*3 + ["RZYJH"]*3 +  ["RZYJ", "RZJH"]*2, # + ["RZY", "RZJ", "RZH", "ZYJ", "ZYJH", "ZJH", "ZHF", "ZYH"],
                  med_filts = ["RZYJHF", "ZYJHF", "YJHF", "RZYJH", "RZYJ", "ZYJH"],
                  deep_filts = ["RZYJHF", "ZYJHF"],
                  wide_cadence = [10],
                  wide_ztarg = np.arange(0.3, 1.1, 0.1), med_ztarg = np.arange(0.8, 1.3, 0.1), deep_ztarg = np.arange(1.0, 2.4, 0.1),
-                 med_cadence = [4, 5, 6, 7, 8, 9, 10, 12, 15],
+                 med_cadence = [4, 5, 6, 7, 8, 9, 10], #, 12, 15],
                  deep_cadence = [4, 5, 6, 7, 8, 9, 10, 12, 15],
                  widepercent_prism = np.arange(0, 41, 2), #[0],#np.arange(0, 41, 2),
                  medpercent_prism = np.arange(0, 41, 2), #[0],#np.arange(0, 41, 2),
                  deeppercent_prism = np.arange(0, 41, 2), #[0],#np.arange(0, 41, 2),
-                 percent_prism = np.array(percent_prism10000), #np.arange(0, 16, 1.), #np.array(percent_prism10000),                                                                                                                                 
+                 percent_prism = np.array(percent_prism10000), #np.arange(0, 16, 1.), #np.array(percent_prism10000),
                  SN_number_poisson = [0])
 
 
@@ -495,7 +489,6 @@ location = sys.argv[2]
 n_real = int(sys.argv[3])
 
 getoutput("rm -fr " + location)
-
 
 
 
@@ -607,8 +600,9 @@ elif grid_type == "random":
         del these_pars["deeppercent_imaging"]
         del these_pars["percent_prism"]
         
-        for wide_rubin in [0]: #,1]:
-            these_pars["wide_rubin"] = wide_rubin
+        for add_Rubin_only_tier in [0, 1]: #,1]:
+            #these_pars["wide_rubin"] = wide_rubin
+            these_pars["add_Rubin_only_tier"] = add_Rubin_only_tier
             print(these_pars)
             good_surveys += make_survey(**these_pars)
             print("good_surveys", good_surveys)
@@ -619,3 +613,5 @@ elif grid_type == "read_csv":
         
 else:
     print("Unknown grid type! want: tier_fraction total_time prism_fraction filt_choice nnearby read_csv poisson prism_exp model_res cadence or random")
+
+getoutput("cp all_exp_times.txt " + location)
