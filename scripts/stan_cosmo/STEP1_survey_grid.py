@@ -2,9 +2,12 @@ import numpy as np
 from subprocess import getoutput
 import tqdm
 import sys
-from FileRead import readcol
+from FileRead import readcol, format_file
 import os
 WFIRST = os.environ["WFIRST"]
+
+minimum_exp_time = 60.
+minimum_rest_wave_target = 0.37 # microns
 
 
 def get_per_visit_exposure_time(band, redshift, cadence):
@@ -14,7 +17,7 @@ def get_per_visit_exposure_time(band, redshift, cadence):
 
     rest_wave_micron = dict(R062 = 0.62, Z087 = 0.87, Y106 = 1.06, J129 = 1.29, H158 = 1.58, F184 = 1.84, K213 = 2.13)[band]
 
-    redshift = min(redshift, rest_wave_micron/0.37 - 1.)
+    redshift = min(redshift, rest_wave_micron/minimum_rest_wave_target - 1.)
     redshift = np.around(redshift, 1)
 
     for line in lines:
@@ -23,19 +26,38 @@ def get_per_visit_exposure_time(band, redshift, cadence):
                 if line.count("key=%.2f" % (10.*np.sqrt(   cadence/(2.5*(1. + redshift))   ))) == 1:
                     exp_in_five_days = float(line.split("exp=")[-1])
                     exp_per_visit = (exp_in_five_days/5.)*cadence
-                    exp_per_visit = max(exp_per_visit, 60.)
+                    exp_per_visit = max(exp_per_visit, minimum_exp_time)
                     return exp_per_visit
                 
     assert 0, "Error reading " + str(band) + " " + str(redshift) + " " + str(cadence)
 
-"""
+
+f = open("all_exp_times.txt", 'w')
+tmp_cadences = np.arange(2, 15.1, 1)
+
 for band in ["R062", "Z087", "Y106", "J129", "H158", "F184"]:
-    for redshift in np.arange(0.2, 2.1, 0.1):
-        print(band, "z=%.1f" % redshift, "%.2f s" % get_per_visit_exposure_time(band = band, redshift = redshift, cadence = 5.0))
+    f.write("Band Redshift " + " ".join(["cad=%.1f" % item for item in tmp_cadences]) + '\n')
+    for redshift in np.arange(0.2, 2.51, 0.1):
+        f.write(band + " z=%.2f" % redshift)
+        for cadence in tmp_cadences:
+            f.write(" %.2f" % get_per_visit_exposure_time(band = band, redshift = redshift, cadence = cadence))
+        f.write('\n')
+f.close()
+format_file("all_exp_times.txt")
+
+f = open("all_exp_times.txt", 'r')
+lines = f.read()
+f.close()
+
+lines = "#Notes:\n" + ("#No exposure times under %.1fs are allowed.\n" % minimum_exp_time) + ("#The redshift targeted cannot go above a redshift where the filter goes bluer than rest-frame %.3f microns, e.g., z=%.2f for R062.\n" % (minimum_rest_wave_target, 0.62/minimum_rest_wave_target - 1.)) + "#In the Poisson regime, exposure time scales linearly with cadence when targeting a specific redshift, as it should.\n" + lines
+
+f = open("all_exp_times.txt", 'w')
+f.write(lines)
+f.close()
 
 
-stop_here
-"""
+
+
 
 def get_exp_time_dict(redshift, cadence):
     exp_time_dict = {}
