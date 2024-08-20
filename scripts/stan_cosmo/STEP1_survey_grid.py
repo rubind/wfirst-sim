@@ -3,6 +3,7 @@ from subprocess import getoutput
 import tqdm
 import sys
 from FileRead import readcol
+import argparse
 import os
 WFIRST = os.environ["WFIRST"]
 
@@ -198,12 +199,12 @@ def make_survey(total_survey_years, widepercent_imaging, medpercent_imaging, wid
     
     if wd == "":
         wd = location + "/yr=%.3f_wi=%03i_mi=%03i_di=%03i_wp=%03i_mp=%03i_dp=%03i_nnearby=%05i_%s+%s+%s_cad=%02i+%02i+%02i_PN=%i_Ronly=%i_ztarg=%.1f+%.1f+%.1f_sq=%.2g+%.2g+%.2g_%s" % (total_survey_years, widepercent_imaging, medpercent_imaging, deeppercent_imaging,
-                                                                                                                                                                      widepercent_prism, medpercent_prism, deeppercent_prism,
-                                                                                                                                                                      nnearby, wide_filts, med_filts, deep_filts, wide_cadence, med_cadence, deep_cadence,
-                                                                                                                                                                      SN_number_poisson, add_Rubin_only_tier,
-                                                                                                                                                                      wide_ztarg, med_ztarg, deep_ztarg,
-																				      sq_wide_imaging, sq_med_imaging, sq_deep_imaging,
-                                                                                                                                                                      suffix)
+                                                                                                                                                                                        widepercent_prism, medpercent_prism, deeppercent_prism,
+                                                                                                                                                                                        nnearby, wide_filts, med_filts, deep_filts, wide_cadence, med_cadence, deep_cadence,
+                                                                                                                                                                                        SN_number_poisson, add_Rubin_only_tier,
+                                                                                                                                                                                        wide_ztarg, med_ztarg, deep_ztarg,
+																				                        sq_wide_imaging, sq_med_imaging, sq_deep_imaging,
+                                                                                                                                                                                        suffix)
     else:
         wd = location + "/" + wd
 
@@ -412,6 +413,7 @@ for i in range(10000):
         this_percent = np.random.exponential()*30
     percent_prism10000.append(this_percent)
     
+#percent_prism10000 = np.arange(15, 26, 1)
 
 grid_vals = dict(widepercent_imaging = np.arange(0, 201, 5),
                  medpercent_imaging = np.arange(0, 101, 5),
@@ -457,6 +459,14 @@ grid_vals = dict(widepercent_imaging = np.arange(0, 101, 5),
 #exp_times_dict_deep = dict(R = 152.9, Z = 152.9, Y = 235.4, J = 246.3, H = 336.7, F = 1017.6, P = 3600.)
 
 
+"""
+parser = argparse.ArgumentParser()
+
+parser.add_argument("grid_type")
+parser.add_argument("grid_type")
+parser.add_argument("grid_type")
+opts = parser.parse_args()
+"""
 
 grid_type = sys.argv[1]
 location = sys.argv[2]
