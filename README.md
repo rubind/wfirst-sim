@@ -14,10 +14,16 @@ The simulation package:
 
 wfirst-sim/scripts/stan_cosmoSTEP1_simple_survey.py
 
-Which takes a parameter file and the name of an output pickle file.
+Which takes a parameter file and the name of an output pickle file:
+
+python STEP1_simple_survey.py paramfile.csv survey.pickle
 
 Then STEP2_Analytic_Fisher.py runs with the pickle file and makes a distance-modulus covariance matrix (comb_mat.fits).
 
+python STEP2_Analytic_Fisher.py survey.pickle 
+
 FoM.py takes that comb_mat.fits and makes FoM values. We’ve been using FoM_0.26.
+
+```python FoM.py */comb_mat*.fits'''
 
 STEP1_survey_grid.py generates sets of surveys (it's setup for our Slurm queue) so that's good to look at as well.
