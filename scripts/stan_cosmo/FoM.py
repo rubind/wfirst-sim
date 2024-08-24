@@ -19,9 +19,9 @@ for item in tqdm.tqdm(sys.argv[1:]):
         combmat = f[0].data
         print(combmat.shape)
         cmat = combmat[1:]
-        z_list = combmat[0]
-        
+        z_list = combmat[0]        
         f.close()
+        
         bad_file = 0
     except:
         bad_file = 1
@@ -29,8 +29,22 @@ for item in tqdm.tqdm(sys.argv[1:]):
 
     if bad_file == 0:
         print("z_list", z_list)
-        
-        
+
+        while any(np.sort(z_list) != z_list): # I remember bubble sort from QBASIC
+            print("Need to sort!", z_list)
+
+            for i in range(len(z_list)):
+                for j in range(i+1, len(z_list)):
+                    if z_list[i] > z_list[j]:
+                        combmat[[i+1, j+1], :] = combmat[[j+1, i+1], :]
+                        combmat[:, [i, j]] = combmat[:, [j, i]]
+                        z_list = combmat[0]
+
+                        
+        f = fits.open(item, 'update')
+        f[0].data = combmat
+        f.flush()
+        f.close()
         
         
         f = open(item.replace(".fits", ".txt").replace("comb_mat", "FoM_comb_mat"), 'w')
