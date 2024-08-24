@@ -448,7 +448,7 @@ for i in range(10000):
                  
 
 grid_vals = dict(widepercent_imaging = np.arange(0, 101, 5),
-                 medpercent_imaging = np.arange(0, 101, 5),
+                 medpercent_imaging = [0],#np.concatenate(([0]*10, np.arange(0, 101, 5))),#[0], #np.arange(0, 101, 5),
                  deeppercent_imaging = np.arange(0, 101, 5),
                  total_survey_years = [0.5],
                  nnearby = [800],
@@ -579,13 +579,17 @@ elif grid_type == "cadence":
 elif grid_type == "random":
     good_surveys = 0
     while good_surveys < n_real:
-        these_pars = {}
-        for key in grid_vals:
-            these_pars[key] = np.random.choice(grid_vals[key])
+
+        these_pars = dict(widepercent_imaging = 0, medpercent_imaging = 0, deeppercent_imaging = 0, widepercent_prism = 0, medpercent_prism = 0, deeppercent_prism = 0)
+        while (these_pars["widepercent_imaging"] + these_pars["medpercent_imaging"] + these_pars["deeppercent_imaging"] == 0) or (these_pars["widepercent_prism"] + these_pars["medpercent_prism"] + these_pars["deeppercent_prism"] == 0):
+            these_pars = {}
+            for key in grid_vals:
+                these_pars[key] = np.random.choice(grid_vals[key])
 
         
         #tot_norm = these_pars["widepercent_imaging"] + these_pars["medpercent_imaging"] + these_pars["deeppercent_imaging"] + these_pars["widepercent_prism"] + these_pars["medpercent_prism"] + these_pars["deeppercent_prism"]
 
+        
         im_norm = (100 - these_pars["percent_prism"])/(these_pars["widepercent_imaging"] + these_pars["medpercent_imaging"] + these_pars["deeppercent_imaging"])
         pr_norm = these_pars["percent_prism"]/(these_pars["widepercent_prism"] + these_pars["medpercent_prism"] + these_pars["deeppercent_prism"])
         
