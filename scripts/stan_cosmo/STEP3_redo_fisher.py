@@ -60,7 +60,9 @@ jobs_so_far = 0
 comb_mats = glob.glob("*/comb_mat*fits")
 # yr=0.500_wi=057_mi=023_di=020_wp=000_mp=000_dp=000_nnearby=00800_ZYJH+RZYJ+RZYJH_cad=10+05+05_PN=0_0/comb_mat__SNRMax=0_res=09_bins=025_disp=0.100_scatopt=0.030_scatnir=0.030.fits
 
-for dr in tqdm.tqdm(glob.glob("*nnearby*")):
+for dr in tqdm.tqdm(glob.glob("*/survey.pickle")): #glob.glob("*nnearby*")):
+    dr = dr.split("/")[0]
+    
     for gray_disp, color_scatter_opt, color_scatter_nir, twins in [(0.1, 0.03, 0.03, 0), (0.08, 0.04, 0.04, 0), (0.08, 0.04, 0.02, 0), (0, 0, 0, 1)]:
         if redo:
             run_job(dr = dr, gray_disp = gray_disp, color_scatter_opt = color_scatter_opt, color_scatter_nir = color_scatter_nir, twins = twins)
