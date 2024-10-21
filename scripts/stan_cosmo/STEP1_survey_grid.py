@@ -126,7 +126,7 @@ def write_tier(f, total_survey_years, tier_name, tier_percent, exp_times, filter
     
     for i, filt in enumerate(filters):
         if "ugrizy".count(filt):
-            cadences.append("4")
+            cadences.append("2")
             cadence_offsets.append("0")
         elif filt == "P":
             cadences.append(str(prism_cadence))
@@ -284,7 +284,7 @@ tier_fraction_time,0.,,,,,,
 square_degrees,%i,,,,,,
 filters,g,r,i,z,
 exp_times_per_dither,1,1,1,1,
-cadences,4,4,4,4,
+cadences,2,2,2,2,
 cadence_offsets,0,0,0,0,
 dithers_per_filter,1,1,1,1,
 max_SNe,%i,
@@ -448,18 +448,18 @@ for i in range(10000):
                  
 
 grid_vals = dict(widepercent_imaging = np.arange(0, 101, 5),
-                 medpercent_imaging = np.arange(0, 101, 5),
+                 medpercent_imaging = [0.], #np.arange(0, 101, 5),
                  deeppercent_imaging = np.arange(0, 101, 5),
                  total_survey_years = [0.5],
                  nnearby = [800],
                  add_Rubin_only_tier = [1],
-                 wide_filts = ["RZJRHY"]*4 + ["RZYJHF"]*3 + ["RZYJH"]*3 +  ["RZYJ", "RZJH"]*2, # + ["RZY", "RZJ", "RZH", "ZYJ", "ZYJH", "ZJH", "ZHF", "ZYH"],
-                 med_filts = ["RZYJHF", "ZYJHF", "YJHF", "RZYJH", "RZYJ", "ZYJH"],
-                 deep_filts = ["RZYJHF", "ZYJHF", "YJHF"],
-                 wide_cadence = [10],
-                 wide_ztarg = np.arange(0.3, 1.1, 0.1), med_ztarg = np.arange(0.8, 1.3, 0.1), deep_ztarg = np.arange(1.0, 2.4, 0.1),
-                 med_cadence = [4, 5, 6, 7, 8, 9, 10], #, 12, 15],
-                 deep_cadence = [4, 5, 6, 7, 8, 9, 10, 12, 15],
+                 wide_filts = ["RZJRHY"]*4 + ["RRZYJHF"]*3 + ["RRZYJH"]*3 +  ["RRZYJ", "RRZJH"]*2, # + ["RZY", "RZJ", "RZH", "ZYJ", "ZYJH", "ZJH", "ZHF", "ZYH"],
+                 med_filts = ["RZYJHF"],# "RZYJHF", "ZYJHF", "YJHF", "RZYJH", "RZYJ", "ZYJH"],
+                 deep_filts = ["RRZYJH", "RZZYJH", "ZZRYJHF", "ZZYJHF", "YYJHF"],
+                 wide_cadence = [8, 10],
+                 wide_ztarg = np.arange(0.3, 1.1, 0.1), med_ztarg = np.arange(0.8, 1.3, 0.1), deep_ztarg = np.arange(1.0, 2.5, 0.1),
+                 med_cadence = [10], #[4, 5, 6, 7, 8, 9, 10], #, 12, 15],
+                 deep_cadence = [8, 10], #[4, 5, 6, 7, 8, 9, 10, 12, 15],
                  widepercent_prism = np.arange(0, 41, 2), #[0],#np.arange(0, 41, 2),
                  medpercent_prism = np.arange(0, 41, 2), #[0],#np.arange(0, 41, 2),
                  deeppercent_prism = np.arange(0, 41, 2), #[0],#np.arange(0, 41, 2),

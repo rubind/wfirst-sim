@@ -219,7 +219,7 @@ def initialize_PSFs(pixel_scales, slice_scales, PSF_source = "WebbPSF", path = w
             f = pyfits.open(fl)
             TTPSF = f[0].data
             #print(TTPSF,fl)
-            assert isclose(TTPSF[int(around(len(TTPSF)/2.)), int(around(len(TTPSF[0])/2.))], TTPSF.max(), rtol = 1e-2), "Max isn't in the middle! " + str(TTPSF.shape)
+            assert isclose(TTPSF[int(around(len(TTPSF)/2.)), int(around(len(TTPSF[0])/2.))], TTPSF.max(), rtol = 1e-2), "Max isn't in the middle! " + str(TTPSF.shape) + " " + str(int(around(len(TTPSF)/2.)))
             f.close()
 
             TTPSF = fft.fft2(TTPSF)

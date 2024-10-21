@@ -126,9 +126,15 @@ def read_csv(csv_file):
 
 
 def get_ground_AB_mag(flamb_SN, filt):
-    AB_mag = -2.5*log10(sum(ground_filt_fns[filt](ground_obslambs)*flamb_SN*ground_obslambs)/
+    AB_mag = -2.5*log10(sum(ground_filt_fns[filt](ground_obslambs)*np.abs(flamb_SN)*ground_obslambs)/
                         sum(ground_filt_fns[filt](ground_obslambs)*(0.108848062485/ground_obslambs**2.)*ground_obslambs))
-    return AB_mag
+    
+    AB_mag2 = -2.5*log10(sum(ground_filt_fns[filt](ground_obslambs + 10.)*np.abs(flamb_SN)*ground_obslambs)/
+                        sum(ground_filt_fns[filt](ground_obslambs + 10.)*(0.108848062485/ground_obslambs**2.)*ground_obslambs))
+    return AB_mag, AB_mag2 - AB_mag
+
+
+    
 
 def init_ground(grizY_30s_ground_depths):
     ground_obslambs = arange(3000., 11000., 10.)
@@ -234,6 +240,7 @@ def compress_lc_data(SN_data, current_date, filt):
             ws = SN_data["SN_observations"][i]["dfluxes"][inds]**(-2.)
             fs = SN_data["SN_observations"][i]["fluxes"][inds]
             tfs = SN_data["SN_observations"][i]["true_fluxes"][inds]
+            
 
             new_f = sum(ws * fs)/sum(ws)
             new_tf = sum(ws * tfs)/sum(ws)
@@ -242,12 +249,25 @@ def compress_lc_data(SN_data, current_date, filt):
             SN_data["SN_observations"][i]["fluxes"][inds[0]] = new_f
             SN_data["SN_observations"][i]["true_fluxes"][inds[0]] = new_tf
             SN_data["SN_observations"][i]["dfluxes"][inds[0]] = new_df
+            SN_data["SN_observations"][i]["eminus_per_s"][inds[0]] = sum(SN_data["SN_observations"][i]["eminus_per_s"][inds] * ws)/sum(ws)
+            SN_data["SN_observations"][i]["dmag_d10A"][inds[0]] = sum(SN_data["SN_observations"][i]["dmag_d10A"][inds] * ws)/sum(ws)
             SN_data["SN_observations"][i]["ispar"][inds[0]] = any(SN_data["SN_observations"][i]["ispar"][inds])
 
-            for key in ["dates", "true_fluxes", "fluxes", "dfluxes", "filts"]:
+            for key in ["dates", "true_fluxes", "fluxes", "dfluxes", "filts", "eminus_per_s", "dmag_d10A"]:
                 SN_data["SN_observations"][i][key] = SN_data["SN_observations"][i][key][:nobs+1-len(inds)]
 
     return SN_data
+
+
+def get_dmag_d10A(flamb_SN, obslambs, filt_fn):
+    AB_mag = -2.5*log10(sum(filt_fn(obslambs)*np.abs(flamb_SN)*obslambs)/
+                        sum(filt_fn(obslambs)*(0.108848062485/obslambs**2.)*obslambs))
+    
+    AB_mag2 = -2.5*log10(sum(filt_fn(obslambs + 10.)*np.abs(flamb_SN)*obslambs)/
+                         sum(filt_fn(obslambs + 10.)*(0.108848062485/obslambs**2.)*obslambs))
+
+    return AB_mag2 - AB_mag
+    
 
 
 def imaging_ETC_wrapper(SN_data, ind, row_to_add, current_date):
@@ -265,6 +285,9 @@ def imaging_ETC_wrapper(SN_data, ind, row_to_add, current_date):
                                 offset_par = random.random()*22, offset_perp = random.random()*22, **WFI_args)
     
     #ETC_result = {"AB_mag": 24, "PSF_phot_S/N": 5.}
+    #print("ETC_result", ETC_result.keys())
+    # ETC_result dict_keys(['PSF_phot_S/N', 'SN_photons/s', 'PSF-weighted total/s', 'AB_mag', 'zodi/s', 'thermal/s'])
+
     
     AB_flux = 10.**(-0.4*(ETC_result["AB_mag"] - master_zp))
     SNR_total = ETC_result["PSF_phot_S/N"]
@@ -272,6 +295,11 @@ def imaging_ETC_wrapper(SN_data, ind, row_to_add, current_date):
     flux_with_noise = AB_flux + random.normal()*AB_flux/SNR_total
     SN_data["SN_observations"][ind]["dates"] = append(SN_data["SN_observations"][ind]["dates"], current_date)
     SN_data["SN_observations"][ind]["true_fluxes"] = append(SN_data["SN_observations"][ind]["true_fluxes"], AB_flux)
+    # eminus_per_s = array([], dtype=float64), dmag_d10A
+    SN_data["SN_observations"][ind]["eminus_per_s"] = append(SN_data["SN_observations"][ind]["eminus_per_s"], ETC_result["PSF-weighted total/s"])
+    SN_data["SN_observations"][ind]["dmag_d10A"] = append(SN_data["SN_observations"][ind]["dmag_d10A"], get_dmag_d10A(flamb_SN = f_lamb_SN,
+                                                                                                                      obslambs = WFI_args["waves"],
+                                                                                                                      filt_fn = WFI_filt_fns[row_to_add["filt"]]))
     SN_data["SN_observations"][ind]["fluxes"] = append(SN_data["SN_observations"][ind]["fluxes"], flux_with_noise)
     SN_data["SN_observations"][ind]["dfluxes"] = append(SN_data["SN_observations"][ind]["dfluxes"], AB_flux/SNR_total)
     SN_data["SN_observations"][ind]["filts"] = append(SN_data["SN_observations"][ind]["filts"], row_to_add["filt"])
@@ -292,9 +320,13 @@ def prism_ETC_wrapper(SN_data, ind, row_to_add, current_date):
     ETC_result = get_spec_with_err(redshift = 0, exp_time = row_to_add["exptime"], gal_flamb = lambda x:0, bad_pixel_rate = survey_parameters["bad_pixel_rate"],
                                    show_plots = 0, **IFS_args)
     
-    
+    #print("ETC_result", ETC_result.keys(), ETC_result["PSF_wghtd_e_allbutdark"], "PSF_wghtd_e_allbutdark")
+    #fldkajfldskj
     SN_data["SN_observations"][ind]["IFS_dates"].append(current_date)
     SN_data["SN_observations"][ind]["IFS_exptimes"].append(row_to_add["exptime"])
+
+
+    SN_data["SN_observations"][ind]["IFS_eminus_per_s"].append(ETC_result["PSF_wghtd_e_allbutdark"]/row_to_add["exptime"] + 1.2)
     
     noise = ETC_result["f_lamb_SN"]/ETC_result["spec_S/N"]
     assert all(1 - isnan(noise) - isinf(noise))
@@ -351,7 +383,7 @@ def run_observation_through_ground_ETC(SN_data, row_to_add, current_date, ground
     for ind in inds:
         f_lamb_SN = SN_data["SN_observations"][ind]["sncosmo_model"].flux(current_date, ground_args["waves"])
         
-        AB_mag = get_ground_AB_mag(f_lamb_SN, row_to_add["filt"])        
+        AB_mag, dAB_mag_d10A = get_ground_AB_mag(f_lamb_SN, row_to_add["filt"])        
         
         AB_flux = 10.**(-0.4*(AB_mag - master_zp))
         AB_err = 0.2*10.**(-0.4*(ground_depths[row_to_add["filt"]] - master_zp))
@@ -361,10 +393,12 @@ def run_observation_through_ground_ETC(SN_data, row_to_add, current_date, ground
         flux_with_noise = AB_flux + random.normal()*AB_flux/SNR_total
         SN_data["SN_observations"][ind]["dates"] = append(SN_data["SN_observations"][ind]["dates"], current_date)
         SN_data["SN_observations"][ind]["true_fluxes"] = append(SN_data["SN_observations"][ind]["true_fluxes"], flux_with_noise)
+        SN_data["SN_observations"][ind]["eminus_per_s"] = append(SN_data["SN_observations"][ind]["eminus_per_s"], 10000.) # Ground-based data has no CRNL
+        SN_data["SN_observations"][ind]["dmag_d10A"] = append(SN_data["SN_observations"][ind]["dmag_d10A"], dAB_mag_d10A)
         SN_data["SN_observations"][ind]["fluxes"] = append(SN_data["SN_observations"][ind]["fluxes"], flux_with_noise)
         SN_data["SN_observations"][ind]["dfluxes"] = append(SN_data["SN_observations"][ind]["dfluxes"], AB_flux/SNR_total)
         SN_data["SN_observations"][ind]["filts"] = append(SN_data["SN_observations"][ind]["filts"], row_to_add["filt"])
-        SN_data["SN_observations"][ind]["ispar"] = append(SN_data["SN_observations"][ind]["ispar"], 0)
+
 
         
     return SN_data
@@ -655,8 +689,8 @@ def make_SNe(square_degrees, tier_cadences, tier_cadence_offsets, survey_duratio
         SN_data["SN_observations"].append(dict(
             MV = MV, x1 = x1, c = c, host_mass = host_mass, sncosmo_model = sncosmo_model, gal_background = gal_backgrounds[i],
             dates = array([], dtype=float64), true_fluxes = array([], dtype=float64), fluxes = array([], dtype=float64), dfluxes = array([], dtype=float64),
-            filts = array([], dtype=(str, 10)), ispar = array([], dtype=bool), IFS_dates = [], IFS_fluxes = [], IFS_true_fluxes = [], IFS_dfluxes = [], IFS_exptimes = [],
-            found_date = None
+            filts = array([], dtype=(str, 10)), ispar = array([], dtype=bool), IFS_dates = [], IFS_fluxes = [], IFS_true_fluxes = [], IFS_dfluxes = [], IFS_exptimes = [], IFS_eminus_per_s = [],
+            found_date = None, eminus_per_s = array([], dtype=float64), dmag_d10A = array([], dtype=float64)
         ))
 
     """

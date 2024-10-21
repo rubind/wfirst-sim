@@ -36,6 +36,7 @@ def plot_a_SN(lc_data, daymax, plot_to_make, phase_not_date, redshift, plt, stac
     #plt.plot([daymax*(1 - phase_not_date)]*2, ylim, color = (0.8, 0.8, 0.8))
     #plt.ylim(ylim)
     plt.axvline(daymax*(1 - phase_not_date), color = (0.8, 0.8, 0.8))
+    ylim = plt.ylim()
 
     for date in lc_data["IFS_dates"]:
         phase = (date - daymax)/(1. + redshift)
@@ -44,7 +45,12 @@ def plot_a_SN(lc_data, daymax, plot_to_make, phase_not_date, redshift, plt, stac
         else:
             xval = date
         if phase < 75:
-            plt.axvline(xval, color = 'k', linestyle = ':')
+            print("xval", xval, ylim)
+            plt.annotate('', xy=(xval, 0), xytext=(xval, ylim[1]*0.1),
+                         arrowprops=dict(facecolor='black', shrink=0.05, width=1, headwidth=8, headlength=10), zorder = -1)
+
+            #plt.axvline(xval, color = 'k', linestyle = ':')
+    
     plt.legend(loc = 'best', fontsize = 8)
 
 

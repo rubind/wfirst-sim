@@ -106,6 +106,9 @@ def get_stan_data(SN_data):
                      redshifts = [],
                      daymaxes = [],
                      rest_lambs = [],
+                     obs_lambs = [],
+                     count_rates = [],
+                     d_d10As = [],
                      true_phases = [],
                      color_law = [],
                      gray_disp = [],
@@ -157,9 +160,13 @@ def get_stan_data(SN_data):
                 good_LC = 0
                 
         if good_LC:
+
             stan_data["mags"].append(-2.5*np.log10(SN_LC["true_fluxes"][good_inds]))
             stan_data["dmags"].append((2.5/np.log(10.)) * np.abs(SN_LC["dfluxes"][good_inds]/SN_LC["true_fluxes"][good_inds]))
             stan_data["d_mag_d_filt"].append(np.zeros([NPts, stan_data["NFilt"]], dtype=np.float64))
+            stan_data["d_d10As"].append(np.zeros([NPts, stan_data["NFilt"]], dtype=np.float64)) # SN_LC["dmag_d10A"][good_inds])
+            stan_data["count_rates"].append(SN_LC["eminus_per_s"][good_inds]/10000.)
+
 
             this_daymax = SN_data["SN_table"]["daymaxes"][SN_ind]
             
@@ -171,6 +178,7 @@ def get_stan_data(SN_data):
                 assert other_data["filt_names"].count(filt) == 1
                 filt_mask = SN_LC["filts"][good_inds] == filt
                 stan_data["d_mag_d_filt"][-1][:, other_data["filt_names"].index(filt)] = filt_mask
+                stan_data["d_d10As"][-1][:, other_data["filt_names"].index(filt)] = (filt_mask)*SN_LC["dmag_d10A"][good_inds]
 
                 
             milliz = int(np.around(1000.*this_z))
@@ -182,7 +190,7 @@ def get_stan_data(SN_data):
 
             
 
-            
+            stan_data["obs_lambs"].append(this_rest_lambs*(1 + this_z))
             stan_data["rest_lambs"].append(this_rest_lambs)
             stan_data["true_phases"].append((SN_LC["dates"][good_inds] - this_daymax)/(1. + this_z))
             stan_data["color_law"].append(extinction.ccm89(this_rest_lambs, a_v = 3.1, r_v = 3.1))
@@ -215,7 +223,8 @@ def get_stan_data(SN_data):
 
                     for filt in prism_calib_fns:
                         this_d_mag_d_filt[:, other_data["filt_names"].index(filt)] = prism_calib_fns[filt](other_data["wave_bin"][good_inds])
-                                          
+
+
                     stan_data["d_mag_d_filt"][-1] = np.concatenate((stan_data["d_mag_d_filt"][-1], this_d_mag_d_filt))
 
                     assert N_prism_waves == len(frac_flux_err)
@@ -234,6 +243,13 @@ def get_stan_data(SN_data):
                         stan_data["rest_lambs"][-1],
                         this_rest_lambs[good_inds]
                     ))
+
+                    stan_data["count_rates"][-1] = np.concatenate((stan_data["count_rates"][-1], np.array(SN_LC["IFS_eminus_per_s"][IFS_ind])[good_inds]/500.))
+                    #print('stan_data["d_d10As"][-1]', stan_data["d_d10As"][-1].shape)
+
+                    
+                    stan_data["d_d10As"][-1] = np.concatenate((stan_data["d_d10As"][-1], np.zeros([len(good_inds[0]), stan_data["NFilt"]], dtype=np.float64)   ))
+                    stan_data["obs_lambs"][-1] = np.concatenate((stan_data["obs_lambs"][-1], this_rest_lambs[good_inds]*(1 + this_z)))
                     
                     stan_data["color_law"][-1] = np.concatenate((
                         stan_data["color_law"][-1],
@@ -315,6 +331,15 @@ def get_stan_data(SN_data):
     plt.plot(stan_data["redshifts"], stan_data["gray_disp"], '.')
     plt.savefig("gray_disp_vs_z.pdf", bbox_inches = 'tight')
     plt.close()
+
+    plt.hist(np.concatenate(stan_data["count_rates"]), bins = 100)
+    plt.savefig("count_rates.pdf", bbox_inches = 'tight')
+    plt.close()
+
+    plt.hist(np.concatenate(stan_data["d_d10As"]), bins = 100)
+    plt.savefig("d_d10As.pdf", bbox_inches = 'tight')
+    plt.close()
+
     
 
     f = open("redshifts_selected.txt", 'w')
@@ -336,13 +361,23 @@ def parseP(P, stan_data):
     parsed["dZPs"] = P[ind: ind+stan_data["NFilt"]]
     ind += stan_data["NFilt"]
 
+    parsed["dwaves"] = P[ind:ind+stan_data["NFilt"]]
+    ind += stan_data["NFilt"]
+
+    parsed["fundslope"] = P[ind]
+    ind += 1
+
+    parsed["crnlslope"] = P[ind]
+    ind += 1
+    
+
     parsed["coeff"] = P[ind: ind+stan_data["NCoeff"]]
     ind += stan_data["NCoeff"]
 
     return parsed
 
 def unparseP(parsed):
-    return np.concatenate((parsed["mu_bins"], parsed["dZPs"], parsed["coeff"]))
+    return np.concatenate((parsed["mu_bins"], parsed["dZPs"], parsed["dwaves"], [parsed["fundslope"], parsed["crnlslope"]], parsed["coeff"]))
 
 def residfn(P, wrapped_data):
     stan_data = wrapped_data[0]
@@ -390,19 +425,25 @@ def residfn(P, wrapped_data):
             
         L = np.linalg.cholesky(wmat)
 
-        the_model = parsed["mu_bins"][stan_data["z_inds"][i]] + np.dot(stan_data["d_mag_d_filt"][i], parsed["dZPs"]) + np.dot(stan_data["dmagdcoeff"][i], parsed["coeff"])
+        the_model = (parsed["mu_bins"][stan_data["z_inds"][i]]
+                     + np.dot(stan_data["d_mag_d_filt"][i], parsed["dZPs"])
+                     + np.dot(stan_data["dmagdcoeff"][i], parsed["coeff"])
+                     + np.dot(stan_data["d_d10As"][i], parsed["dwaves"])
+                     + stan_data["count_rates"][i]*parsed["crnlslope"]
+                     + (stan_data["obs_lambs"][i]/10000. - 1.) * parsed["fundslope"])
+        
         #the_model = parsed["mu_bins"][stan_data["z_inds"][i]] + parsed["dZPs"][stan_data["filt_inds"][i]] + np.dot(stan_data["dmagdcoeff"][i], parsed["coeff"])
                                           
         resid = stan_data["mags"][i] - the_model
         resid_norm.extend(np.dot(resid, L))
 
-    priors = parsed["dZPs"]/0.005
-    return np.concatenate((np.array(resid_norm), priors))
+    priors = parsed["dZPs"]/opts.zpunc
+    return np.concatenate((np.array(resid_norm), priors, parsed["dwaves"]/opts.waveunc, [parsed["crnlslope"]/opts.crnlunc, parsed["fundslope"]/opts.slopeunc]))
 
 
 def run_fit(fit_coeff, fitdZP, outputsuffix):
-    P, F, Cmat_no_model = miniLM_new(ministart = np.zeros(stan_data["NCoeff"] + stan_data["Nz"] + stan_data["NFilt"], dtype=np.float64),
-                                     miniscale = unparseP(dict(coeff = [fit_coeff]*stan_data["NCoeff"], mu_bins = [1.]*stan_data["Nz"], dZPs = [fitdZP]*stan_data["NFilt"])),
+    P, F, Cmat_no_model = miniLM_new(ministart = np.zeros(stan_data["NCoeff"] + stan_data["Nz"] + 2*stan_data["NFilt"] + 2, dtype=np.float64),
+                                     miniscale = unparseP(dict(coeff = [fit_coeff]*stan_data["NCoeff"], mu_bins = [1.]*stan_data["Nz"], dZPs = [fitdZP]*stan_data["NFilt"], fundslope = fitdZP, crnlslope = fitdZP, dwaves = [fitdZP]*stan_data["NFilt"])),
                                      residfn = residfn,
                                      passdata = stan_data,
                                      verbose = True, maxiter = 1)
@@ -433,6 +474,11 @@ parser.add_argument("--color_scatter_opt", help="Color scatter optical", default
 parser.add_argument("--color_scatter_nir", help="Color scatter nir", default = 0.03, type=float)
 parser.add_argument("--train", help="Include Model Training", default = 1, type=int)
 parser.add_argument("--calib", help="Include Calibration", default = 1, type=int)
+parser.add_argument("--zpunc", help="Zeropoint Uncertainty", default = 0.005, type=float)
+parser.add_argument("--slopeunc", help="Fundamental Color Uncertainty, mag/micron", default = 0.007, type=float)
+parser.add_argument("--crnlunc", help="CRNL Uncertainty, mag/dex", default = 0.000125, type=float)
+parser.add_argument("--waveunc", help="Filter Passband Uncertainty, nm", default = 0.5, type=float)
+
 
 
 opts = parser.parse_args()
@@ -445,7 +491,7 @@ if opts.twins == 1:
     opts.color_scatter_nir = 0.001
 
     
-suffix = "_" + ( "notrain"*(opts.train == 0) + "nocalib"*(opts.calib == 0) ) + "SNRMax=%i_res=%02i_bins=%03i_disp=%.3f_scatopt=%.3f_scatnir=%.3f" % (opts.SNRMax, opts.model_res, opts.prism_bins, opts.gray_disp, opts.color_scatter_opt, opts.color_scatter_nir)
+suffix = "_" + ( "notrain"*(opts.train == 0) + "nocalib"*(opts.calib == 0) ) + "SNRMax=%i_res=%02i_bins=%03i_disp=%.3f_scatopt=%.3f_scatnir=%.3f_zpunc=%.4f_slopeunc=%.4f_crnlunc=%.6f_waveunc=%.2f" % (opts.SNRMax, opts.model_res, opts.prism_bins, opts.gray_disp, opts.color_scatter_opt, opts.color_scatter_nir, opts.zpunc, opts.slopeunc, opts.crnlunc, opts.waveunc)
 
 
 
@@ -455,8 +501,9 @@ stan_data, other_data = get_stan_data(SN_data)
 
 
 
-P, F, Cmat = miniLM_new(ministart = np.zeros(stan_data["NCoeff"] + stan_data["Nz"] + stan_data["NFilt"], dtype=np.float64),
-                        miniscale = unparseP(dict(coeff = [opts.train]*stan_data["NCoeff"], mu_bins = [1.]*stan_data["Nz"], dZPs = [opts.calib]*stan_data["NFilt"])),
+P, F, Cmat = miniLM_new(ministart = np.zeros(stan_data["NCoeff"] + stan_data["Nz"] + stan_data["NFilt"]*2 + 2, dtype=np.float64),
+                        miniscale = unparseP(dict(coeff = [opts.train]*stan_data["NCoeff"], mu_bins = [1.]*stan_data["Nz"], dZPs = [opts.calib]*stan_data["NFilt"],
+                                                  dwaves = [opts.calib]*stan_data["NFilt"], fundslope = float(opts.calib), crnlslope = float(opts.calib))),
                         residfn = residfn,
                         passdata = stan_data,
                         verbose = True, maxiter = 1)
