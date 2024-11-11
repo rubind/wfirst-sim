@@ -165,7 +165,7 @@ def get_stan_data(SN_data):
             stan_data["dmags"].append((2.5/np.log(10.)) * np.abs(SN_LC["dfluxes"][good_inds]/SN_LC["true_fluxes"][good_inds]))
             stan_data["d_mag_d_filt"].append(np.zeros([NPts, stan_data["NFilt"]], dtype=np.float64))
             stan_data["d_d10As"].append(np.zeros([NPts, stan_data["NFilt"]], dtype=np.float64)) # SN_LC["dmag_d10A"][good_inds])
-            stan_data["count_rates"].append(SN_LC["eminus_per_s"][good_inds]/10000.)
+            stan_data["count_rates"].append(   np.log10(SN_LC["eminus_per_s"][good_inds]/10000.)   )
 
 
             this_daymax = SN_data["SN_table"]["daymaxes"][SN_ind]
@@ -244,7 +244,7 @@ def get_stan_data(SN_data):
                         this_rest_lambs[good_inds]
                     ))
 
-                    stan_data["count_rates"][-1] = np.concatenate((stan_data["count_rates"][-1], np.array(SN_LC["IFS_eminus_per_s"][IFS_ind])[good_inds]/500.))
+                    stan_data["count_rates"][-1] = np.concatenate((   stan_data["count_rates"][-1], np.log10(np.array(SN_LC["IFS_eminus_per_s"][IFS_ind])[good_inds]/500.)   ))
                     #print('stan_data["d_d10As"][-1]', stan_data["d_d10As"][-1].shape)
 
                     

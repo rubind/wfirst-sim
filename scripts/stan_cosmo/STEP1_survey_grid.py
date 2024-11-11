@@ -205,6 +205,21 @@ def make_survey(total_survey_years, widepercent_imaging, medpercent_imaging, wid
     exp_times_dict_med = get_exp_time_dict(redshift = med_ztarg, cadence = med_cadence)
     exp_times_dict_deep = get_exp_time_dict(redshift = deep_ztarg, cadence = deep_cadence)
 
+    exp_times_dict_wide_2x_cadence = get_exp_time_dict(redshift = wide_ztarg, cadence = int(np.around(wide_cadence/2.)))
+    exp_times_dict_med_2x_cadence = get_exp_time_dict(redshift = med_ztarg, cadence = int(np.around(med_cadence/2.)))
+    exp_times_dict_deep_2x_cadence = get_exp_time_dict(redshift = deep_ztarg, cadence = int(np.around(deep_cadence/2.)))
+
+    for filt in set(wide_filts):
+        if wide_filts.count(filt) == 2:
+            exp_times_dict_wide[filt] = exp_times_dict_wide_2x_cadence[filt]
+    for	filt in	set(med_filts):
+        if med_filts.count(filt) == 2:
+            exp_times_dict_med[filt] = exp_times_dict_med_2x_cadence[filt]
+    for	filt in	set(deep_filts):
+        if deep_filts.count(filt) == 2:
+            exp_times_dict_deep[filt] = exp_times_dict_deep_2x_cadence[filt]
+    
+    
         
     if not "P" in exp_times_dict_wide:
         exp_times_dict_wide["P"] = 900
@@ -440,7 +455,10 @@ percent_prism10000 = []
 for i in range(10000):
     this_percent = 10000
     while this_percent >= 99.9:
-        this_percent = np.random.random()*20 + 10
+        if np.random.random() > 0.5:
+            this_percent = np.random.random()*10 + 15 #np.random.random()*20 + 10
+        else:
+            this_percent = np.random.random()*20 + 10
     percent_prism10000.append(this_percent)
     
 #percent_prism10000 = np.arange(15, 26, 1)
@@ -612,6 +630,21 @@ elif grid_type == "random":
             print(these_pars)
             good_surveys += make_survey(**these_pars)
             print("good_surveys", good_surveys)
+
+elif grid_type == "ccs":
+    for percent_prism in [0, 14, 28]:
+        for wide_cadence in [8, 10]:
+            for deep_cadence in [8, 10]:
+                for wide_imaging in [40, 26]:
+                    for wide_filts, deep_filts in [("RZJRHY", "ZZYJHF"), ("RRZYJ", "YYJHF"), ("RRZYJHF", "RRZYJHF")]:
+                                              
+                        make_survey(total_survey_years = 0.5, widepercent_imaging = wide_imaging, medpercent_imaging = 0.0, nnearby = 800, widepercent_prism = int(percent_prism/2.), medpercent_prism = 0.,
+                                    deeppercent_prism = int(percent_prism/2.),
+                                    wide_cadence = wide_cadence, med_cadence = 5, deep_cadence = deep_cadence,
+                                    wide_filts = wide_filts, med_filts = "ZYJHF", deep_filts = deep_filts,
+                                    wide_ztarg = 0.9, med_ztarg = 1.0, deep_ztarg = 1.7,
+                                    SN_number_poisson = 0, add_Rubin_only_tier = 1)
+    
 
 elif grid_type == "read_csv":
     read_csv()

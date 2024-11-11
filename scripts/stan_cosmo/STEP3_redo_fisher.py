@@ -7,7 +7,7 @@ def run_job(dr, gray_disp, color_scatter_opt, color_scatter_nir, twins):
     f = open(dr + "/tmp.sh", 'w')
     f.write("""#!/bin/bash
 #SBATCH --job-name=sim
-#SBATCH --partition=shared
+#SBATCH --partition=kill-shared
 #SBATCH --time=0-08:00:00 ## time format is DD-HH:MM:SS
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=4
@@ -31,7 +31,7 @@ def update_FoM(pwd):
     f = open("tmp.sh", 'w')
     f.write("""#!/bin/bash
 #SBATCH --job-name=FoM
-#SBATCH --partition=shared
+#SBATCH --partition=kill-shared
 #SBATCH --time=0-08:00:00 ## time format is DD-HH:MM:SS
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=4
@@ -63,7 +63,7 @@ comb_mats = glob.glob("*/comb_mat*fits")
 for dr in tqdm.tqdm(glob.glob("*/survey.pickle")): #glob.glob("*nnearby*")):
     dr = dr.split("/")[0]
     
-    for gray_disp, color_scatter_opt, color_scatter_nir, twins in [(0.1, 0.03, 0.03, 0), (0.08, 0.04, 0.04, 0), (0.08, 0.04, 0.02, 0), (0, 0, 0, 1)]:
+    for gray_disp, color_scatter_opt, color_scatter_nir, twins in [(0.08, 0.04, 0.02, 0), (0, 0, 0, 1)]: #[(0.1, 0.03, 0.03, 0), (0.08, 0.04, 0.04, 0), (0.08, 0.04, 0.02, 0), (0, 0, 0, 1)]:
         if redo:
             run_job(dr = dr, gray_disp = gray_disp, color_scatter_opt = color_scatter_opt, color_scatter_nir = color_scatter_nir, twins = twins)
             jobs_so_far += 1
