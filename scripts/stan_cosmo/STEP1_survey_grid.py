@@ -373,15 +373,15 @@ max_z,0.5,
     assert np.isclose(all_percent, 100)
             
 
-    memory_needed = 16 + 16*(deeppercent_prism + medpercent_prism + widepercent_prism > 0)
+    memory_needed = 16 + 24*(deeppercent_prism + medpercent_prism + widepercent_prism > 0)
 
     
     pwd = getoutput("pwd")
     f = open(wd + "/run.sh", 'w')
     f.write("""#!/bin/bash
 #SBATCH --job-name=sim
-#SBATCH --partition=shared
-#SBATCH --time=0-08:00:00 ## time format is DD-HH:MM:SS
+#SBATCH --partition=kill-shared
+#SBATCH --time=0-10:00:00 ## time format is DD-HH:MM:SS
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=""" + str(memory_needed) + """G # Memory per node my job requires
@@ -399,10 +399,12 @@ pip install sep
 
     for model_res in model_res_list:
         f.write("python $WFIRST/scripts/stan_cosmo/STEP2_Analytic_Fisher.py survey.pickle --SNRMax %i --model_res %i  --train 1 --calib 1 --color_scatter_opt 0.04 --color_scatter_nir 0.02 --gray_disp 0.08 > fisher_log.txt\n" % (SNRMax, model_res))
-        f.write("python $WFIRST/scripts/stan_cosmo/STEP1A_plot_survey.py survey.pickle\n")
-        f.write("python $WFIRST/scripts/stan_cosmo/FoM.py comb_mat.fits > FoM_model_res=%02i.txt\n" % model_res)
-        f.write("python $WFIRST/scripts/stan_cosmo/FoM.py comb_mat_no_model.fits > FoM_no_model_%02i.txt\n" % model_res)
-        f.write("python $WFIRST/scripts/stan_cosmo/FoM.py comb_mat_stat_only.fits > FoM_stat_only_%02i.txt\n" % model_res)
+        f.write("python $WFIRST/scripts/stan_cosmo/STEP2_Analytic_Fisher.py survey.pickle --SNRMax %i --model_res %i  --train 1 --calib 1 --color_scatter_opt 0.001 --color_scatter_nir 0.001 --gray_disp 0.001  --twins 1 > fisher_log.txt\n" % (SNRMax, model_res))
+         
+    f.write("python $WFIRST/scripts/stan_cosmo/STEP1A_plot_survey.py survey.pickle\n")
+        #f.write("python $WFIRST/scripts/stan_cosmo/FoM.py comb_mat.fits > FoM_model_res=%02i.txt\n" % model_res)
+        #f.write("python $WFIRST/scripts/stan_cosmo/FoM.py comb_mat_no_model.fits > FoM_no_model_%02i.txt\n" % model_res)
+        #f.write("python $WFIRST/scripts/stan_cosmo/FoM.py comb_mat_stat_only.fits > FoM_stat_only_%02i.txt\n" % model_res)
     f.close()
 
     print(getoutput("cd " + wd + "\n sbatch run.sh"))
@@ -455,10 +457,12 @@ percent_prism10000 = []
 for i in range(10000):
     this_percent = 10000
     while this_percent >= 99.9:
-        if np.random.random() > 0.5:
-            this_percent = np.random.random()*10 + 15 #np.random.random()*20 + 10
-        else:
-            this_percent = np.random.random()*20 + 10
+        #if np.random.random() > 0.5:
+        #    this_percent = np.random.random()*10 + 15 #np.random.random()*20 + 10
+        #else:
+        #    this_percent = np.random.random()*20 + 10
+        this_percent = np.random.random()*20 + 30
+        
     percent_prism10000.append(this_percent)
     
 #percent_prism10000 = np.arange(15, 26, 1)
@@ -530,9 +534,16 @@ elif grid_type == "poisson":
                          wide_filts = "RZYJ", med_filts = "ZYJH", deep_filts = "ZYJHF", SN_number_poisson = SN_number_poisson)
 
 elif grid_type == "total_time":
-    for total_survey_years in np.arange(0.05, 1.01, 0.025):
-        make_survey(total_survey_years = total_survey_years, widepercent = 70, medpercent = 0, deeppercent = 30, nnearby = 800)
-
+    for total_survey_years in np.arange(0.04, 1.01, 0.02):
+        for add_Rubin_only_tier in [0, 1]:
+            make_survey(total_survey_years = total_survey_years, widepercent_imaging = 40., medpercent_imaging = 0.0, nnearby = 800,
+                        widepercent_prism = 10, medpercent_prism = 0.,
+                        deeppercent_prism = 10,
+                        wide_cadence = 10, med_cadence = 5, deep_cadence = 10,
+                        wide_filts = "RRZYJH", med_filts = "ZYJHF", deep_filts = "ZZRYJHF",
+                        wide_ztarg = 0.9, med_ztarg = 1.0, deep_ztarg = 1.7,
+                        SN_number_poisson = 0, add_Rubin_only_tier = add_Rubin_only_tier)
+        
 elif grid_type == "nnearby":
     for nnearby in np.arange(0, 3001, 200):
         make_survey(total_survey_years = 0.375, widepercent = 70, medpercent = 0, deeppercent = 30, nnearby = int(nnearby))
@@ -632,10 +643,10 @@ elif grid_type == "random":
             print("good_surveys", good_surveys)
 
 elif grid_type == "ccs":
-    for percent_prism in [0, 14, 28]:
+    for percent_prism in [22]:
         for wide_cadence in [8, 10]:
             for deep_cadence in [8, 10]:
-                for wide_imaging in [40, 26]:
+                for wide_imaging in [40, 34, 26]:
                     for wide_filts, deep_filts in [("RZJRHY", "ZZYJHF"), ("RRZYJ", "YYJHF"), ("RRZYJHF", "RRZYJHF")]:
                                               
                         make_survey(total_survey_years = 0.5, widepercent_imaging = wide_imaging, medpercent_imaging = 0.0, nnearby = 800, widepercent_prism = int(percent_prism/2.), medpercent_prism = 0.,
