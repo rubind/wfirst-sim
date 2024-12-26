@@ -15,7 +15,7 @@ sys.path.append(wfirst_path + "/scripts/pixel-level/")
 sys.path.append(wfirst_path + "/scripts/host/")
 from host_generator import make_galaxy_spectrum
 from generator import make_SALT2_params
-from pixel_level_ETC2 import initialize_PSFs, get_imaging_SN, solve_for_exptime, get_spec_with_err
+from pixel_level_ETC2 import initialize_PSFs, get_imaging_SN,  get_spec_with_err
 #from FileRead import readcol
 import subprocess
 import sncosmo
@@ -150,7 +150,7 @@ def init_ground(grizY_30s_ground_depths):
                                       Y = grizY_30s_ground_depths[4] + 1.25*log10(3600/30.))
 
     WFI_filt_fns = {}
-    for filt in ["R062", "Z087", "Y106", "J129", "H158", "F184", "K213", "W146", "P100", "Euclid_Y", "Euclid_J", "Euclid_H"]:
+    for filt in ["R062", "Z087", "Y106", "J129", "H158", "F184", "K213", "W146", "P100", "Euclid_Y", "Euclid_J", "Euclid_H", "REX_1.03", "REX_1.09", "REX_1.16", "REX_1.22", "REX_1.28", "REX_1.34", "REX_1.40", "REX_1.46"]:
         WFI_filt_fns[filt] = file_to_fn(wfirst_data_path + "/pixel-level/input/" + filt + ".txt")
 
     return ground_filt_fns, ground_obslambs, ground_five_sigma_one_hour, WFI_filt_fns
@@ -763,8 +763,8 @@ if __name__ == "__main__":
 
     print("Reading PSFs...")
     PSFs = initialize_PSFs(pixel_scales = [10, 15, 22, 22], slice_scales = [30, 30, 22, 110], PSF_source = survey_parameters["PSFs"])
-    PSFs_WFC = initialize_PSFs(pixel_scales = [10, 15, 22] + [60]*(survey_parameters["WFI_PSFs"] == "Euclid_PSF"),
-                               slice_scales = [30, 30, 22] + [60]*(survey_parameters["WFI_PSFs"] == "Euclid_PSF"), PSF_source = survey_parameters["WFI_PSFs"])
+    PSFs_WFC = initialize_PSFs(pixel_scales = [10, 15, 22] + [60]*(survey_parameters["WFI_PSFs"] == "Euclid_PSF") + [60]*(survey_parameters["WFI_PSFs"] == "REX_PSF"),
+                               slice_scales = [30, 30, 22] + [60]*(survey_parameters["WFI_PSFs"] == "Euclid_PSF") + [60]*(survey_parameters["WFI_PSFs"] == "REX_PSF"), PSF_source = survey_parameters["WFI_PSFs"])
 
 
     slew_fn = file_to_fn(wfirst_data_path + "/pixel-level/input/" + survey_parameters["slew_table"], col = 2)
