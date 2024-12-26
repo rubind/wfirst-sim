@@ -777,7 +777,7 @@ def collection_of_plots(pickle_to_read):
                             if len(inds[0]) > 0:
                                 plt.hist(SN_data["SN_table"]["redshifts"][inds], bins = arange(0., 3.01, 0.1), color = SNR_color, label = "SNR Sum>%.0f: %i"% (SNR_thresh, len(inds[0])), cumulative=cumulative, histtype="step"*(SNR_thresh == 0) + "stepfilled"*(SNR_thresh > 0))
 
-                        plt.title(outputname.replace("_", " ").replace(".", ":") + " " + tier_name)
+                        plt.title("Tier: " + tier_name)
                         plt.legend(loc = 'best', fontsize = 8)
                         plt.ylabel("Number of SNe Ia per 0.1")
                     plt.xlabel("Redshift")
