@@ -890,7 +890,13 @@ def collection_of_plots(pickle_to_read):
     flc.close()
 
     z_to_plot = [0.225, 0.475, 0.725, 1.025, 1.475, 2.025]
-    plt.figure(figsize = (4*len(z_to_plot), 3*n_tiers))
+    horizontal_layout = 0
+
+    if horizontal_layout:
+        plt.figure(figsize = (4*len(z_to_plot), 3*n_tiers))
+    else:
+        plt.figure(figsize = (3*n_tiers, 4*len(z_to_plot)))
+
     for j, this_z in enumerate(z_to_plot):
         xlim = [1e7, -1e7]
         for i, tier_name in enumerate(SN_data["survey_parameters"]["tier_parameters"]["tier_name"]):
@@ -911,8 +917,12 @@ def collection_of_plots(pickle_to_read):
 
             if len(S_to_N_inds) > 0:
                 ind = S_to_N_inds[int(len(S_to_N_inds)/2.)][1]
-                
-                plt.subplot(n_tiers, len(z_to_plot), len(z_to_plot)*i+1 + j)
+
+                if horizontal_layout:
+                    plt.subplot(n_tiers, len(z_to_plot), len(z_to_plot)*i+1 + j)
+                else:
+                    plt.subplot(len(z_to_plot), n_tiers, n_tiers*i+1 + j)
+
                 plot_a_SN(SN_data["SN_observations"][ind], SN_data["SN_table"]["daymaxes"][ind], plot_to_make = "LC", phase_not_date = 1, redshift = z_set[j], plt = plt, stacked_SNRs = stacked_SNRs, SN_ind = ind)
                 plt.xticks(fontsize = 8)
                 plt.yticks(fontsize = 8)
@@ -927,7 +937,11 @@ def collection_of_plots(pickle_to_read):
                     plt.xlabel("Relative Date (Observer-Frame)")
 
         for i in range(len(SN_data["survey_parameters"]["tier_parameters"]["tier_name"])):
-            plt.subplot(n_tiers, len(z_to_plot), len(z_to_plot)*i+1 + j)
+            if horizontal_layout:
+                plt.subplot(n_tiers, len(z_to_plot), len(z_to_plot)*i+1 + j)
+            else:
+                plt.subplot(len(z_to_plot), n_tiers, n_tiers*i+1 + j)
+
             plt.xlim(xlim)
                 
     plt.tight_layout()
