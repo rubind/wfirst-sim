@@ -11,7 +11,7 @@ def run_job(dr, gray_disp, color_scatter_opt, color_scatter_nir, twins):
 #SBATCH --time=0-08:00:00 ## time format is DD-HH:MM:SS
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=32G # Memory per node my job requires
+#SBATCH --mem=""" + ram + """G # Memory per node my job requires
 #SBATCH --error=example-%A.err # %A - filled with jobid, where to write the stderr
 #SBATCH --output=example-%A.out # %A - filled with jobid, wher to write the stdout
 source ~/.bash_profile
@@ -35,7 +35,7 @@ def update_FoM(pwd):
 #SBATCH --time=0-08:00:00 ## time format is DD-HH:MM:SS
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=32G # Memory per node my job requires
+#SBATCH --mem=""" + ram + """G # Memory per node my job requires
 #SBATCH --error=example-%A.err # %A - filled with jobid, where to write the stderr
 #SBATCH --output=example-%A.out # %A - filled with jobid, wher to write the stdout
 source ~/.bash_profile
@@ -54,6 +54,7 @@ python $WFIRST/scripts/stan_cosmo/FoM.py */comb_mat*fits | tail
 pwd = getoutput("pwd")
 
 redo = int(sys.argv[1])
+ram = sys.argv[2] # 40 for example
 
 jobs_so_far = 0
 
