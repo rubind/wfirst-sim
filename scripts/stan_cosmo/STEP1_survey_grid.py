@@ -9,7 +9,27 @@ WFIRST = os.environ["WFIRST"]
 
 minimum_exp_time = 60.
 minimum_rest_wave_target = 0.35 # microns
+slew_time = 50.
 
+def write_sh_header(f, cpus_needed, memory_needed):
+    f.write("""#!/bin/bash
+#SBATCH --job-name=sim
+#SBATCH --partition=kill-shared
+#SBATCH --time=0-10:00:00 ## time format is DD-HH:MM:SS
+#SBATCH --nodes=1
+#SBATCH --cpus-per-task=""" + str(cpus_needed) + """
+#SBATCH --mem=""" + str(memory_needed) + """G # Memory per node my job requires
+#SBATCH --error=example-%A.err # %A - filled with jobid, where to write the stderr
+#SBATCH --output=example-%A.out # %A - filled with jobid, wher to write the stdout
+source ~/.bash_profile
+export WFIRST=/home/drubin/wfirst-sim/
+export WFIRST_SIM_DATA=/home/drubin/wfirst-sim-data/
+pip install sncosmo
+pip install sep
+
+""")
+    
+    
 
 def get_per_visit_exposure_time(band, redshift, cadence):
     f = open(WFIRST + "/scripts/pixel-level/StoN_vs_exptime_%s_TTel_264.0_WebbPSF_WFC_aldering_dark=0.015_rnf=5.0_rnw=16.0_SNRtarg=10.00@1.00_addhost=1_mod=SALT3.NIR_WAVEEXT_zlots=1.0.txt" % (band), 'r')
@@ -92,9 +112,9 @@ def get_square_degrees(cadence, filters, exp_times, tier_percent, total_survey_y
     for i in range(len(filters)):
         if "grizy".count(filters[i]) == 0:
             if filters[i].count("P") == 0:
-                exp_times_roman_w_overhead.append(exp_times[i] + 53.)
+                exp_times_roman_w_overhead.append(exp_times[i] + slew_time)
             else:
-                exp_times_roman_w_overhead.append((exp_times[i] + 53.)*cadence/prism_cadence)
+                exp_times_roman_w_overhead.append((exp_times[i] + slew_time)*cadence/prism_cadence)
 
 
     print("exp_times_roman_w_overhead", exp_times_roman_w_overhead)
@@ -209,6 +229,10 @@ def make_survey(total_survey_years, widepercent_imaging, medpercent_imaging, wid
     exp_times_dict_med_2x_cadence = get_exp_time_dict(redshift = med_ztarg, cadence = int(np.around(med_cadence/2.)))
     exp_times_dict_deep_2x_cadence = get_exp_time_dict(redshift = deep_ztarg, cadence = int(np.around(deep_cadence/2.)))
 
+    print("exp_times_dict_deep", exp_times_dict_deep)
+    print("exp_times_dict_deep_2x_cadence", exp_times_dict_deep_2x_cadence)
+
+    
     for filt in set(wide_filts):
         if wide_filts.count(filt) == 2:
             exp_times_dict_wide[filt] = exp_times_dict_wide_2x_cadence[filt]
@@ -218,8 +242,8 @@ def make_survey(total_survey_years, widepercent_imaging, medpercent_imaging, wid
     for	filt in	set(deep_filts):
         if deep_filts.count(filt) == 2:
             exp_times_dict_deep[filt] = exp_times_dict_deep_2x_cadence[filt]
-    
-    
+
+    print("exp_times_dict_deep", exp_times_dict_deep, deep_filts)
         
     if not "P" in exp_times_dict_wide:
         exp_times_dict_wide["P"] = 900
@@ -373,39 +397,38 @@ max_z,0.5,
     assert np.isclose(all_percent, 100)
             
 
-    memory_needed = 16 + 24*(deeppercent_prism + medpercent_prism + widepercent_prism > 0)
 
     
     pwd = getoutput("pwd")
     f = open(wd + "/run.sh", 'w')
-    f.write("""#!/bin/bash
-#SBATCH --job-name=sim
-#SBATCH --partition=kill-shared
-#SBATCH --time=0-10:00:00 ## time format is DD-HH:MM:SS
-#SBATCH --nodes=1
-#SBATCH --cpus-per-task=4
-#SBATCH --mem=""" + str(memory_needed) + """G # Memory per node my job requires
-#SBATCH --error=example-%A.err # %A - filled with jobid, where to write the stderr
-#SBATCH --output=example-%A.out # %A - filled with jobid, wher to write the stdout
-source ~/.bash_profile
-export WFIRST=/home/drubin/wfirst-sim/
-export WFIRST_SIM_DATA=/home/drubin/wfirst-sim-data/
-pip install sncosmo
-pip install sep
+    write_sh_header(f, cpus_needed = 2, memory_needed = 8)    
 
-""")
     f.write("cd " + pwd + "/" + wd + '\n')
     f.write("python $WFIRST/scripts/stan_cosmo/STEP1_simple_survey.py paramfile.csv survey.pickle > log.txt\n")
+    f.write("sbatch FoM1.sh\n")
+    f.write("sbatch FoM2.sh\n")
+    f.write("python $WFIRST/scripts/stan_cosmo/STEP1A_plot_survey.py survey.pickle\n")
+    f.close()
+
+    f = open(wd + "/FoM1.sh", 'w')
+    memory_needed = 16 + 24*(deeppercent_prism + medpercent_prism + widepercent_prism > 0)
 
     for model_res in model_res_list:
+        f = open(wd + "/FoM1.sh", 'w')
+        write_sh_header(f, cpus_needed = 4, memory_needed = memory_needed)
+        f.write("cd " + pwd + "/" + wd + '\n')
         f.write("python $WFIRST/scripts/stan_cosmo/STEP2_Analytic_Fisher.py survey.pickle --SNRMax %i --model_res %i  --train 1 --calib 1 --color_scatter_opt 0.04 --color_scatter_nir 0.02 --gray_disp 0.08 > fisher_log.txt\n" % (SNRMax, model_res))
+        f.close()
+
+        f = open(wd + "/FoM2.sh", 'w')
+        write_sh_header(f, cpus_needed = 4, memory_needed = memory_needed)
+        f.write("cd " + pwd + "/" + wd + '\n')
         f.write("python $WFIRST/scripts/stan_cosmo/STEP2_Analytic_Fisher.py survey.pickle --SNRMax %i --model_res %i  --train 1 --calib 1 --color_scatter_opt 0.001 --color_scatter_nir 0.001 --gray_disp 0.001  --twins 1 > fisher_log.txt\n" % (SNRMax, model_res))
-         
-    f.write("python $WFIRST/scripts/stan_cosmo/STEP1A_plot_survey.py survey.pickle\n")
+        f.close()
+
         #f.write("python $WFIRST/scripts/stan_cosmo/FoM.py comb_mat.fits > FoM_model_res=%02i.txt\n" % model_res)
         #f.write("python $WFIRST/scripts/stan_cosmo/FoM.py comb_mat_no_model.fits > FoM_no_model_%02i.txt\n" % model_res)
         #f.write("python $WFIRST/scripts/stan_cosmo/FoM.py comb_mat_stat_only.fits > FoM_stat_only_%02i.txt\n" % model_res)
-    f.close()
 
     print(getoutput("cd " + wd + "\n sbatch run.sh"))
     return 1
@@ -457,11 +480,12 @@ percent_prism10000 = []
 for i in range(10000):
     this_percent = 10000
     while this_percent >= 99.9:
+        this_percent = np.random.random()*60
         #if np.random.random() > 0.5:
         #    this_percent = np.random.random()*10 + 15 #np.random.random()*20 + 10
         #else:
         #    this_percent = np.random.random()*20 + 10
-        this_percent = np.random.random()*20 + 30
+        #this_percent = np.random.random()*20 + 30
         
     percent_prism10000.append(this_percent)
     
@@ -474,19 +498,22 @@ grid_vals = dict(widepercent_imaging = np.arange(0, 101, 5),
                  deeppercent_imaging = np.arange(0, 101, 5),
                  total_survey_years = [0.5],
                  nnearby = [800],
-                 add_Rubin_only_tier = [1],
-                 wide_filts = ["RZJRHY"]*4 + ["RRZYJHF"]*3 + ["RRZYJH"]*3 +  ["RRZYJ", "RRZJH"]*2, # + ["RZY", "RZJ", "RZH", "ZYJ", "ZYJH", "ZJH", "ZHF", "ZYH"],
+                 add_Rubin_only_tier = [-10],
+                 wide_filts = ["RRZYJHF"]*3 + ["RRZYJH"]*3 +  ["RRZYJ", "RRZJH"]*3, # + ["RZY", "RZJ", "RZH", "ZYJ", "ZYJH", "ZJH", "ZHF", "ZYH"],
                  med_filts = ["RZYJHF"],# "RZYJHF", "ZYJHF", "YJHF", "RZYJH", "RZYJ", "ZYJH"],
                  deep_filts = ["RRZYJH", "RZZYJH", "ZZRYJHF", "ZZYJHF", "YYJHF"],
-                 wide_cadence = [8, 10],
+                 wide_cadence = [4, 6, 8, 10],
                  wide_ztarg = np.arange(0.3, 1.1, 0.1), med_ztarg = [1.], #np.arange(0.8, 1.3, 0.1),
                  deep_ztarg = np.arange(1.0, 2.5, 0.1),
                  
                  med_cadence = [10], #[4, 5, 6, 7, 8, 9, 10], #, 12, 15],
-                 deep_cadence = [8, 10], #[4, 5, 6, 7, 8, 9, 10, 12, 15],
-                 widepercent_prism = np.arange(0, 41, 2), #[0],#np.arange(0, 41, 2),
-                 medpercent_prism = np.arange(0, 41, 2), #[0],#np.arange(0, 41, 2),
-                 deeppercent_prism = np.arange(0, 41, 2), #[0],#np.arange(0, 41, 2),
+                 deep_cadence = [6, 8, 10, 12], #[4, 5, 6, 7, 8, 9, 10, 12, 15],
+                 #widepercent_prism = np.arange(0, 41, 2), #[0],#np.arange(0, 41, 2),
+                 #medpercent_prism = np.arange(0, 41, 2), #[0],#np.arange(0, 41, 2),
+                 #deeppercent_prism = np.arange(0, 41, 2), #[0],#np.arange(0, 41, 2),
+                 widepercent_prism = [50],
+                 medpercent_prism = [0],
+                 deeppercent_prism = [50],
                  percent_prism = np.array(percent_prism10000), #np.arange(0, 16, 1.), #np.array(percent_prism10000),
                  SN_number_poisson = [0])
 
@@ -536,11 +563,11 @@ elif grid_type == "poisson":
 elif grid_type == "total_time":
     for total_survey_years in np.arange(0.04, 1.01, 0.02):
         for add_Rubin_only_tier in [0, 1]:
-            make_survey(total_survey_years = total_survey_years, widepercent_imaging = 40., medpercent_imaging = 0.0, nnearby = 800,
+            make_survey(total_survey_years = total_survey_years, widepercent_imaging = 30., medpercent_imaging = 0.0, nnearby = 800,
                         widepercent_prism = 10, medpercent_prism = 0.,
                         deeppercent_prism = 10,
                         wide_cadence = 10, med_cadence = 5, deep_cadence = 10,
-                        wide_filts = "RRZYJH", med_filts = "ZYJHF", deep_filts = "ZZRYJHF",
+                        wide_filts = "RRZYJH", med_filts = "ZYJHF", deep_filts = "ZZYJHF",
                         wide_ztarg = 0.9, med_ztarg = 1.0, deep_ztarg = 1.7,
                         SN_number_poisson = 0, add_Rubin_only_tier = add_Rubin_only_tier)
         
