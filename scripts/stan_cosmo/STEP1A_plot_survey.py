@@ -934,7 +934,7 @@ def collection_of_plots(pickle_to_read):
                 if j == 0:
                     plt.ylabel("Flux")
                 if i == len(SN_data["survey_parameters"]["tier_parameters"]["tier_name"]) - 1:
-                    plt.xlabel("Relative Date (Observer-Frame)")
+                    plt.xlabel("Relative Date (Rest-Frame)")
 
         for i in range(len(SN_data["survey_parameters"]["tier_parameters"]["tier_name"])):
             if horizontal_layout:
