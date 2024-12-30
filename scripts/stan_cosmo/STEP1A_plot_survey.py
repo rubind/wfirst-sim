@@ -39,6 +39,7 @@ def plot_a_SN(lc_data, daymax, plot_to_make, phase_not_date, redshift, plt, stac
     #plt.ylim(ylim)
     plt.axvline(daymax*(1 - phase_not_date), color = (0.8, 0.8, 0.8))
     ylim = plt.ylim()
+    
 
     for date in lc_data["IFS_dates"]:
         phase = (date - daymax)/(1. + redshift)
@@ -52,7 +53,9 @@ def plot_a_SN(lc_data, daymax, plot_to_make, phase_not_date, redshift, plt, stac
                          arrowprops=dict(facecolor='black', shrink=0.05, width=1, headwidth=8, headlength=10), zorder = -1)
 
             #plt.axvline(xval, color = 'k', linestyle = ':')
-    
+
+    if phase_not_date == 0:
+        plt.xlim(lc_data["dates"].min() - 1, lc_data["dates"].max() + 1)
     plt.legend(loc = 'best', fontsize = 8)
 
 
@@ -616,7 +619,7 @@ def make_SNRMAX_plots(SN_data, working_dir, plt, pickle_to_read):
     plt.savefig(working_dir + "/redshift_SNRPEAK.pdf", bbox_inches = 'tight')
 
 
-def plot_median_LCs(plt, SN_data, working_dir, stacked_SNRs, phase_not_date = 0):
+def plot_median_LCs(plt, SN_data, working_dir, stacked_SNRs, phase_not_date = 1):
     tiers_to_plot = SN_data["survey_parameters"]["tier_parameters"]["tier_name"]
     tiers_to_plot = [item for item in tiers_to_plot if item.count("Nearby") == 0]
     
@@ -632,10 +635,11 @@ def plot_median_LCs(plt, SN_data, working_dir, stacked_SNRs, phase_not_date = 0)
     horizontal_layout = 0
 
     if horizontal_layout:
-        plt.figure(figsize = (4*len(z_to_plot), 3*n_tiers))
+        plt.figure(figsize = (3.2*len(z_to_plot), 2.4*n_tiers))
     else:
-        plt.figure(figsize = (4*n_tiers, 3*len(z_to_plot)))
+        plt.figure(figsize = (3.2*n_tiers, 2.4*len(z_to_plot)))
 
+    subplots_made = []
     for j, this_z in enumerate(z_to_plot):
         xlim = [1e7, -1e7]
         for i, tier_name in enumerate(tiers_to_plot):
@@ -661,9 +665,11 @@ def plot_median_LCs(plt, SN_data, working_dir, stacked_SNRs, phase_not_date = 0)
 
                 if horizontal_layout:
                     plt.subplot(n_tiers, len(z_to_plot), len(z_to_plot)*i+1 + j)
+                    subplots_made.append(len(z_to_plot)*i+1 + j)
                 else:
                     plt.subplot(len(z_to_plot), n_tiers, n_tiers*j+1 + i)
-
+                    subplots_made.append(n_tiers*j+1 + i)
+                    
                 plot_a_SN(SN_data["SN_observations"][ind], SN_data["SN_table"]["daymaxes"][ind], plot_to_make = "LC",
                           phase_not_date = phase_not_date, redshift = this_z, plt = plt, stacked_SNRs = stacked_SNRs, SN_ind = ind)
                 plt.xticks(fontsize = 8)
@@ -672,7 +678,7 @@ def plot_median_LCs(plt, SN_data, working_dir, stacked_SNRs, phase_not_date = 0)
                 
                 xlim[0] = min(xlim[0], plt.xlim()[0])
                 xlim[1] = max(xlim[1], plt.xlim()[1])
-                plt.title(tier_name + " z=%.2f" % this_z)
+                #plt.text(tier_name + " z=%.2f" % this_z)
 
                 if horizontal_layout:
                     if j == 0:
@@ -695,14 +701,21 @@ def plot_median_LCs(plt, SN_data, working_dir, stacked_SNRs, phase_not_date = 0)
         for i in range(len(tiers_to_plot)):
             if horizontal_layout:
                 plt.subplot(n_tiers, len(z_to_plot), len(z_to_plot)*i+1 + j)
+                if subplots_made.count(len(z_to_plot)*i+1 + j):
+                    plt.text(0.95*xlim[0] + 0.05*xlim[1], plt.ylim()[1]*0.95, tiers_to_plot[i] + " z=%.2f" % this_z, ha = 'center', va = 'top', rotation = 90)
+                    plt.xlim(xlim)
+
             else:
                 plt.subplot(len(z_to_plot), n_tiers, n_tiers*j+1 + i)
-
-            plt.xlim(xlim)
+                if subplots_made.count(n_tiers*j+1 + i):
+                    plt.text(0.95*xlim[0] + 0.05*xlim[1], plt.ylim()[1]*0.95, tiers_to_plot[i] + " z=%.2f" % this_z, ha = 'center', va = 'top', rotation = 90)
+                    plt.xlim(xlim)
                 
     plt.tight_layout()
     plt.savefig(working_dir + "/median_SN_LCs.pdf", bbox_inches = 'tight')
     plt.close()
+
+    ffff
 
 
 
