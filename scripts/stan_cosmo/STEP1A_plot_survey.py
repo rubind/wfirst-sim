@@ -6,7 +6,9 @@ import subprocess
 import multiprocessing as mp
 from scipy.stats import scoreatpercentile
 
-colors = {"R062": (1, 0.5, 1), "Z087": 'm', "Y106": 'b', "J129": 'g', "H158": 'orange', "F184": 'r', "K193": 'r', "Ground_g": 'm', "Ground_r": 'b', "Ground_i": 'c', "Ground_z": 'g', "Ground_Y": 'orange', "g": 'm', "r": 'b', "i": 'c', "z": 'g', "Y": 'orange', "W146": 'orange', "Euclid_Y": 'b', "Euclid_J": 'g', "Euclid_H": 'orange', "P100": 'k'}
+colors = {"R062": (1, 0.5, 1), "Z087": 'm', "Y106": 'b', "J129": 'g', "H158": 'orange', "F184": 'r', "K193": 'r', "Ground_g": 'm', "Ground_r": 'b', "Ground_i": 'c', "Ground_z": 'g', "Ground_Y": 'orange', "g": 'm', "r": 'b', "i": 'c', "z": 'g', "Y": 'orange', "W146": 'orange', "Euclid_Y": 'b', "Euclid_J": 'g', "Euclid_H": 'orange', "P100": 'k',
+          "REX_1.03": "m", "REX_1.09": "b", "REX_1.16": "c", "REX_1.22": "g", "REX_1.28": "orange", "REX_1.34": "red", "REX_1.40": "brown", "REX_1.46": "k"
+          }
 
 def plot_a_SN(lc_data, daymax, plot_to_make, phase_not_date, redshift, plt, stacked_SNRs, SN_ind, flc = None):
 
@@ -24,7 +26,7 @@ def plot_a_SN(lc_data, daymax, plot_to_make, phase_not_date, redshift, plt, stac
         else:
             xvals = array(lc_data["dates"])[inds]
         if plot_to_make == "LC":
-            plt.errorbar(xvals, array(lc_data["fluxes"])[inds] + (len(filt) == 1)*3, yerr = array(lc_data["dfluxes"])[inds], fmt = '.', capsize = 0, color = colors[filt], label = "$" + filt.replace("Ground_", "") + "$: %.1f" % stacked_SNRs[filt[0]][SN_ind])
+            plt.errorbar(xvals, array(lc_data["fluxes"])[inds] + (len(filt) == 1)*3, yerr = array(lc_data["dfluxes"])[inds], fmt = '.', capsize = 0, color = colors[filt], label = "$" + filt.replace("Ground_", "").replace("_", "") + "$: %.1f" % stacked_SNRs[filt[0]][SN_ind])
             if flc != None:
                 for i in range(len(xvals)):
                     flc.write("%.3f  %.3f  %.3f  %s  %.3f\n" % (xvals[i], array(lc_data["fluxes"])[inds][i], array(lc_data["dfluxes"])[inds][i], filt, redshift))
@@ -613,6 +615,97 @@ def make_SNRMAX_plots(SN_data, working_dir, plt, pickle_to_read):
     plt.title(pickle_to_read)
     plt.savefig(working_dir + "/redshift_SNRPEAK.pdf", bbox_inches = 'tight')
 
+
+def plot_median_LCs(plt, SN_data, working_dir, stacked_SNRs, phase_not_date = 0):
+    tiers_to_plot = SN_data["survey_parameters"]["tier_parameters"]["tier_name"]
+    tiers_to_plot = [item for item in tiers_to_plot if item.count("Nearby") == 0]
+    
+    n_tiers = len(tiers_to_plot)
+    survey_fields = array([str(item) for item in SN_data["SN_table"]["survey_fields"]])
+    
+    cadence_stops = get_cadence_stops(SN_data)
+
+    print("cadence_stops", cadence_stops)
+    print("survey_fields", survey_fields)
+
+    z_to_plot = [0.225, 0.475, 0.725, 1.025, 1.475, 2.025]
+    horizontal_layout = 0
+
+    if horizontal_layout:
+        plt.figure(figsize = (4*len(z_to_plot), 3*n_tiers))
+    else:
+        plt.figure(figsize = (4*n_tiers, 3*len(z_to_plot)))
+
+    for j, this_z in enumerate(z_to_plot):
+        xlim = [1e7, -1e7]
+        for i, tier_name in enumerate(tiers_to_plot):
+            survey_mask = [item == tier_name for item in survey_fields]
+
+
+            inds = where(isclose(SN_data["SN_table"]["redshifts"], this_z)*(survey_mask)*(SN_data["SN_table"]["daymaxes"] < cadence_stops[tier_name] - 20*(1. + this_z)))[0]
+            print(tier_name, inds)
+
+            S_to_N_inds = []
+            for ind in inds:
+                SNRs = SN_data["SN_observations"][ind]["fluxes"]/SN_data["SN_observations"][ind]["dfluxes"]
+                SNRs = SNRs[where(SNRs > 2)]
+                this_SNR = sqrt(sum(SNRs**2.))
+
+                if this_SNR > 0:
+                    S_to_N_inds.append((sqrt(sum(SNRs**2.)), ind))
+            S_to_N_inds.sort()
+            print("S_to_N_inds", S_to_N_inds)
+
+            if len(S_to_N_inds) > 0:
+                ind = S_to_N_inds[int(len(S_to_N_inds)/2.)][1]
+
+                if horizontal_layout:
+                    plt.subplot(n_tiers, len(z_to_plot), len(z_to_plot)*i+1 + j)
+                else:
+                    plt.subplot(len(z_to_plot), n_tiers, n_tiers*j+1 + i)
+
+                plot_a_SN(SN_data["SN_observations"][ind], SN_data["SN_table"]["daymaxes"][ind], plot_to_make = "LC",
+                          phase_not_date = phase_not_date, redshift = this_z, plt = plt, stacked_SNRs = stacked_SNRs, SN_ind = ind)
+                plt.xticks(fontsize = 8)
+                plt.yticks(fontsize = 8)
+                plt.ylim(0, plt.ylim()[1])
+                
+                xlim[0] = min(xlim[0], plt.xlim()[0])
+                xlim[1] = max(xlim[1], plt.xlim()[1])
+                plt.title(tier_name + " z=%.2f" % this_z)
+
+                if horizontal_layout:
+                    if j == 0:
+                        plt.ylabel("Flux, Zeropoint=25 AB")
+                    if i == n_tiers - 1:
+                        plt.xlabel("Relative Date " + "(Observer-Frame)"*(1 - phase_not_date) + "(Rest-Frame)"*phase_not_date)
+                else:
+                    if i == 0:
+                        plt.ylabel("Flux, Zeropoint=25 AB")
+                    if j == len(z_to_plot) - 1:
+                        plt.xlabel("Relative Date " + "(Observer-Frame)"*(1 - phase_not_date) + "(Rest-Frame)"*phase_not_date)
+            else:
+                if horizontal_layout:
+                    plt.subplot(n_tiers, len(z_to_plot), len(z_to_plot)*i+1 + j)
+                else:
+                    plt.subplot(len(z_to_plot), n_tiers, n_tiers*j+1 + i)
+                plt.axis('off')
+
+                    
+        for i in range(len(tiers_to_plot)):
+            if horizontal_layout:
+                plt.subplot(n_tiers, len(z_to_plot), len(z_to_plot)*i+1 + j)
+            else:
+                plt.subplot(len(z_to_plot), n_tiers, n_tiers*j+1 + i)
+
+            plt.xlim(xlim)
+                
+    plt.tight_layout()
+    plt.savefig(working_dir + "/median_SN_LCs.pdf", bbox_inches = 'tight')
+    plt.close()
+
+
+
 def collection_of_plots(pickle_to_read):
     from matplotlib import use
     use("PDF")
@@ -651,7 +744,8 @@ def collection_of_plots(pickle_to_read):
     #print SN_data["SN_observations"]
     print(SN_data["SN_table"])
 
-    write_pointings(SN_data, working_dir)
+    #write_pointings(SN_data, working_dir)
+
 
     plt.figure()
     plt.plot(SN_data["SN_table"]["redshifts"] + random.random(size = len(SN_data["SN_table"]["redshifts"]))*0.05 - 0.025, SN_data["SN_table"]["daymaxes"], '.')
@@ -707,6 +801,7 @@ def collection_of_plots(pickle_to_read):
         stacked_SNRs[key] = array(stacked_SNRs[key])
 
     print("stacked_SNRs", stacked_SNRs)
+    plot_median_LCs(plt, SN_data, working_dir = working_dir, stacked_SNRs = stacked_SNRs)
 
 
     survey_fields = array(SN_data["SN_table"]["survey_fields"])
@@ -728,12 +823,12 @@ def collection_of_plots(pickle_to_read):
         useful_redshift_mask[key] = get_useful_redshifts(z_set, SN_data["survey_parameters"]["tier_parameters"]["tier_name"], SN_data["SN_table"]["redshifts"], stacked_SNRs[key], survey_fields, suffix = outputname, working_dir = working_dir, plt = plt)
     has_IFS_mask = array([len(SN_data["SN_observations"][i]["IFS_dates"]) > 0 for i in range(nsne)])
 
-    make_IFS_time_plot(SN_data, working_dir, nsne, outputname, plt = plt)
-    make_IFS_date_plot(SN_data, working_dir, nsne, outputname, plt = plt)
-    make_IFS_phase_plot(SN_data, working_dir, nsne, outputname, plt = plt)
+    #make_IFS_time_plot(SN_data, working_dir, nsne, outputname, plt = plt)
+    #make_IFS_date_plot(SN_data, working_dir, nsne, outputname, plt = plt)
+    #make_IFS_phase_plot(SN_data, working_dir, nsne, outputname, plt = plt)
 
     make_lc_sampling(SN_data, working_dir, nsne, n_tiers, cadence_stops = cadence_stops, plt = plt)
-    make_selection_figure(SN_data, working_dir, nsne, plt = plt)
+    #make_selection_figure(SN_data, working_dir, nsne, plt = plt)
     make_SNR_vs_z(SN_data, working_dir, nsne, plt)
     survey_fields = array([str(item).split("'")[1] for item in survey_fields])
     print("survey_fields", survey_fields)
@@ -889,64 +984,6 @@ def collection_of_plots(pickle_to_read):
     #plot_field(SN_data, working_dir, nsne, outputname, plt = plt)
     flc.close()
 
-    z_to_plot = [0.225, 0.475, 0.725, 1.025, 1.475, 2.025]
-    horizontal_layout = 0
-
-    if horizontal_layout:
-        plt.figure(figsize = (4*len(z_to_plot), 3*n_tiers))
-    else:
-        plt.figure(figsize = (3*n_tiers, 4*len(z_to_plot)))
-
-    for j, this_z in enumerate(z_to_plot):
-        xlim = [1e7, -1e7]
-        for i, tier_name in enumerate(SN_data["survey_parameters"]["tier_parameters"]["tier_name"]):
-            survey_mask = [item == tier_name for item in survey_fields]
-            inds = where(isclose(SN_data["SN_table"]["redshifts"], this_z)*(survey_mask)*(SN_data["SN_table"]["daymaxes"] < cadence_stops[tier_name] - 20*(1. + this_z)))[0]
-            print(inds)
-
-            S_to_N_inds = []
-            for ind in inds:
-                SNRs = SN_data["SN_observations"][ind]["fluxes"]/SN_data["SN_observations"][ind]["dfluxes"]
-                SNRs = SNRs[where(SNRs > 2)]
-                this_SNR = sqrt(sum(SNRs**2.))
-
-                if this_SNR > 0:
-                    S_to_N_inds.append((sqrt(sum(SNRs**2.)), ind))
-            S_to_N_inds.sort()
-            print("S_to_N_inds", S_to_N_inds)
-
-            if len(S_to_N_inds) > 0:
-                ind = S_to_N_inds[int(len(S_to_N_inds)/2.)][1]
-
-                if horizontal_layout:
-                    plt.subplot(n_tiers, len(z_to_plot), len(z_to_plot)*i+1 + j)
-                else:
-                    plt.subplot(len(z_to_plot), n_tiers, n_tiers*i+1 + j)
-
-                plot_a_SN(SN_data["SN_observations"][ind], SN_data["SN_table"]["daymaxes"][ind], plot_to_make = "LC", phase_not_date = 1, redshift = z_set[j], plt = plt, stacked_SNRs = stacked_SNRs, SN_ind = ind)
-                plt.xticks(fontsize = 8)
-                plt.yticks(fontsize = 8)
-                plt.ylim(0, plt.ylim()[1])
-                
-                xlim[0] = min(xlim[0], plt.xlim()[0])
-                xlim[1] = max(xlim[1], plt.xlim()[1])
-                plt.title(tier_name + " z=%.2f" % this_z)
-                if j == 0:
-                    plt.ylabel("Flux")
-                if i == len(SN_data["survey_parameters"]["tier_parameters"]["tier_name"]) - 1:
-                    plt.xlabel("Relative Date (Rest-Frame)")
-
-        for i in range(len(SN_data["survey_parameters"]["tier_parameters"]["tier_name"])):
-            if horizontal_layout:
-                plt.subplot(n_tiers, len(z_to_plot), len(z_to_plot)*i+1 + j)
-            else:
-                plt.subplot(len(z_to_plot), n_tiers, n_tiers*i+1 + j)
-
-            plt.xlim(xlim)
-                
-    plt.tight_layout()
-    plt.savefig(working_dir + "/median_SN_LCs.pdf", bbox_inches = 'tight')
-    plt.close()
 
 if __name__ == "__main__":
 

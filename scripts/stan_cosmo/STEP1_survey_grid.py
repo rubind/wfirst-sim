@@ -561,7 +561,7 @@ elif grid_type == "poisson":
                          wide_filts = "RZYJ", med_filts = "ZYJH", deep_filts = "ZYJHF", SN_number_poisson = SN_number_poisson)
 
 elif grid_type == "total_time":
-    for total_survey_years in np.arange(0.04, 1.01, 0.02):
+    for total_survey_years in [0.02]: #np.arange(0.02, 1.01, 0.02):
         for add_Rubin_only_tier in [0, 1]:
             make_survey(total_survey_years = total_survey_years, widepercent_imaging = 30., medpercent_imaging = 0.0, nnearby = 800,
                         widepercent_prism = 10, medpercent_prism = 0.,
