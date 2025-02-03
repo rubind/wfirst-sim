@@ -715,7 +715,7 @@ def plot_median_LCs(plt, SN_data, working_dir, stacked_SNRs, phase_not_date = 1)
     plt.savefig(working_dir + "/median_SN_LCs.pdf", bbox_inches = 'tight')
     plt.close()
 
-    ffff
+    
 
 
 
