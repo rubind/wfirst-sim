@@ -10,6 +10,10 @@ colors = {"R062": (1, 0.5, 1), "Z087": 'm', "Y106": 'b', "J129": 'g', "H158": 'o
           "REX_1.03": "m", "REX_1.09": "b", "REX_1.16": "c", "REX_1.22": "g", "REX_1.28": "orange", "REX_1.34": "red", "REX_1.40": "brown", "REX_1.46": "k"
           }
 
+tier_labels = {"DeepImaging": "Deep Imaging",
+               "WideImaging": "Wide Imaging"}
+
+
 def plot_a_SN(lc_data, daymax, plot_to_make, phase_not_date, redshift, plt, stacked_SNRs, SN_ind, flc = None):
 
 
@@ -538,16 +542,21 @@ def get_cadence_stops(SN_data):
     cadence_stops = {}
 
     for tier_name in SN_data["survey_parameters"]["tier_parameters"]["tier_name"]:
-        last_date = 1e10
+        last_date = 0.0
+
+        #print(SN_data["observation_table"])
+    
         
-        for filt in unique(SN_data["observation_table"]["filt"]):
-            inds = where((survey_fields == tier_name)*(SN_data["observation_table"]["filt"] == filt))
-            if len(inds[0]) > 0:
-                dmax = SN_data["observation_table"]["date"][inds].max()
-                print("filt ", filt, "tier ", tier_name, dmax)
-                last_date = min(last_date, dmax)
+        inds = where((SN_data["observation_table"]["tier"] == tier_name))
+        print("inds", inds)
+        
+        if len(inds[0]) > 0:
+            dmax = SN_data["observation_table"]["date"][inds].max()
+            print("tier ", tier_name, dmax)
+            last_date = max(last_date, dmax)
         cadence_stops[tier_name] = last_date
     print("cadence_stops", cadence_stops)
+    
     return cadence_stops
 
 
@@ -697,18 +706,21 @@ def plot_median_LCs(plt, SN_data, working_dir, stacked_SNRs, phase_not_date = 1)
                     plt.subplot(len(z_to_plot), n_tiers, n_tiers*j+1 + i)
                 plt.axis('off')
 
-                    
+
+
         for i in range(len(tiers_to_plot)):
             if horizontal_layout:
                 plt.subplot(n_tiers, len(z_to_plot), len(z_to_plot)*i+1 + j)
                 if subplots_made.count(len(z_to_plot)*i+1 + j):
-                    plt.text(0.95*xlim[0] + 0.05*xlim[1], plt.ylim()[1]*0.95, tiers_to_plot[i] + " z=%.2f" % this_z, ha = 'center', va = 'top', rotation = 90)
+                    plt.text(0.95*xlim[0] + 0.05*xlim[1], plt.ylim()[1]*0.95, tier_labels.get(tiers_to_plot[i], tiers_to_plot[i])
+                             + " z=%.2f" % this_z, ha = 'center', va = 'top', rotation = 90)
                     plt.xlim(xlim)
 
             else:
                 plt.subplot(len(z_to_plot), n_tiers, n_tiers*j+1 + i)
                 if subplots_made.count(n_tiers*j+1 + i):
-                    plt.text(0.95*xlim[0] + 0.05*xlim[1], plt.ylim()[1]*0.95, tiers_to_plot[i] + " z=%.2f" % this_z, ha = 'center', va = 'top', rotation = 90)
+                    plt.text(0.95*xlim[0] + 0.05*xlim[1], plt.ylim()[1]*0.95, tier_labels.get(tiers_to_plot[i], tiers_to_plot[i])
+                             + " z=%.2f" % this_z, ha = 'center', va = 'top', rotation = 90)
                     plt.xlim(xlim)
                 
     plt.tight_layout()
@@ -885,7 +897,7 @@ def collection_of_plots(pickle_to_read):
                             if len(inds[0]) > 0:
                                 plt.hist(SN_data["SN_table"]["redshifts"][inds], bins = arange(0., 3.01, 0.1), color = SNR_color, label = "SNR Sum>%.0f: %i"% (SNR_thresh, len(inds[0])), cumulative=cumulative, histtype="step"*(SNR_thresh == 0) + "stepfilled"*(SNR_thresh > 0))
 
-                        plt.title("Tier: " + tier_name)
+                        plt.title("Tier: " + tier_labels.get(tier_name, tier_name))
                         plt.legend(loc = 'best', fontsize = 8)
                         plt.ylabel("Number of SNe Ia per 0.1")
                     plt.xlabel("Redshift")
