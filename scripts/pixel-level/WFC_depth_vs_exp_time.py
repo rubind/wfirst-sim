@@ -1,4 +1,5 @@
 from numpy import *
+import numpy as np
 from matplotlib import use
 use("PDF")
 import matplotlib.pyplot as plt
@@ -103,7 +104,7 @@ for effective_meters2_fl, pltcolor in zip(["R062", "Z087", "Y106", "J129", "H158
         
         plt.plot(exp_time, depth, '.', color = pltcolor, label = effective_meters2_fl*int(exp_time == exp_times[0]))
 
-        fexp.write("%s %.1f %.2f\n" % (effective_meters2_fl, exp_time, depth))
+        fexp.write("%s %.1f %.2f %.2f %.2f\n" % (effective_meters2_fl, exp_time, depth, depth + 1.25*np.log10(73*0.91), depth + 1.25*np.log10(146*0.91)))
         fexp.flush()
         
             

@@ -244,7 +244,7 @@ def get_stan_data(SN_data):
                         this_rest_lambs[good_inds]
                     ))
 
-                    stan_data["count_rates"][-1] = np.concatenate((   stan_data["count_rates"][-1], np.log10(np.array(SN_LC["IFS_eminus_per_s"][IFS_ind])[good_inds]/500.)   ))
+                    stan_data["count_rates"][-1] = np.concatenate((   stan_data["count_rates"][-1], np.log10(np.array(SN_LC["IFS_eminus_per_s"][IFS_ind])[good_inds]/10000.)   ))
                     #print('stan_data["d_d10As"][-1]', stan_data["d_d10As"][-1].shape)
 
                     
@@ -287,6 +287,12 @@ def get_stan_data(SN_data):
         except:
             pass
 
+    for key in ["true_phases", "filt_inds", "rest_lambs", "obs_lambs", "d_d10As", "color_law", "mags", "dmags", "d_mag_d_filt", "count_rates"]:
+        for i in range(len(stan_data[key])):
+            assert len(stan_data[key][i]) == len(stan_data["obs_lambs"][i]), "%s %i %i" % (key, len(stan_data[key][i]), len(stan_data["obs_lambs"][i]))
+        assert len(stan_data[key]) == len(stan_data["true_phases"]), "%s %i %i" % (key, len(stan_data[key]), len(stan_data["true_phases"]))
+
+    
     plt.figure(figsize = (12, 4))
     plt.subplot(1,2,1)
     plt.hist(np.concatenate(stan_data["rest_lambs"]), bins = 50)
@@ -333,12 +339,45 @@ def get_stan_data(SN_data):
     plt.close()
 
     plt.hist(np.concatenate(stan_data["count_rates"]), bins = 100)
+    plt.yscale('log')
     plt.savefig("count_rates.pdf", bbox_inches = 'tight')
     plt.close()
 
-    plt.hist(np.concatenate(stan_data["d_d10As"]), bins = 100)
+
+    d_d10As = np.concatenate(stan_data["d_d10As"])
+    n_filt = len(d_d10As[0])
+    dmags = np.concatenate(stan_data["dmags"])
+    mags = np.concatenate(stan_data["mags"])
+
+    print("d_d10As", d_d10As.shape)
+    print("dmags", dmags.shape)
+
+    plt.figure(figsize = (18, 4*n_filt))
+
+    for i in range(n_filt):
+        inds = np.where(d_d10As[:,i] != 0)
+
+        plt.subplot(n_filt,3,1+i*3)
+        plt.hist(d_d10As[:,i][inds], bins = 100)
+        plt.yscale('log')
+
+        plt.subplot(n_filt,3,2+i*3)
+        if len(dmags[inds]) > 20000:
+            scaling = int(len(dmags[inds])/20000)
+        else:
+            scaling = 1
+            
+        plt.plot(d_d10As[inds][:,i][::scaling], dmags[inds][::scaling], '.')
+        plt.yscale('log')
+
+        plt.subplot(n_filt, 3, 3+i*3)
+        plt.plot(d_d10As[inds][:,i][::scaling], mags[inds][::scaling], '.')
+
+    
     plt.savefig("d_d10As.pdf", bbox_inches = 'tight')
     plt.close()
+
+
 
     
 
@@ -367,8 +406,12 @@ def parseP(P, stan_data):
     parsed["fundslope"] = P[ind]
     ind += 1
 
-    parsed["crnlslope"] = P[ind]
-    ind += 1
+    if opts.crnlindiv:
+        parsed["crnlslope"] = P[ind:ind+stan_data["NFilt"]]
+        ind += stan_data["NFilt"]
+    else:
+        parsed["crnlslope"] = P[ind:ind+1]
+        ind += 1
     
 
     parsed["coeff"] = P[ind: ind+stan_data["NCoeff"]]
@@ -377,7 +420,7 @@ def parseP(P, stan_data):
     return parsed
 
 def unparseP(parsed):
-    return np.concatenate((parsed["mu_bins"], parsed["dZPs"], parsed["dwaves"], [parsed["fundslope"], parsed["crnlslope"]], parsed["coeff"]))
+    return np.concatenate((parsed["mu_bins"], parsed["dZPs"], parsed["dwaves"], [parsed["fundslope"]], parsed["crnlslope"], parsed["coeff"]))
 
 def residfn(P, wrapped_data):
     stan_data = wrapped_data[0]
@@ -427,23 +470,33 @@ def residfn(P, wrapped_data):
 
         the_model = (parsed["mu_bins"][stan_data["z_inds"][i]]
                      + np.dot(stan_data["d_mag_d_filt"][i], parsed["dZPs"])
-                     + np.dot(stan_data["dmagdcoeff"][i], parsed["coeff"])
+                     + np.dot(stan_data["dmagdcoeff"][i], parsed["coeff"]) # Rest frame
                      + np.dot(stan_data["d_d10As"][i], parsed["dwaves"])
-                     + stan_data["count_rates"][i]*parsed["crnlslope"]
+                     #+ stan_data["count_rates"][i]*parsed["crnlslope"]
                      + (stan_data["obs_lambs"][i]/10000. - 1.) * parsed["fundslope"])
+
+        if opts.crnlindiv:
+            the_model += stan_data["count_rates"][i]*np.dot(stan_data["d_mag_d_filt"][i], parsed["crnlslope"])
+        else:
+            assert len(parsed["crnlslope"]) == 1
+            the_model += stan_data["count_rates"][i]*parsed["crnlslope"][0]
         
         #the_model = parsed["mu_bins"][stan_data["z_inds"][i]] + parsed["dZPs"][stan_data["filt_inds"][i]] + np.dot(stan_data["dmagdcoeff"][i], parsed["coeff"])
                                           
         resid = stan_data["mags"][i] - the_model
         resid_norm.extend(np.dot(resid, L))
 
-    priors = parsed["dZPs"]/opts.zpunc
-    return np.concatenate((np.array(resid_norm), priors, parsed["dwaves"]/opts.waveunc, [parsed["crnlslope"]/opts.crnlunc, parsed["fundslope"]/opts.slopeunc]))
+    priors = np.concatenate((parsed["dZPs"]/opts.zpunc, parsed["crnlslope"]/opts.crnlunc, parsed["dwaves"]/opts.waveunc, [parsed["fundslope"]/opts.slopeunc]))
+        
+    return np.concatenate((np.array(resid_norm), priors))
 
 
 def run_fit(fit_coeff, fitdZP, outputsuffix):
+    assert 0, "old code"
+    
     P, F, Cmat_no_model = miniLM_new(ministart = np.zeros(stan_data["NCoeff"] + stan_data["Nz"] + 2*stan_data["NFilt"] + 2, dtype=np.float64),
-                                     miniscale = unparseP(dict(coeff = [fit_coeff]*stan_data["NCoeff"], mu_bins = [1.]*stan_data["Nz"], dZPs = [fitdZP]*stan_data["NFilt"], fundslope = fitdZP, crnlslope = fitdZP, dwaves = [fitdZP]*stan_data["NFilt"])),
+                                     miniscale = unparseP(dict(coeff = [fit_coeff]*stan_data["NCoeff"], mu_bins = [1.]*stan_data["Nz"], dZPs = [fitdZP]*stan_data["NFilt"], fundslope = fitdZP,
+                                                               crnlslope = fitdZP, dwaves = [fitdZP]*stan_data["NFilt"])),
                                      residfn = residfn,
                                      passdata = stan_data,
                                      verbose = True, maxiter = 1)
@@ -477,7 +530,9 @@ parser.add_argument("--calib", help="Include Calibration", default = 1, type=int
 parser.add_argument("--zpunc", help="Zeropoint Uncertainty", default = 0.005, type=float)
 parser.add_argument("--slopeunc", help="Fundamental Color Uncertainty, mag/micron", default = 0.007, type=float)
 parser.add_argument("--crnlunc", help="CRNL Uncertainty, mag/dex", default = 0.000125, type=float)
+parser.add_argument("--crnlindiv", help="CRNL Uncertainty for each Filter Separately", default = 0, type=int)
 parser.add_argument("--waveunc", help="Filter Passband Uncertainty, nm", default = 0.5, type=float)
+
 
 
 
@@ -501,9 +556,11 @@ stan_data, other_data = get_stan_data(SN_data)
 
 
 
-P, F, Cmat = miniLM_new(ministart = np.zeros(stan_data["NCoeff"] + stan_data["Nz"] + stan_data["NFilt"]*2 + 2, dtype=np.float64),
+crnlslope_start = [float(opts.calib)]*(opts.crnlindiv*(stan_data["NFilt"] - 1) + 1)
+
+P, F, Cmat = miniLM_new(ministart = np.zeros(stan_data["NCoeff"] + stan_data["Nz"] + stan_data["NFilt"]*2 + 1 + len(crnlslope_start), dtype=np.float64),
                         miniscale = unparseP(dict(coeff = [opts.train]*stan_data["NCoeff"], mu_bins = [1.]*stan_data["Nz"], dZPs = [opts.calib]*stan_data["NFilt"],
-                                                  dwaves = [opts.calib]*stan_data["NFilt"], fundslope = float(opts.calib), crnlslope = float(opts.calib))),
+                                                  dwaves = [opts.calib]*stan_data["NFilt"], fundslope = float(opts.calib), crnlslope = crnlslope_start)),
                         residfn = residfn,
                         passdata = stan_data,
                         verbose = True, maxiter = 1)
@@ -512,6 +569,7 @@ parsed = parseP(P, stan_data)
 
 if opts.train and opts.calib:
     parsed_uncs = parseP(np.sqrt(np.diag(Cmat)), stan_data)
+    assert len(P) == len(Cmat), "Even though training and calibration uncs are on, not all parameters were fit for?"
     
     print("parsed", parsed)
     print("parsed_uncs", parsed_uncs)
@@ -532,8 +590,18 @@ if opts.train and opts.calib:
     for i in range(len(other_data["filt_names"])):
         print("ZP_unc ", other_data["filt_names"][i], parsed_uncs["dZPs"][i])
     
+    for i in range(len(other_data["filt_names"])):
+        print("Wave_unc ", other_data["filt_names"][i], parsed_uncs["dwaves"][i])
 
+    if opts.crnlindiv:
+        for i in range(len(other_data["filt_names"])):
+            print("CRNL_unc ", other_data["filt_names"][i], parsed_uncs["crnlslope"][i])
+    else:
+        print("CRNL_unc All ", parsed_uncs["crnlslope"])
 
+    print("Fund_slope_unc ", parsed_uncs["fundslope"])
+    
+        
     save_img(rest_2D, "rest_2D.fits")
     rest_2D_flux = 10.**(-0.4*rest_2D)
     save_img(rest_2D_flux, "rest_2D_flux.fits")
