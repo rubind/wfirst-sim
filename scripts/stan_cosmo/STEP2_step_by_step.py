@@ -48,7 +48,7 @@ for train in [0, 1]:
     for slopeunc in np.linspace(0.0001, 0.02, 20):
         run_job(train = train, zpunc = 0.005, slopeunc = slopeunc, crnlunc = 0.000125, waveunc = 0.5, wd = "slopeunc")
 
-    for	crnlunc in np.linspace(0.00000125, 0.0005, 20):
+    for	crnlunc in np.linspace(0.00000125, 0.001, 20):
         run_job(train = train, zpunc = 0.005, slopeunc = 0.007, crnlunc = crnlunc, waveunc = 0.5, wd = "crnlunc")
 
     for waveunc in np.linspace(0.01, 2., 20):

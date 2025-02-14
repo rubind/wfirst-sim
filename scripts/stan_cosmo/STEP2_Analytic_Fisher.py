@@ -414,6 +414,7 @@ def parseP(P, stan_data):
         ind += 1
     
 
+    # coeff must be last!
     parsed["coeff"] = P[ind: ind+stan_data["NCoeff"]]
     ind += stan_data["NCoeff"]
 
@@ -567,9 +568,14 @@ P, F, Cmat = miniLM_new(ministart = np.zeros(stan_data["NCoeff"] + stan_data["Nz
 
 parsed = parseP(P, stan_data)
 
-if opts.train and opts.calib:
-    parsed_uncs = parseP(np.sqrt(np.diag(Cmat)), stan_data)
-    assert len(P) == len(Cmat), "Even though training and calibration uncs are on, not all parameters were fit for?"
+if opts.calib:
+    1d_uncs = np.sqrt(np.diag(Cmat))
+    
+    if opts.train == 0:
+        1d_uncs = np.concatenate((1d_uncs, [0.]*stan_data["NCoeff"]))
+
+    parsed_uncs = parseP(1d_uncs), stan_data)
+    assert len(P) == len(1d_uncs), "Even though calibration uncs are on, not all parameters were fit for?"
     
     print("parsed", parsed)
     print("parsed_uncs", parsed_uncs)
@@ -582,25 +588,31 @@ if opts.train and opts.calib:
     rest_mag_uncs_max = rest_2D_mag_uncs[other_data["phase0_ind"], :]
     
     assert len(rest_mag_uncs_max) == len(other_data["model_rest"])
+
+
+    fpost = open("uncpost_" + suffix + ".txt", 'w')
     
     for i in range(len(other_data["model_rest"])):
-        print("model_unc ", ("%05i" % int(other_data["model_rest"][i])), rest_mag_uncs_max[i])
-
+        fpost.write("model_unc  " +  ("%05i" % int(other_data["model_rest"][i])) + "  " + str(rest_mag_uncs_max[i]) + '\n')
+    fpost.write('\n')
 
     for i in range(len(other_data["filt_names"])):
-        print("ZP_unc ", other_data["filt_names"][i], parsed_uncs["dZPs"][i])
-    
+        fpost.write("ZP_unc  " + other_data["filt_names"][i] + "  "  + str(parsed_uncs["dZPs"][i]) + '\n')
+    fpost.write('\n')
+        
     for i in range(len(other_data["filt_names"])):
-        print("Wave_unc ", other_data["filt_names"][i], parsed_uncs["dwaves"][i])
+        fpost.write("Wave_unc  " + other_data["filt_names"][i] + "  " + str(parsed_uncs["dwaves"][i]) + '\n')
+    fpost.write('\n')
 
     if opts.crnlindiv:
         for i in range(len(other_data["filt_names"])):
-            print("CRNL_unc ", other_data["filt_names"][i], parsed_uncs["crnlslope"][i])
+            fpost.write("CRNL_unc  " + other_data["filt_names"][i] + "  " + str(parsed_uncs["crnlslope"][i]) + '\n')
     else:
-        print("CRNL_unc All ", parsed_uncs["crnlslope"])
+        fpost.write("CRNL_unc All  " + str(parsed_uncs["crnlslope"]) + '\n')
+    fpost.write('\n')
 
-    print("Fund_slope_unc ", parsed_uncs["fundslope"])
-    
+    fpost.write("Fund_slope_unc  " + str(parsed_uncs["fundslope"]) + '\n')
+    fpost.close()
         
     save_img(rest_2D, "rest_2D.fits")
     rest_2D_flux = 10.**(-0.4*rest_2D)
