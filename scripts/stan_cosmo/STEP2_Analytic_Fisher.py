@@ -608,7 +608,8 @@ if opts.calib:
         for i in range(len(other_data["filt_names"])):
             fpost.write("CRNL_unc  " + other_data["filt_names"][i] + "  " + str(parsed_uncs["crnlslope"][i]) + '\n')
     else:
-        fpost.write("CRNL_unc All  " + str(parsed_uncs["crnlslope"]) + '\n')
+        assert len(parsed_uncs["crnlslope"]) == 1
+        fpost.write("CRNL_unc All  " + str(parsed_uncs["crnlslope"][0]) + '\n')
     fpost.write('\n')
 
     fpost.write("Fund_slope_unc  " + str(parsed_uncs["fundslope"]) + '\n')
