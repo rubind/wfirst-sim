@@ -574,7 +574,7 @@ if opts.calib:
     if opts.train == 0:
         oned_uncs = np.concatenate((oned_uncs, [0.]*stan_data["NCoeff"])) # As noted above, coeff must be last!!!
 
-    parsed_uncs = parseP(oned_uncs), stan_data)
+    parsed_uncs = parseP(oned_uncs, stan_data)
     assert len(P) == len(oned_uncs), "Even though calibration uncs are on, not all parameters were fit for?"
     
     print("parsed", parsed)
