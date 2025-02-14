@@ -569,13 +569,13 @@ P, F, Cmat = miniLM_new(ministart = np.zeros(stan_data["NCoeff"] + stan_data["Nz
 parsed = parseP(P, stan_data)
 
 if opts.calib:
-    1d_uncs = np.sqrt(np.diag(Cmat))
+    oned_uncs = np.sqrt(np.diag(Cmat))
     
     if opts.train == 0:
-        1d_uncs = np.concatenate((1d_uncs, [0.]*stan_data["NCoeff"]))
+        oned_uncs = np.concatenate((oned_uncs, [0.]*stan_data["NCoeff"])) # As noted above, coeff must be last!!!
 
-    parsed_uncs = parseP(1d_uncs), stan_data)
-    assert len(P) == len(1d_uncs), "Even though calibration uncs are on, not all parameters were fit for?"
+    parsed_uncs = parseP(oned_uncs), stan_data)
+    assert len(P) == len(oned_uncs), "Even though calibration uncs are on, not all parameters were fit for?"
     
     print("parsed", parsed)
     print("parsed_uncs", parsed_uncs)
