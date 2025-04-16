@@ -6,7 +6,7 @@ import subprocess
 import multiprocessing as mp
 from scipy.stats import scoreatpercentile
 
-colors = {"R062": (1, 0.5, 1), "Z087": 'm', "Y106": 'b', "J129": 'g', "H158": 'orange', "F184": 'r', "K193": 'r', "Ground_g": 'm', "Ground_r": 'b', "Ground_i": 'c', "Ground_z": 'g', "Ground_Y": 'orange', "g": 'm', "r": 'b', "i": 'c', "z": 'g', "Y": 'orange', "W146": 'orange', "Euclid_Y": 'b', "Euclid_J": 'g', "Euclid_H": 'orange', "P100": 'k',
+colors = {"R062": (1, 0.5, 1), "Z087": 'm', "Y106": 'b', "J129": 'g', "H158": 'orange', "F184": 'r', "K213": 'r', "Ground_g": 'm', "Ground_r": 'b', "Ground_i": 'c', "Ground_z": 'g', "Ground_Y": 'orange', "g": 'm', "r": 'b', "i": 'c', "z": 'g', "Y": 'orange', "W146": 'orange', "Euclid_Y": 'b', "Euclid_J": 'g', "Euclid_H": 'orange', "P100": 'k',
           "REX_1.03": "m", "REX_1.09": "b", "REX_1.16": "c", "REX_1.22": "g", "REX_1.28": "orange", "REX_1.34": "red", "REX_1.40": "brown", "REX_1.46": "k"
           }
 
@@ -512,7 +512,7 @@ def make_SNR_vs_z(SN_data, working_dir, nsne, plt):
 
         if any(array(lc_data["filts"]) == "J129") and abs(SN_data["SN_table"]["redshifts"][ind] - 1.3) < 0.1:
             filtinds = where(array(lc_data["filts"]) == "J129")
-            SNRs = lc_data["fluxes"][filtinds]/lc_data["dfluxes"][filtinds]
+            SNRs = lc_data["true_fluxes"][filtinds]/lc_data["dfluxes"][filtinds]
 
             waveinds = where((SN_data["IFC_waves"] > 12500.)*(SN_data["IFC_waves"] > 13300.))
             flambmean = mean(SN_data["SN_observations"][ind]["gal_background"][waveinds])
@@ -660,8 +660,8 @@ def plot_median_LCs(plt, SN_data, working_dir, stacked_SNRs, phase_not_date = 1)
 
             S_to_N_inds = []
             for ind in inds:
-                SNRs = SN_data["SN_observations"][ind]["fluxes"]/SN_data["SN_observations"][ind]["dfluxes"]
-                SNRs = SNRs[where(SNRs > 2)]
+                SNRs = SN_data["SN_observations"][ind]["true_fluxes"]/SN_data["SN_observations"][ind]["dfluxes"]
+                SNRs = SNRs[where(SNRs > 1)]
                 this_SNR = sqrt(sum(SNRs**2.))
 
                 if this_SNR > 0:
@@ -786,22 +786,36 @@ def collection_of_plots(pickle_to_read):
 
 
     nsne = SN_data["nsne"]
-    stacked_SNRs = {"All": [], "RZYJHFK": [], "HFK": []}
+    assert len(SN_data["SN_table"]["redshifts"]) == nsne
+    stacked_SNRs = {"All": [], "RZYJHFK": [], "9000": [], "10000": []}
+    eff_lamb_dict = dict(Y106 = 10600, J129 = 12900, H158 = 15800, F184 = 18400, K213 = 21300) 
 
     for i in range(nsne):
-        SNRs = array(SN_data["SN_observations"][i]["fluxes"])/array(SN_data["SN_observations"][i]["dfluxes"])
+        SNRs = array(SN_data["SN_observations"][i]["true_fluxes"])/array(SN_data["SN_observations"][i]["dfluxes"])
         inds = where(SNRs > 0)
         total_SNR = sqrt(dot(SNRs[inds], SNRs[inds]))
         stacked_SNRs["All"].append(total_SNR)
 
-        IRinds = where((SN_data["SN_observations"][i]["filts"] == "K193") + (SN_data["SN_observations"][i]["filts"] == "F184") + (SN_data["SN_observations"][i]["filts"] == "H158"))
-        SNRs = array(SN_data["SN_observations"][i]["fluxes"][IRinds])/array(SN_data["SN_observations"][i]["dfluxes"][IRinds])
-        inds = where(SNRs > 0)
-        total_SNR = sqrt(dot(SNRs[inds], SNRs[inds]))
-        stacked_SNRs["HFK"].append(total_SNR)
+        for rest_lim in [9000, 10000]:
+            total_SNR_squared = 0.
+            for IR_filt in eff_lamb_dict:
+                if eff_lamb_dict[IR_filt] / (1 + SN_data["SN_table"]["redshifts"][i]) >= rest_lim:
+                    inds = np.where((SNRs > 0)*(SN_data["SN_observations"][i]["filts"] == IR_filt))
+                    total_SNR_squared += np.dot(SNRs[inds], SNRs[inds])
+            stacked_SNRs[str(rest_lim)].append(np.sqrt(total_SNR_squared))
+            
 
-        IRinds = where((SN_data["SN_observations"][i]["filts"] == "K193") + (SN_data["SN_observations"][i]["filts"] == "F184") + (SN_data["SN_observations"][i]["filts"] == "H158") + (SN_data["SN_observations"][i]["filts"] == "J129") + (SN_data["SN_observations"][i]["filts"] == "Y106") + (SN_data["SN_observations"][i]["filts"] == "Z087") + (SN_data["SN_observations"][i]["filts"] == "R062"))
-        SNRs = array(SN_data["SN_observations"][i]["fluxes"][IRinds])/array(SN_data["SN_observations"][i]["dfluxes"][IRinds])
+
+        #IRinds = where((SN_data["SN_observations"][i]["filts"] == "K193") + (SN_data["SN_observations"][i]["filts"] == "F184") + (SN_data["SN_observations"][i]["filts"] == "H158"))
+        #SNRs = array(SN_data["SN_observations"][i]["fluxes"][IRinds])/array(SN_data["SN_observations"][i]["dfluxes"][IRinds])
+        #inds = where(SNRs > 0)
+        #total_SNR = sqrt(dot(SNRs[inds], SNRs[inds]))
+        #stacked_SNRs["HFK"].append(total_SNR)
+
+        
+
+        IRinds = where((SN_data["SN_observations"][i]["filts"] == "K213") + (SN_data["SN_observations"][i]["filts"] == "F184") + (SN_data["SN_observations"][i]["filts"] == "H158") + (SN_data["SN_observations"][i]["filts"] == "J129") + (SN_data["SN_observations"][i]["filts"] == "Y106") + (SN_data["SN_observations"][i]["filts"] == "Z087") + (SN_data["SN_observations"][i]["filts"] == "R062"))
+        SNRs = array(SN_data["SN_observations"][i]["true_fluxes"][IRinds])/array(SN_data["SN_observations"][i]["dfluxes"][IRinds])
         inds = where(SNRs > 0)
         total_SNR = sqrt(dot(SNRs[inds], SNRs[inds]))
         stacked_SNRs["RZYJHFK"].append(total_SNR)
@@ -814,7 +828,7 @@ def collection_of_plots(pickle_to_read):
         for filt in stacked_SNRs:
             if len(filt) == 1:
                 IRinds = where(np.array([item[0] for item in SN_data["SN_observations"][i]["filts"]]) == filt)
-                SNRs = np.array(SN_data["SN_observations"][i]["fluxes"][IRinds])/np.array(SN_data["SN_observations"][i]["dfluxes"][IRinds])
+                SNRs = np.array(SN_data["SN_observations"][i]["true_fluxes"][IRinds])/np.array(SN_data["SN_observations"][i]["dfluxes"][IRinds])
                 inds = np.where(SNRs > 0)
                 total_SNR = np.sqrt(np.dot(SNRs[inds], SNRs[inds]))
 
