@@ -1,3 +1,7 @@
+# If you are looking for the distance-modulus covariance matrices from https://arxiv.org/abs/2506.04327, they are here:
+
+https://github.com/rubind/roman_fisher_results
+
 # wfirst-sim
 
 A few notes about how to run things:
