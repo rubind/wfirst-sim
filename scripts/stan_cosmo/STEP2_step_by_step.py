@@ -41,16 +41,27 @@ for train in [0, 1]:
     
 
 
+wave_uncs = np.linspace(0.01, 2., 20)
+crnl_uncs = np.linspace(0.00000125, 0.001, 20)
+slope_uncs = np.linspace(0.0001, 0.02, 20)
+zp_uncs = np.linspace(0.0001, 0.01, 20)
+
+
+for wd in ["zpunc", "slopeunc", "crnlunc", "waveunc"]:
+    print(subprocess.getoutput("rm -fr " + wd))
+
+
+
 for train in [0, 1]:
-    for zpunc in np.linspace(0.0001, 0.01, 20):
-        run_job(train = train, zpunc = zpunc, slopeunc = 0.007, crnlunc = 0.000125, waveunc = 0.5, wd = "zpunc")
+    for zpunc in zp_uncs:
+        run_job(train = train, zpunc = zpunc, slopeunc = slope_uncs[0], crnlunc = crnl_uncs[0], waveunc = wave_uncs[0], wd = "zpunc")
     
-    for slopeunc in np.linspace(0.0001, 0.02, 20):
-        run_job(train = train, zpunc = 0.005, slopeunc = slopeunc, crnlunc = 0.000125, waveunc = 0.5, wd = "slopeunc")
+    for slopeunc in slope_uncs:
+        run_job(train = train, zpunc = zp_uncs[0], slopeunc = slopeunc, crnlunc = crnl_uncs[0], waveunc = wave_uncs[0], wd = "slopeunc")
 
-    for	crnlunc in np.linspace(0.00000125, 0.001, 20):
-        run_job(train = train, zpunc = 0.005, slopeunc = 0.007, crnlunc = crnlunc, waveunc = 0.5, wd = "crnlunc")
+    for	crnlunc in crnl_uncs:
+        run_job(train = train, zpunc = zp_uncs[0], slopeunc = slope_uncs[0], crnlunc = crnlunc, waveunc = wave_uncs[0], wd = "crnlunc")
 
-    for waveunc in np.linspace(0.01, 2., 20):
-        run_job(train = train, zpunc = 0.005, slopeunc = 0.007, crnlunc = 0.000125, waveunc = waveunc, wd = "waveunc")
+    for waveunc in wave_uncs:
+        run_job(train = train, zpunc = zp_uncs[0], slopeunc = slope_uncs[0], crnlunc = crnl_uncs[0], waveunc = waveunc, wd = "waveunc")
 
