@@ -22,7 +22,7 @@ The simulation package:
 
 wfirst-sim/scripts/stan_cosmo/STEP1_simple_survey.py
 
-Which takes a parameter file and the name of an output pickle file:
+Which takes a parameter file (e.g., scripts/stan_cosmo/paramfile_CCS_DDF.csv) and the name of an output pickle file:
 
 ```python STEP1_simple_survey.py paramfile.csv survey.pickle```
 
